@@ -10,7 +10,7 @@ function harness(){
     repaintAll(){paints++;},applyKeyMode(){},pbShuffle:true,fsMode:false,ssLyricVisible:true,confirmDel:null,
     RGB:(r,g,b)=>(0xff000000|(r<<16)|(g<<8)|b),RGBA:(r,g,b,a)=>((a<<24)|(r<<16)|(g<<8)|b),
     COL:{base:1,black:2,text:3,text2:4,green:5,line:6},FONT:{},M:{radius:10,barH:96},R:{queue:{x:800,y:40,w:290,h:600}},
-    panelBg(){},tL(){},tC(){},repaintBar(){},repaintQueue(){},ssHideLyrics(){},ssSyncLyricPanel(){},
+    panelBg(){},roundBottom(){},tL(){},tC(){},repaintBar(){},repaintQueue(){},ssHideLyrics(){},ssSyncLyricPanel(){},
     drawIcon(){},drawCover(){},vol2pos(){return 0;},clamp01:x=>x,fmtTime(){return '';},tR(){},
     hit:(rows,x,y)=>rows.find(r=>x>=r.x0&&x<=r.x1&&y>=r.y0&&y<=r.y1)||null,
   };vm.createContext(c);
@@ -264,7 +264,7 @@ test('artist menu entries open artist details, provenance or the actual local im
  items.find(i=>i.label.indexOf('头像')===0).run();assert.equal(h.writes.at(-1).op,'artist_resource');assert.equal(h.writes.at(-1).resource,'portrait');
 });
 test('sorted playlist drag submits native indices and duplicate occurrences stay independent',()=>{
- const h=harness(),c=h.c;let sent;c.ssSend=(op,args)=>sent={op,args};c.view='playlist';c.R={main:{x:0,y:0,w:600,h:300}};c.window.SetInterval=()=>1;c.utils.IsKeyPressed=()=>false;
+ const h=harness(),c=h.c;let sent;c.ssSend=(op,args)=>sent={op,args};c.view='playlist';c.R={main:{x:0,y:0,w:600,h:300}};c.window.SetInterval=()=>1;c.utils.IsKeyPressed=k=>k===1;
  c.ssState={playlists:[{index:0,guid:'guid',writable:true,name:'List'}]};c.plman.ActivePlaylist=0;c.getPlOrder=()=>[2,0,1];const hs=[{Path:'same',SubSong:0},{Path:'same',SubSong:0},{Path:'z',SubSong:0}];hs.Count=3;c.getItems=()=>hs;
  c.HB_TR=[2,0,1].map((item,i)=>({pl:0,item,x0:0,x1:600,y0:i*50,y1:(i+1)*50}));c.HB_PL=[];c.HB_Q=[];
  c.ssSelectionDown(100,20);c.ssSelectionUp(100,20);c.ssSelectionDown(100,20);c.ssSelectionMove(100,145);c.ssSelectionUp(100,145);

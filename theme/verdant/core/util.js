@@ -11,6 +11,10 @@ function inRect(x,y,r){ return x>=r.x0 && x<r.x1 && y>=r.y0 && y<r.y1; }
 function cxOf(x,w,cw){ return x+Math.round((w-cw)/2); }   // x that centres a cw-wide thing inside [x,w]
 function clamp01(v){ return v<0?0:(v>1?1:v); }
 function clampPx(v,max){ return v<0?0:(v>max?max:v); }
+function ssHeaderBoxes(art,compact,scale){
+  var eyeH=16*scale,gap=6*scale,metaH=22*scale,titleY=eyeH+gap,metaY=compact?art+12*scale:art-metaH;
+  return {eyeY:0,eyeH:eyeH,titleY:titleY,titleH:Math.max(1,Math.min(76*scale,(compact?art:metaY-gap)-titleY)),metaY:metaY,metaH:metaH};
+}
 function hitIdx(list,x,y){ for(var i=0;i<list.length;i++) if(inRect(x,y,list[i])) return i; return -1; }
 function hit(list,x,y){ var i=hitIdx(list,x,y); return i<0?null:list[i]; }
 function labelOf(list,v,dflt){ for(var i=0;i<list.length;i++) if(list[i][1]===v) return list[i][0]; return dflt; }

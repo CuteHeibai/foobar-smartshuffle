@@ -45,17 +45,7 @@ function drawBar(gr){
   HB_CTRL.push({x0:prefX,y0:by+4*s,x1:prefX+modeW,y1:by+34*s,act:'playback_mode'});
   tC(gr,'音频输出 ▾',FONT.plSub,COL.text2,W-106,by+4*s,100,30*s);
   HB_CTRL.push({x0:W-106,y0:by+4*s,x1:W-6,y1:by+34*s,act:'output'});
-  var scan=ssState&&ssState.scan;
-  var scanText=scan?('分析 '+scan.completed+'/'+scan.total+(scan.failed?' · 失败 '+scan.failed:'')):'等候智能随机组件';
-  tL(gr,ssOutputError||ssError||scanText,FONT.plSub,(ssError||ssOutputError)?RGB(245,150,130):COL.text3,prefX,by+70*s,R.barToolsW-122,22*s);
-  if(scan){
-    tC(gr,scan.paused?'继续':'暂停',FONT.plSub,COL.text2,W-110,by+68*s,52,26*s);
-    HB_CTRL.push({x0:W-110,y0:by+68*s,x1:W-58,y1:by+94*s,act:'scan_pause'});
-    if(scan.failed){
-      tC(gr,'重试',FONT.plSub,COL.green,W-56,by+68*s,48,26*s);
-      HB_CTRL.push({x0:W-56,y0:by+68*s,x1:W-8,y1:by+94*s,act:'scan_retry'});
-    }
-  }
+  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,RGB(245,150,130),prefX,by+70*s,R.barToolsW-16,22*s);
   var gearC=by+50*s, fsx=W-46;
   drawIcon(gr,'expand',hv(fsx-8,gearC-16,fsx+30,gearC+16)?COL.text:COL.text2,fsx,gearC-13,26,26,22);
   HB_CTRL.push({x0:fsx-8,y0:gearC-16,x1:fsx+30,y1:gearC+16,act:'fullscreen'});

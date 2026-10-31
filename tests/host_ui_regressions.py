@@ -45,6 +45,8 @@ s = b.wait(lambda s: s.get('theme', {}).get('chrome_ready') and s.get('lyrics_pa
            and s.get('theme', {}).get('layout', {}).get('width')
            and (not os.environ.get('SS_TEST_PID') or s.get('pid') == int(os.environ['SS_TEST_PID'])))
 check(s['theme']['ui_wizard'], 'Window chrome dependency is instantiated and frame setup completed')
+check(s['hover_focus']['installed'] and s['hover_focus']['surface']==s['theme']['window'],
+      'Hover focus and wheel routing hook is registered to the actual theme window')
 check(s['lyrics_panel']['ready'] and s['lyrics_panel']['configuration_segoe_ui'] and
       not s['lyrics_panel']['configuration_simsun'], 'Native ESLyric opens by default with the saved Segoe UI panel configuration')
 a = b.request('appearance')['response']

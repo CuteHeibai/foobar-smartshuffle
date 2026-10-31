@@ -53,21 +53,21 @@ function repaintZone(z){
 }
 var firstRow=0, hoverKey='', scrollKey='', hoverZoneKey='', mx=-1, my=-1, drag=null, dragFrac=0;   // WHEEL_PX: core/props.js
 // eased scrolling: animate each rendered position toward its target, repainting only the moving region
-var firstRowT=0, navScrollT=0, homeScrollT=0, PL_MAXPX=0, scrollTimer=null;
+var firstRowT=0, navScrollT=0, homeScrollT=0, PL_MAXPX=0, scrollTimer=null,scrollLast=Date.now();
 function scrollTick(){
-  var mm=false, nm=false, d1=firstRowT-firstRow, d2=navScrollT-navScroll, d3=homeScrollT-homeScroll, d4=songsScrollT-songsScroll, d5=searchScrollT-searchScroll, d6=plScrollT-plScroll;
-  if(Math.abs(d1)>=0.5){ firstRow+=d1*0.25; mm=true; } else firstRow=firstRowT;
-  if(Math.abs(d3)>=0.5){ homeScroll+=d3*0.25; mm=true; } else homeScroll=homeScrollT;
-  if(Math.abs(d4)>=0.5){ songsScroll+=d4*0.25; mm=true; } else songsScroll=songsScrollT;
-  if(Math.abs(d5)>=0.5){ searchScroll+=d5*0.25; mm=true; } else searchScroll=searchScrollT;
-  if(Math.abs(d6)>=0.5){ plScroll+=d6*0.25; mm=true; } else plScroll=plScrollT;
-  if(Math.abs(d2)>=0.5){ navScroll+=d2*0.25; nm=true; } else navScroll=navScrollT;
+  var now=Date.now(),dt=Math.max(1,Math.min(80,now-scrollLast));scrollLast=now;
+  var alpha=1-Math.exp(-dt/75),mm=false,nm=false,qm=false;
+  function step(current,target,zone){var d=target-current;if(Math.abs(d)<.1)return target;if(zone==='nav')nm=true;else if(zone==='queue')qm=true;else mm=true;return current+d*alpha;}
+  firstRow=step(firstRow,firstRowT);homeScroll=step(homeScroll,homeScrollT);songsScroll=step(songsScroll,songsScrollT);
+  searchScroll=step(searchScroll,searchScrollT);plScroll=step(plScroll,plScrollT);navScroll=step(navScroll,navScrollT,'nav');
+  ssQueueScroll=step(ssQueueScroll,ssQueueScrollT,'queue');
   if(mm) repaintMain();
   if(nm) repaintNav();
+  if(qm) repaintQueue();
   // one more frame after the scroll settles, so shimSettle can restart the sweep it suppressed
-  if(!mm && !nm){ stopScrollAnim(); if(shimCount>0) repaintMain(); }
+  if(!mm && !nm && !qm){ stopScrollAnim(); if(shimCount>0) repaintMain(); }
 }
-function startScrollAnim(){ if(!scrollTimer) scrollTimer=window.SetInterval(scrollTick,16); }
+function startScrollAnim(){ if(!scrollTimer){scrollLast=Date.now();scrollTimer=window.SetInterval(scrollTick,16);} }
 function stopScrollAnim(){ if(scrollTimer){ window.ClearInterval(scrollTimer); scrollTimer=null; } }
 
 function hv(x0,y0,x1,y1){ return mx>=x0 && mx<x1 && my>=y0 && my<y1; }
@@ -144,6 +144,7 @@ function repaintBar(){ if(fsMode){ repaintAll(); return; } markDirty(); dirtyBar
 function drawMainCounted(gr){
   shimCount=0; gateWaiting=0;
   drawMain(gr); roundTop(gr,R.main.x,R.main.y,R.main.w);
+  roundBottom(gr,R.main.x,R.main.y,R.main.w,R.main.h);
   shimSettle();
 }
 function ssDrawBase(gr){
@@ -152,11 +153,11 @@ function ssDrawBase(gr){
 }
 function on_paint(gr){
   if(ssSelectionDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!ssModal&&!ssPopup&&!fsMode){
-    var sr=ssSelectionZone||R.main;gr.DrawImage(ssSceneImage,sr.x,sr.y,sr.w,sr.h,sr.x,sr.y,sr.w,sr.h);ssPaintRowHover(gr,false);ssDrawSelection(gr);return;
+    ssPaintInteractions(gr);return;
   }
   if(ssHoverDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!fsMode&&!ssModal&&!ssPopup&&
      !renameEdit&&!ctxMenu&&!confirmDel&&!dupPrompt&&!rgPrompt&&!sgMenuOpen&&!plSortMenuOpen){
-    ssPaintRowHover(gr,true);ssDrawSelection(gr);return;
+    ssPaintInteractions(gr);return;
   }
   ssSyncLyricPanel();
   visPlCache=null;   // one playlist scan per frame, shared by drawNav and drawHome
@@ -186,8 +187,8 @@ function on_paint(gr){
   var modal=ssPopup||renameEdit||ctxMenu||confirmDel||dupPrompt||rgPrompt;
   if(dirtyAll || !anyPartial || modal || stale || !ssSceneImage){ // full paint, or an OS/stale paint we can't scope
     clearDirty();
-    var baseGraphics=ssBeginScene();ssDrawBase(baseGraphics);ssEndScene(gr,baseGraphics);ssPaintRowHover(gr,false);
-    ssDrawSelection(gr);drawOverlays(gr);
+    var baseGraphics=ssBeginScene();ssDrawBase(baseGraphics);ssEndScene(gr,baseGraphics);ssPaintInteractions(gr);
+    drawOverlays(gr);
     ssDrawTransitions(gr);ssDrawPopup(gr);
     return;
   }
@@ -207,8 +208,7 @@ function on_paint(gr){
   if(dirtyQueue){ dirtyQueue=false; drawQueue(gr); }
   if(dirtySearch){ dirtySearch=false; if(view==='search') drawSearchBox(gr,R.main); }
   if(dirtyBar){ dirtyBar=false; drawBar(gr); }
-  ssEndScene(targetGraphics,gr,regions);gr=targetGraphics;ssPaintRowHover(gr,false);
-  ssDrawSelection(gr);
+  ssEndScene(targetGraphics,gr,regions);gr=targetGraphics;ssPaintInteractions(gr);
   ssDrawTransitions(gr);
   ssDrawResizers(gr);
 }
@@ -230,6 +230,7 @@ function drawMain(gr){
 /* ------------------------- input ------------------------- */
 function seekFrac(x){ return HB_SEEK?clamp01((x-HB_SEEK.x)/HB_SEEK.w):0; }
 function applyVol(x){ if(HB_VOL){ fb.Volume=pos2vol(clamp01((x-HB_VOL.x)/HB_VOL.w)); repaintBar(); } }
+function setQueueScroll(y){if(!SS_QUEUE_SB)return;var s=SS_QUEUE_SB;ssQueueScroll=ssQueueScrollT=Math.round(sbFrac(y,s.top,s.h,s.thumbH)*s.maxPx);repaintQueue();}
 function on_mouse_lbtn_down(x,y){
   if(ssPopup)return;
   if(ssPointerDown(x,y)) return;
@@ -237,6 +238,7 @@ function on_mouse_lbtn_down(x,y){
   if(ssResizeBegin(x,y))return;
   if(HB_SEEK && inRect(x,y,HB_SEEK)){ drag='seek'; dragFrac=seekFrac(x); repaintBar(); return; }
   if(HB_VOL && inRect(x,y,HB_VOL)){ drag='vol'; applyVol(x); return; }
+  if(SS_QUEUE_SB&&inRect(x,y,SS_QUEUE_SB)){drag='scrollq';setQueueScroll(y);return;}
   if(SBH && inRect(x,y,SBH)){ drag='scrollh'; setScrollH(x); return; }
   if(SBN && inRect(x,y,SBN)){ drag='scrolln'; setScrollN(y); return; }
   if(SB && inRect(x,y,SB)){ drag='scroll'; setScroll(y); return; }
@@ -361,7 +363,7 @@ function on_mouse_lbtn_up(x,y){
   if((t=hit(HB_DOTS,x,y))){ openPlaylistMenu(t.pl,t.mx,t.my); return; }
   if(drag==='seek'){ if(fb.PlaybackLength>0) fb.PlaybackTime=fb.PlaybackLength*dragFrac; drag=null; repaintAll(); return; }
   if(drag==='vol'){ drag=null; return; }
-  if(drag==='scroll'||drag==='scrollh'||drag==='scrolln'){
+  if(drag==='scroll'||drag==='scrollh'||drag==='scrolln'||drag==='scrollq'){
     var wasH=(drag==='scrollh'); drag=null;
     if(wasH){ plScrollT=snapShelf(plScroll); startScrollAnim(); }   // release the thumb -> settle on a boundary
     repaintAll(); return;
@@ -478,7 +480,7 @@ function hoverSig(x,y){
   if((i=hitIdx(HB_TR,x,y))>=0) return 'r'+i;
   return '';
 }
-function on_mouse_move(x,y){
+function on_mouse_move(x,y,mask){
   mx=x; my=y;
   if(ssResizeMove(x,y))return;
   if(ssPopupMove(x,y))return;
@@ -488,7 +490,8 @@ function on_mouse_move(x,y){
   if(drag==='scroll'){ setScroll(y); return; }
   if(drag==='scrollh'){ setScrollH(x); return; }
   if(drag==='scrolln'){ setScrollN(y); return; }
-  if(ssSelectionMove(x,y))return;
+  if(drag==='scrollq'){setQueueScroll(y);return;}
+  if(ssSelectionMove(x,y,mask))return;
   var sig=hoverSig(x,y), sk=scrollSection(x,y), z=hoverZone(x,y);
   if(sig!==hoverKey || sk!==scrollKey){   // sk change reveals/hides the section scrollbar
     var rowOnly=sk===scrollKey&&z===hoverZoneKey&&/^(r\d+|q\d+|)$/.test(sig)&&/^(r\d+|q\d+|)$/.test(hoverKey);
@@ -502,6 +505,7 @@ function on_mouse_move(x,y){
 }
 // which scrollable section the cursor is over (so entering/leaving reveals the hover scrollbar even over gaps)
 function scrollSection(x,y){
+  if(R.queue&&rightTab==='queue'&&x>=R.queue.x&&x<R.queue.x+R.queue.w&&y>=R.queue.y&&y<R.queue.y+R.queue.h)return 'queue';
   if(R.navLib && x>=R.navLib.x && x<R.navLib.x+R.navLib.w && y>=R.navLib.y && y<R.navLib.y+R.navLib.h) return 'nav';
   if(R.main && x>=R.main.x && x<R.main.x+R.main.w+16 && y>=R.main.y && y<R.main.y+R.main.h){
     if(view==='home') return (y>=HOME_SHELF_Y0 && y<HOME_SHELF_Y1+16)?'shelf':'arts';
@@ -565,7 +569,7 @@ function on_mouse_wheel(step){
     if(lyStWheel(step)) repaintQueue();
     return;
   }
-  if(R.queue&&rightTab==='queue'&&mx>=R.queue.x&&mx<R.queue.x+R.queue.w){ssQueueScroll=clampPx(ssQueueScroll-step*WHEEL_PX,SS_QUEUE_MAX);repaintQueue();return;}
+  if(R.queue&&rightTab==='queue'&&mx>=R.queue.x&&mx<R.queue.x+R.queue.w&&my>=R.queue.y&&my<R.queue.y+R.queue.h){ssQueueScrollT=clampPx(ssQueueScrollT-step*WHEEL_PX,SS_QUEUE_MAX);startScrollAnim();return;}
   if(R.navLib && mx>=R.navLib.x && mx<R.navLib.x+R.navLib.w && my>=R.navLib.y && my<R.navLib.y+R.navLib.h){
     navScrollT=clampPx(navScrollT-step*WHEEL_PX,NAV_MAX); startScrollAnim(); return;
   }
@@ -690,4 +694,4 @@ drpSync();         // make foo_verdant agree with the Discord property before an
 
 ssLoadArtists();ssStart();
 ssStartCovers();
-console.log('Smart Shuffle Chinese Verdant 1.0.3 ready');
+console.log('Smart Shuffle Chinese Verdant 1.0.4 ready');

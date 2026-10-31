@@ -19,18 +19,12 @@ function drawSongs(gr,r){
   var gpW=compact?Math.max(150,Math.floor((r.w-M.cpad*2-8)*.54)):232, pgap=8, nzW=compact?r.w-M.cpad*2-gpW-pgap:Math.max(196,Math.round(gr.CalcTextWidth('音量均衡',FONT.pl))+72);
   var clW=nzW+pgap+gpW, clX=compact?lx:Math.max(lx+art+24,rx-clW), gpX=clX+nzW+pgap;
   var tx=lx+art+24, tw=compact?rx-tx:Math.max(120,clX-12-tx);
-  tL(gr,'音乐库',FONT.eyebrow,COL.text,tx,ay+6,tw,18);
-  tL(gr,'全部歌曲',FONT.title,COL.text,tx,ay+28,tw,84);
-  tL(gr,fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):''),FONT.meta,COL.text2,compact?lx:tx,ay+(compact?art+12*s:150*s),compact?r.w-M.cpad*2:tw,22*s);
+  var text=ssHeaderBoxes(art,compact,s);
+  tL(gr,'音乐库',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
+  tL(gr,'全部歌曲',FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
+  tL(gr,fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):''),FONT.meta,COL.text2,compact?lx:tx,ay+text.metaY,compact?r.w-M.cpad*2:tw,text.metaH);
   HB_RGNORM=drawNormalizePill(gr,clX,ay+(compact?art+42*s:142*s),nzW,38*s);
   HB_SG=drawDropPill(gr,gpX,ay+(compact?art+42*s:142*s),gpW,38*s,'分组：'+labelOf(SONGS_GROUPS,songsGroup,'不分组'),sgMenuOpen);
-  // one line of truth under the pill: what normalizing has left to do, or what it's currently doing
-  if(!compact && rgStat && rgStat.total>0){
-    var nzCap=rgScanFailed ? "Couldn't start foobar's ReplayGain scanner"
-            : (rgStat.missing.length ? (fmtNum(rgStat.scanned)+' of '+fmtNum(rgStat.total)+' tracks scanned')
-            : ('All tracks scanned  '+CH_DOT+'  normalizing '+(rgModeOn()?'on':'off')));
-    tL(gr,nzCap,FONT.plSub,rgScanFailed?RGB(240,96,96):COL.text3,clX+2,ay+186,Math.min(clW,rx-clX)-4,18);
-  }
 
   if(!songsRows.length){
     tC(gr,'音乐库还是空的',FONT.sect,COL.text2,r.x,r.y+SHEAD+40,r.w,24);
@@ -53,9 +47,11 @@ function drawSongs(gr,r){
   var listTop=r.y+SHEAD+8;
   var rowsTop=listTop+34, cropY=r.y+r.h, viewH=cropY-rowsTop;
   var contentH=songsContentH, maxPx=Math.max(0,contentH-viewH);
+  if(viewH<1)return;
   SONGS_MAXPX=maxPx;
   songsScroll=clampPx(songsScroll,maxPx); songsScrollT=clampPx(songsScrollT,maxPx);
   var j0=songsFirstAt(songsScroll);
+  var parentGr=gr,layer=ssBeginViewport('main-list',gr,r.x,rowsTop,r.w,Math.max(1,viewH));gr=layer.gr;
   // Nested mode: a rail runs from each artist banner past all of its albums, so the owning
   // artist stays visible. Drawn before the rows so hover fills paint over it, and started from
   // the group owning the first visible row -- the banner itself is often scrolled away.
@@ -120,9 +116,7 @@ function drawSongs(gr,r){
       if(isArt && hb1>hb0) HB_CARD.push({x0:lx-8,y0:hb0,x1:rx+8,y1:hb1,kind:'artist',id:row.label});
     }
   }
-  // crop the partial rows top & bottom (tallest row is a group header), then the sticky column header
-  gr.FillSolidRect(r.x,rowsTop-SG_CROP,r.w,SG_CROP,COL.base);
-  gr.FillSolidRect(r.x,cropY,r.w,M.pad+2,COL.black);   // gutter below the panel
+  layer.finish();gr=parentGr;
   tR(gr,'#',FONT.head,COL.text2,numX,listTop,numW-8,20);
   tL(gr,'歌曲',FONT.head,COL.text2,titleX,listTop,titleW,20);
   if(showAlbum) tL(gr,'专辑',FONT.head,COL.text2,colX,listTop,colW,20);

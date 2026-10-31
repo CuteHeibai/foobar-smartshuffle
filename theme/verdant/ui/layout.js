@@ -10,7 +10,7 @@ function ssResponsiveMetrics(w,h){
   if(typeof ssDensity!=='undefined'&&density===ssDensity)return;
   ssDensity=density;
   if(typeof SS_BASE_UI_SCALE!=='undefined')UISCALE=SS_BASE_UI_SCALE*density;
-  if(typeof ssCreateFonts==='function'){FONT=ssCreateFonts();LH_F=[];LH_V=[];}
+  if(typeof ssCreateFonts==='function'){SS_FONT_META=[];SS_FIT_FONTS=[];FONT=ssCreateFonts();LH_F=[];LH_V=[];}
   var base={pad:8,gap:8,navW:210,queueW:350,barH:96,navTopH:84,rowH:56,cardTextH:56,radius:10};
   for(var key in base)M[key]=Math.round(base[key]*density);
   TBH=Math.round(32*UISCALE);CAPBW=Math.round(46*UISCALE);

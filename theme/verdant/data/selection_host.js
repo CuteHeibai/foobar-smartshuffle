@@ -76,8 +76,13 @@ function ssSelectionUp(x,y){
   }
   ssSelectionRepaint();return action.type!=='click';
 }
-function ssSelectionMove(x,y){if(!ssSelectOwner)return false;ssSelectOwner.move(x,y);ssSelectionRepaint();return true;}
+function ssCancelSelectionGesture(){if(ssSelectOwner)ssSelectOwner.cancel();ssSelectOwner=null;if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectionRepaint();}
+function ssSelectionMove(x,y,mask){
+  if(!ssSelectOwner)return false;var held=mask!==undefined?!!(mask&1):typeof utils.IsKeyPressed==='function'?utils.IsKeyPressed(1):true;
+  if(!held){ssCancelSelectionGesture();return false;}ssSelectOwner.move(x,y);ssSelectionRepaint();return true;
+}
 function ssSelectionScroll(){
+  if(ssSelectOwner&&(mx<0||my<0)&&typeof utils.IsKeyPressed==='function'&&!utils.IsKeyPressed(1)){ssCancelSelectionGesture();return;}
   if(!ssSelectOwner||!ssSelectOwner.preview()||!ssSelectOwner.preview().moved)return;
   var b=ssSelectContext.bounds;if(!b||mx<b.x0||mx>b.x1)return;var delta=my<b.y0+24?-24:my>b.y1-24?24:0;if(!delta)return;
   if(ssSelectOwner===ssMainSelect){
@@ -85,7 +90,7 @@ function ssSelectionScroll(){
     else if(view==='songs')songsScroll=songsScrollT=clampPx(songsScroll+delta,SONGS_MAXPX);
     else if(view==='search')searchScroll=searchScrollT=clampPx(searchScroll+delta,SEARCH_MAXPX);else return;repaintMain();
   }else if(ssSelectOwner===ssNavSelect){navScroll=navScrollT=clampPx(navScroll+delta,NAV_MAX);repaintNav();}
-  else{ssQueueScroll=clampPx(ssQueueScroll+delta,SS_QUEUE_MAX);repaintQueue();}
+  else{ssQueueScroll=ssQueueScrollT=clampPx(ssQueueScroll+delta,SS_QUEUE_MAX);repaintQueue();}
   ssSelectionRefreshGeometry();ssSelectOwner.move(mx,my);
 }
 function ssSelectionRefreshGeometry(){
@@ -93,6 +98,11 @@ function ssSelectionRefreshGeometry(){
   for(var i=0;i<list.length;i++){var h=list[i],at=ssSelectOwner===ssMainSelect?ssMainRowIndex(h):ssSelectOwner===ssNavSelect?ssNavRows.indexOf(h.i):h.queueIndex===undefined?h.item:h.queueIndex;
     if(ssSelectOwner===ssQueueSelect&&(h.scope||'native')!==ssSelectContext.key.split(':')[0])continue;geo.push({index:at,x0:h.x0,y0:h.y0,x1:h.x1,y1:h.y1});}
   ssSelectContext.rows=geo;ssSelectOwner.setContext(ssSelectContext);
+}
+function ssSelectionRects(){
+  var rects=[];for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i];if(ssMainSelect.isSelected(ssMainRowIndex(h)))rects.push({x:h.x0,y:h.y0,w:h.x1-h.x0,h:h.y1-h.y0});}
+  var p=ssSelectOwner&&ssSelectOwner.preview();if(p&&p.rect){var r=p.rect;rects.push({x:r.x0-2,y:r.y0-2,w:r.x1-r.x0+4,h:r.y1-r.y0+4});}
+  if(p&&p.indicator){var q=p.indicator;rects.push({x:q.x0-2,y:q.y-2,w:q.x1-q.x0+4,h:5});}return rects;
 }
 function ssDrawSelection(gr){
   ssSelectionDirty=false;

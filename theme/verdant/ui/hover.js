@@ -1,6 +1,21 @@
 ﻿/* Keep the song scene free of pointer state. Hover copies only two row bands,
    with no title-formatting, artwork lookups, or full-window bitmap transfers. */
 var ssQuietRows=false,ssHoverFrame=0,ssHoverDirty=false,ssHoverPainted=null;
+var ssInteractionPainted=[];
+function ssPaintInteractions(gr){
+  var hover=ssHoverRow(),current=typeof ssSelectionRects==='function'?ssSelectionRects():[];
+  if(hover)current.push(hover);
+  var all=ssInteractionPainted.concat(current),rects=[];
+  for(var i=0;i<all.length;i++){
+    var r=all[i];if(!r||r.w<=0||r.h<=0)continue;var merged=false;
+    for(var j=0;j<rects.length;j++){var p=rects[j];if(p.x===r.x&&p.w===r.w&&p.y<=r.y+r.h&&r.y<=p.y+p.h){var bottom=Math.max(p.y+p.h,r.y+r.h);p.y=Math.min(p.y,r.y);p.h=bottom-p.y;merged=true;break;}}
+    if(!merged)rects.push({x:r.x,y:r.y,w:r.w,h:r.h});
+  }
+  if(ssSceneImage)for(i=0;i<rects.length;i++){r=rects[i];gr.DrawImage(ssSceneImage,r.x,r.y,r.w,r.h,r.x,r.y,r.w,r.h);}
+  ssPaintRowHover(gr,false);
+  if(typeof ssDrawSelection==='function')ssDrawSelection(gr);
+  ssInteractionPainted=current;
+}
 function ssRowHover(x0,y0,x1,y1){return !ssQuietRows&&hv(x0,y0,x1,y1);}
 function ssHoverRow(){
   var lists=[HB_TR,HB_Q];

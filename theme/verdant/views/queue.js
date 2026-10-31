@@ -6,7 +6,7 @@
    handle rather than read from a playlist's meta. Cached by path: the queue redraws on every
    hover inside the panel, and two EvalWithMetadb calls per row per frame is pure interop. */
 var qMetaCache={};
-var ssQueueScroll=0,SS_QUEUE_MAX=0;
+var ssQueueScroll=0,ssQueueScrollT=0,SS_QUEUE_MAX=0,SS_QUEUE_SB=null;
 function qRowMeta(h){
   var p=h.Path, e=qMetaCache[p];
   if(!e) e=qMetaCache[p]={t:TF.title.EvalWithMetadb(h), a:TF.artist.EvalWithMetadb(h)};
@@ -26,7 +26,11 @@ function qEntry(gr,r,x,y,cs,dy,h,seed,key,title,artist,tcol){
   tL(gr,artist,FONT.qArtist,COL.text2,tx,y+dy+20,tw,16);
 }
 function drawQueue(gr){
-  HB_TABS=[]; HB_Q=[]; SS_LYRIC_BTN=null;
+  ssDrawQueueContent(gr);
+  var r=R.queue;roundBottom(gr,r.x,r.y,r.w,r.h);
+}
+function ssDrawQueueContent(gr){
+  HB_TABS=[]; HB_Q=[]; SS_LYRIC_BTN=null;SS_QUEUE_SB=null;
   var r=R.queue; panelBg(gr,r,COL.base);
   var x=r.x+18;
   var qOn=rightTab==='queue';

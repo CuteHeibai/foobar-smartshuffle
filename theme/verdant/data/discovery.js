@@ -22,7 +22,10 @@ function ssDrawArtistAvatar(gr,x,y,size,name){
     if(Object.keys(ssArtistImages).length>120)ssArtistImages={};ssArtistImages[key]=img;
   }
   if(img)gr.DrawImage(img,x,y,size,size,0,0,size,size);
-  else{gr.FillEllipse(x,y,size,size,coverCol(name));tC(gr,String(ssArtistName(name)).slice(0,2),FONT.title,COL.text,x,y,size,size);}
+  else{
+    gr.FillEllipse(x,y,size,size,coverCol(name));var letters=Array.from(String(ssArtistName(name))).slice(0,2).join(''),pad=Math.ceil(size*.2),box=size-pad*2;
+    var font=ssFitFont(gr,FONT.title,box,letters,box);tC(gr,letters,font,COL.text,x+pad,y+pad,box,box);
+  }
 }
 var ssArtistAutoRequest='',ssArtistAutoName='',ssArtistAutoStatus={};
 function ssArtistAuto(name){

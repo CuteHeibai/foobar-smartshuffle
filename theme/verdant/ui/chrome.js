@@ -42,6 +42,7 @@ function strokeRound(gr,x,y,w,h,rad,lw,col){
    at the end of its draw; the matching set*() maps a drag/click back to a scroll offset. */
 var SB_MAIN={sw:6,min:36,track:20,on:175,off:95,key:'scroll'};
 var SB_NAV ={sw:5,min:30,track:16,on:150,off:80,key:'scrolln'};
+var SB_QUEUE={sw:6,min:36,track:20,on:175,off:95,key:'scrollq'};
 function drawSBV(gr,sx,top,h,scrollPx,maxPx,viewH,contentH,show,s){
   if(contentH<=viewH || h<=6 || !show) return null;
   gr.FillSolidRect(sx,top,s.sw,h,RGBA(255,255,255,s.track));
@@ -112,6 +113,11 @@ function roundTop(gr,x,y,w){
   var rad=M.radius; if(!CORN) CORN=buildCorners(rad);
   gr.DrawImage(CORN.tl,x,y,rad,rad,0,0,rad,rad,0,255);
   gr.DrawImage(CORN.tr,x+w-rad,y,rad,rad,0,0,rad,rad,0,255);
+}
+function roundBottom(gr,x,y,w,h){
+  var rad=M.radius; if(!CORN) CORN=buildCorners(rad);
+  gr.DrawImage(CORN.bl,x,y+h-rad,rad,rad,0,0,rad,rad,0,255);
+  gr.DrawImage(CORN.br,x+w-rad,y+h-rad,rad,rad,0,0,rad,rad,0,255);
 }
 
 /* ---- modal dialogs: dim backdrop + drop-shadowed rounded panel, and a capsule button ---- */

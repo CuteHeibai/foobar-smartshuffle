@@ -25,10 +25,11 @@ function drawPlaylist(gr,r){
   var rx0=r.x+r.w-M.cpad, sortDirW=38, sortPillW=compact?Math.min(230,r.w-100):200, sortGap=8, sortTotalW=sortPillW+sortGap+sortDirW;
   var sortX=compact?ax:Math.max(ax+art+24*s,rx0-sortTotalW), sortY=ay+(compact?art+42*s:142*s);
   var tx=ax+art+24*s, tw=compact?rx0-tx:Math.max(120,sortX-12-tx);
-  tL(gr,'歌单',FONT.eyebrow,COL.text,tx,ay+6,tw,18);
-  tL(gr,p.name,FONT.title,COL.text,tx,ay+28,tw,84);
+  var text=ssHeaderBoxes(art,compact,s);
+  tL(gr,'歌单',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
+  tL(gr,p.name,FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
   var meta0=getMeta(p.i);
-  tL(gr,p.count+' 首歌曲'+(meta0.totalSec>0?(' '+CH_DOT+' '+fmtDur(meta0.totalSec)):''),FONT.meta,COL.text2,compact?ax:tx,ay+(compact?art+12*s:150*s),compact?r.w-M.cpad*2:tw,22*s);
+  tL(gr,p.count+' 首歌曲'+(meta0.totalSec>0?(' '+CH_DOT+' '+fmtDur(meta0.totalSec)):''),FONT.meta,COL.text2,compact?ax:tx,ay+text.metaY,compact?r.w-M.cpad*2:tw,text.metaH);
   HB_PLSORT=drawDropPill(gr,sortX,sortY,sortPillW,38,'排序：'+labelOf(PL_SORTS,plSort,'歌手'),plSortMenuOpen);
   drawSortDirBtn(gr,sortX+sortPillW+sortGap,sortY,sortDirW,38);
 
@@ -41,12 +42,14 @@ function drawPlaylist(gr,r){
   var albumX=titleX+titleW+cgap;
   var rowsTop=listTop+34, rh=M.rowH, cropY=r.y+r.h, viewH=cropY-rowsTop;
   var contentH=p.count*rh, maxPx=Math.max(0,contentH-viewH);   // firstRow is a PIXEL offset
+  if(viewH<1)return;
   PL_MAXPX=maxPx;
   firstRow=clampPx(firstRow,maxPx); firstRowT=clampPx(firstRowT,maxPx);
   var loc=playingLoc();
   var items=getItems(p.i), meta=getMeta(p.i), shufHere=npIsShuffleOf(p.name);
   var order=getPlOrder(p.i);   // display position -> native item index
   warmOnce('pl'+p.i,items);
+  var parentGr=gr,layer=ssBeginViewport('main-list',gr,r.x,rowsTop,r.w,Math.max(1,viewH));gr=layer.gr;
   for(var d=Math.floor(firstRow/rh); d<p.count; d++){
     var ry=rowsTop+d*rh-firstRow; if(ry>=cropY) break;
     var j=order[d]; var h=items[j]; if(!h){ continue; }
@@ -68,9 +71,7 @@ function drawPlaylist(gr,r){
     tR(gr,meta.len[j],FONT.rowCell,COL.text2,rx-durW,ry,durW,rh);
     HB_TR.push({x0:lx-8,y0:Math.max(ry,rowsTop),x1:rx+8,y1:Math.min(ry+rh,cropY),rowY:ry,rowH:rh,pl:p.i,item:j,pgx0:lx,pgx1:lx+numW});
   }
-  // crop the partial rows top & bottom, then draw the sticky column header on top
-  gr.FillSolidRect(r.x,rowsTop-rh,r.w,rh,COL.base);
-  gr.FillSolidRect(r.x,cropY,r.w,M.pad+2,COL.black);   // gutter below the panel
+  layer.finish();gr=parentGr;
   if(p.count===0){ drawPlEmpty(gr,r,rowsTop-rh,cropY); drawSortMenu(gr); return; }   // no column headings over a void
   tL(gr,'#',FONT.head,COL.text2,lx,listTop,numW,20);
   tL(gr,'歌曲',FONT.head,COL.text2,titleX,listTop,titleW,20);

@@ -25,7 +25,8 @@ var PALETTE=[RGB(83,62,140),RGB(30,120,110),RGB(150,64,92),RGB(43,92,160),RGB(12
    scale change needs a panel reload rather than just a repaint.
    Regular (non-bold) text uses 'Segoe UI Semibold' so it doesn't read thin. */
 var SS_BASE_UI_SCALE=UISCALE,ssDensity=1;
-function gf(name,sz,style){ return gdi.Font(name, Math.max(1,Math.round(sz*UISCALE)), style||0); }
+var SS_FONT_META=[],SS_FIT_FONTS=[];
+function gf(name,sz,style){var size=Math.max(1,Math.round(sz*UISCALE)),font=gdi.Font(name,size,style||0);SS_FONT_META.push({font:font,name:name,size:size,style:style||0});return font;}
 function F(sz,bold){ return gf('Segoe UI', sz, bold?1:0); }
 function ssCreateFonts(){return {
   lib:F(15,1), pl:F(13,1), plSub:F(11,0),
@@ -56,20 +57,32 @@ var CH_DOT=chr(0xB7), CH_BULL=chr(0x2022);
 var DT_L = 0x4|0x20|0x800|0x8000;        // left + vcenter + singleline + noprefix + end-ellipsis
 var DT_R = 0x2|0x4|0x20|0x800;           // right + vcenter + singleline + noprefix
 var DT_C = 0x1|0x4|0x20|0x800;           // center + vcenter + singleline + noprefix
-/* Labels are singleline+vcenter, which CLIPS to the rect: call sites pass hardcoded box heights
-   while fonts scale with UISCALE, so descenders get sliced off. fitV() grows a too-short box
-   symmetrically to the line height (identity-cached per font). */
+/* A label owns exactly its supplied rectangle. Shrink its font when necessary;
+   never enlarge the rectangle into the next label or neighbouring panel. */
 var LH_F=[], LH_V=[];
 function lineH(gr,f){
   for(var i=0;i<LH_F.length;i++) if(LH_F[i]===f) return LH_V[i];
   var n=0; try{ n=Math.ceil(gr.CalcTextHeight('国Agあ',f)); }catch(e){ n=0; }
+  if(LH_F.length>=512){LH_F=[];LH_V=[];}
   LH_F.push(f); LH_V.push(n); return n;
 }
 var fitY=0, fitH=0;
-function fitV(gr,f,y,h){ var n=lineH(gr,f); if(n>h){ fitY=y-((n-h)>>1); fitH=n; } else { fitY=y; fitH=h; } }
+function fitV(gr,f,y,h){fitY=y;fitH=h;}
+function ssFitFont(gr,font,height,text,width){
+  var limit=Math.max(1,Math.floor(height)),fitWidth=width!==undefined;
+  if(lineH(gr,font)<=limit&&(!fitWidth||gr.CalcTextWidth(text,font)<=width))return font;
+  var key=fitWidth?String(text)+'|'+Math.floor(width):'';
+  for(var i=0;i<SS_FIT_FONTS.length;i++){var c=SS_FIT_FONTS[i];if(c.base===font&&c.height===limit&&c.key===key)return c.font;}
+  var meta=null;for(i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
+  if(!meta)meta={name:font.Name||'Segoe UI',size:font.Size||14,style:font.Style||0};
+  var ratio=Math.min(1,limit/Math.max(1,lineH(gr,font)));if(fitWidth)ratio=Math.min(ratio,width/Math.max(1,gr.CalcTextWidth(text,font)));
+  var size=Math.max(1,Math.floor(meta.size*ratio)),f;
+  do{f=gdi.Font(meta.name,size,meta.style);if(lineH(gr,f)<=limit&&(!fitWidth||gr.CalcTextWidth(text,f)<=width))break;}while(--size>0);
+  if(SS_FIT_FONTS.length>=192)SS_FIT_FONTS=[];SS_FIT_FONTS.push({base:font,height:limit,key:key,font:f});return f;
+}
 function ssText(gr,s,f,c,x,y,w,h,align,ellipsis){
-  if(w<=0||h<=0)return;fitV(gr,f,y,h);gr.SetTextRenderingHint(3);
-  gr.DrawString(String(s),f,c,Math.round(x),Math.round(fitY),Math.max(1,Math.round(w)),Math.max(1,Math.round(fitH)),
+  if(w<=0||h<=0)return;gr.SetTextRenderingHint(3);f=ssFitFont(gr,f,h);
+  gr.DrawString(String(s),f,c,Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)),
     (align<<28)|(1<<24)|((ellipsis?3:0)<<20)|0x1000);
 }
 function tL(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,0,true);}
