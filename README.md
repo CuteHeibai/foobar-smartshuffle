@@ -1,44 +1,68 @@
 # foobar2000 二维随机偏好
 
-适用于本机 foobar2000 2.25.8 x64，包含原生 `foo_smartshuffle`、中文 Verdant 主题和独立本地音频分析工具。
+给本地歌单一个可以拖动的随机偏好小球：**左边少听、右边常听，上方风格跳跃、下方风格相似。** 两轴可以组合，中心为均衡随机；所有位置都保持每轮全覆盖、不放回抽样。
+
+包含原生组件 `foo_smartshuffle`、中文黑灰绿 Verdant 主题和独立本地音频分析工具。当前为 **v1.0.0 测试版**，实际验证环境为 Windows、foobar2000 **2.25.8 x64 便携版**。其他版本、标准安装及不同组件组合尚未验证。
+
+[下载测试版](https://github.com/CuteHeibai/foobar-smartshuffle/releases/tag/v1.0.0) · [反馈问题](https://github.com/CuteHeibai/foobar-smartshuffle/issues) · [验证记录](docs/verification.md)
+
+## 能做什么
+
+- 拖动二维小球，预览前 8 首真实待播歌曲；约 150ms 后刷新。“应用”提交完整剩余顺序，“取消”保持原顺序。
+- 支持方向键、均衡/常听/少听快捷位置；同次调整采用固定随机种子，便于比较不同偏好。
+- 每个歌单独立保存位置、轮次和进度；跳过算已尝试，主动重播、上一首和单曲循环是重复例外。手动插队优先，之后接回本轮。
+- 频率使用已有累计次数及安装后的近 30 天有效收听记录；不补造安装前的近期历史。
+- 使用 foobar 解码器提取音频片段，结合 65 维声学特征及标签计算风格。分析在本地、低优先级后台进行，可暂停及继续，结果缓存复用，不写音乐文件标签。
+- 中文主题显示真实队列、扫描进度和歌词入口；音频输出菜单读取 foobar 已有设备，支持选择已有 WASAPI/ASIO 输出，不提供硬件驱动。
+
+这是本地声学相似度与随机权重调整，不连接网易云推荐服务，也不承诺复现其算法。界面改编自 [superziper/Verdant](https://github.com/superziper/verdant-foobar2000-theme)，并非 Spotify 或网易云官方产品。
+
+## 下载与安装
+
+建议先复制一份便携版 foobar 测试。公开桌面包包含插件、主题、分析运行时和安装脚本，**不包含 foobar 主程序、第三方 UI 组件或修改版 ESLyric DLL**。
+
+1. 准备 foobar2000 2.25.8 x64 便携版，以及可运行的 Python 3.9+（安装/恢复脚本需要，音频运行时已独立打包）。
+2. 在该副本中安装 [Columns UI](https://www.foobar2000.org/components/view/foo_ui_columns) 和兼容的 JSplitter。本项目已验证 JSplitter 4.3.4；可参照 [Verdant 上游安装说明](https://github.com/superziper/verdant-foobar2000-theme) 获取组件。使用原生歌词面板还需自行安装 ESLyric。
+3. 从 Releases 下载 `foobar-smartshuffle-desktop-1.0.0.zip`，解压后运行：
+
+```powershell
+.\scripts\install-public.ps1 -FoobarRoot 'D:\Apps\foobar2000'
+```
+
+安装器正常退出目标播放器，备份配置与歌单，安装后切换为中文 Columns UI 主题并重新打开。保留现有输出和音量。独占输出会占用对应设备，ASIO 是否可用取决于系统中实际安装的驱动。
+
+只下载 `.fb2k-component` 可安装原生调度组件；它不包含二维主题界面或音频分析运行时。想使用完整功能，请用桌面包。
+
+备份位于目标 foobar 目录 `smartshuffle-backups/<时间>/`。需要回退时，运行对应备份的 `restore.ps1`，还原安装前的界面、歌单及受影响组件。
 
 ## 使用
 
-- 点击底部“随机偏好”：左边少听、右边常听、上方风格跳跃、下方风格相似。中心为均衡随机。
-- 拖动只更新预览；“应用”才改变本轮剩余顺序，“取消”保留原顺序。方向键每次移动 0.05，Esc 取消，Enter 在预览准备完成后应用。
-- 每轮自动播放当前歌单内每首歌曲一次。跳过计入本轮，主动重播和上一首允许重复；播放完成重新洗牌，退出后保存轮次。
-- 待播区显示真实顺序，手动队列优先。扫描可暂停、继续、重试，首次分析在后台进行。
-- “音频输出”按 foobar 实际设备列表切换。Lian II 的共享与独占输出均属于 WASAPI；独占会占用该设备，其他应用暂时不能同时使用它。安装保留现有输出和音量。
-- 系统已安装 ASIO 2.2.4 和 ASIO+DSD 0.4.7；本机只有 Voicemeeter ASIO 驱动，未发现 Lian II 原生 ASIO 驱动。
+点击底部“随机偏好”打开面板，拖球后确认预览，再点“应用”。方向键每次移动 0.05，Esc 取消，Enter 在预览准备完成后应用。播放或歌单变动会使旧预览失效，需要等待刷新后再次应用。
 
-## 本地安装与恢复
+风格排序依赖已完成的分析；尚未分析的曲目使用已有标签，两者都缺失时保持中性。首次分析可能需要时间。精确动态风格排序为 O(n²×特征数)，超大歌单未验证即时响应。
 
-完整交付包解压后执行 `scripts/install.ps1`，默认目标 `C:\Program Files\foobar2000`，会正常退出目标程序后安装并重新打开。依赖本机现有 Python 和 JSplitter。组件、主题和分析运行时均包含在完整包内。
+## ESLyric / NVIDIA 实验
 
-安装备份位于 foobar 根目录 `smartshuffle-backups/<时间>/`，含完整 profile 快照、受影响文件清单及 `restore.ps1`。运行该脚本会还原安装前的界面、歌单和相关组件。音乐文件不改写。
+仓库另附 [ESLyric 调查](docs/eslyric-investigation.md) 和 `scripts/patch-eslyric.ps1`，仅支持文中 SHA-256 完全匹配的 1.0.6.7 原版；脚本只生成本地副本。软件渲染候选在本机 A/B 中未加载观察到的 NVIDIA 覆盖层模块，最终可见效果仍需人工确认。公开安装不运行该实验、不替换歌词组件。
 
-本机已安装并重新打开；本次备份为 `C:\Program Files\foobar2000\smartshuffle-backups\20261031-174108-321976`。当前输出保持 Lian II WASAPI 独占。测试与观察边界见 [验证记录](docs/verification.md)。
+## 构建与测试
 
-ESLyric 1.0.6.7 的本地候选补丁将首次 D3D11 设备创建改为 WARP 软件渲染。补丁只适用于调查中精确匹配的版本；原件在备份中。调查和同路径 A/B 模块结果见 `docs/eslyric-investigation.md`。可用 `-SkipESLyric` 跳过该项。
+需要 Visual Studio 2022 C++ v143、Windows SDK 10.0.22621.0、Node.js；分析工具构建使用隔离的 Python 3.13 环境。
 
-## 构建与检查
+```powershell
+.\scripts\fetch-deps.ps1
+.\scripts\build.ps1 -TestsOnly
+.\scripts\build.ps1
+.\scripts\build-analyzer.ps1
+node tests/theme_tests.js
+python -m unittest discover -s tests -p test_install.py -v
+.\scripts\package-public.ps1
+```
 
-1. `scripts/fetch-deps.ps1` 获取固定版本的 foobar SDK 2025-03-07 和 nlohmann JSON 3.11.3。
-2. `scripts/build.ps1 -TestsOnly` 运行 C++ 调度测试；`scripts/build.ps1` 用 Visual Studio 2022 C++ v143 构建原生组件。
-3. `scripts/build-analyzer.ps1` 构建独立音频分析工具；不改变全局 Python。
-4. `node tests/theme_tests.js`；`python -m unittest discover -s tests -p test_install.py -v`。
-5. `scripts/patch-eslyric.ps1` 只生成 ESLyric 候选副本；`scripts/package.ps1` 生成完整本地包和 `.fb2k-component`。
+核心 16 组 / 25,278 项断言、主题 20 个接口测试、音频 10 个测试、安装 3 个测试通过。真实 foobar 副本还验证了整轮播放、插队、自然续轮、CUE、失败处理、重启续接及恢复。视觉、高 DPI、鼠标手感及主观听感未完成自动验收，完整范围见 [验证记录](docs/verification.md)。
 
-`tests/native_acceptance.py` 只操作项目 `test-player` 副本，要求它已运行；不会指向日常使用的安装目录。
+`fixture.vcxproj` 和 `tests/host_*.py` 仅用于项目 `test-player` 副本，测试组件不会包含在公开安装包中。
 
-`fixture.vcxproj` 是仅用于副本测试的 SDK 驱动器；`tests/host_workflow.py` 验证自然播放、插队、上一首、停止和真实 CUE 解码，`tests/host_failures.py` 验证损坏文件跳过和整轮失败停止，`tests/host_restart.py` 验证正常重启续接。测试驱动器不安装到日常播放器。
+## 许可与致谢
 
-已验证：核心 25,278 项断言、20 个主题接口测试、10 个音频分析测试、3 个安装测试，独立 foobar 中的真实播放及恢复。按用户要求未使用 Computer Use，鼠标拖动的视觉效果、高 DPI 和实际听感需由用户观察。
-
-## 实现
-
-原生组件拥有轮次、有效收听统计、实际顺序和预览修订号。主题通过本地版本化 JSON 接口控制它；关闭面板后调度继续。偏好预览在后台线程计算。
-
-风格依据本地音频片段的 65 维声学特征，结合已有歌曲标签。它表示本地声学相似度，不是网易云的服务端推荐算法。旧统计没有的近期记录不补造。
-
-主题改编自 superziper 的 [Verdant](https://github.com/superziper/verdant-foobar2000-theme)，保留其 MIT 许可及第三方声明。Columns UI 保留 LGPL/GPL 许可文本；foobar SDK 需从官方单独获取。仅供本机使用，未发布。
+本项目自有源码采用 [MIT](LICENSE)。Verdant 主题保留原作者许可；foobar SDK、PFC、nlohmann JSON 和分析运行时依赖保持各自许可，详见 [第三方声明](THIRD-PARTY-NOTICES.md)。SDK 和第三方 UI 组件不包含在源码仓库中。
