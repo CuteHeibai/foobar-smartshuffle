@@ -42,7 +42,7 @@ function getArtistList(){
   if(lib && lib.Count){
     var names=libTF('artistName'), seen={};
     for(var i=0;i<names.length;i++){
-      var nm=names[i]; if(!nm) continue;
+      var nm=names[i]; if(!nm||!ssArtistRecord(nm)) continue;
       if(!artistTracksMap[nm]) artistTracksMap[nm]=[];
       artistTracksMap[nm].push(lib[i]);
       if(!seen[nm]){ seen[nm]=1; out.push({name:nm, handle:lib[i]}); }

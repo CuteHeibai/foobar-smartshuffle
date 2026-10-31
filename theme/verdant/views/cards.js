@@ -24,7 +24,7 @@ function paintArtistCard(gr,x,y,w,a,hov){
   var cs=w-24;
   ssDrawArtistAvatar(gr,x+12,y+12,cs,a.name);
   tC(gr,ssArtistName(a.name),FONT.card,COL.text,x+12,y+cs+18,w-24,20);
-  tC(gr,ssArtistRecord(a.name)?'已核验歌手':'歌手 · 待核验',FONT.plSub,COL.text2,x+12,y+cs+40,w-24,16);
+  tC(gr,'歌手',FONT.plSub,COL.text2,x+12,y+cs+40,w-24,16);
 }
 /* The artist grid is the bulk of a home frame -- ~30 cards on a wide window, each an antialiased
    rounded rect, a masked circular cover and two centred labels, all redrawn every paint. Cache

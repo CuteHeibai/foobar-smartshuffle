@@ -682,4 +682,4 @@ startMemWatch();   // caches grow into the component's spare memory and back off
 drpSync();         // make foo_verdant agree with the Discord property before anything plays
 
 ssLoadArtists();ssStart();
-console.log('Smart Shuffle Chinese Verdant 1.0.1 ready');
+console.log('Smart Shuffle Chinese Verdant 1.0.2 ready');

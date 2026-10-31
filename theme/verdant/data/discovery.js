@@ -4,7 +4,8 @@ var ssArtists={},ssArtistImages={},ssArtistRequest='',ssArtistAction='',ssArtist
 function ssInvalidateSearch(){searchIdx=null;searchQ2=null;ssSearchCatalog='';ssSearchQuery='';ssSearchRequest='';}
 function ssLoadArtists(){
   try{ssArtists=JSON.parse(utils.ReadTextFile(SS_ROOT+'artists.json',65001).replace(/^\uFEFF/,''));}catch(e){ssArtists={};}
-  ssArtistImages={};artCardCache={};artCardN=0;ssInvalidateSearch();
+  ssArtistImages={};artCardCache={};artCardN=0;
+  artistList=null;artistTracksMap=null;artistCandCache={};ssInvalidateSearch();
 }
 function ssArtistName(name){var r=ssArtists[name];return r&&r.verified?r.name:name;}
 function ssArtistRecord(name){return ssArtists[name]&&ssArtists[name].verified?ssArtists[name]:null;}
@@ -16,7 +17,7 @@ function ssDrawArtistAvatar(gr,x,y,size,name){
       var source=gdi.Image(record.portrait),side=Math.min(source.Width,source.Height);
       img=gdi.CreateImage(size,size);var graphics=img.GetGraphics();graphics.SetInterpolationMode(7);
       graphics.DrawImage(source,0,0,size,size,(source.Width-side)/2,(source.Height-side)/2,side,side);
-      img.ReleaseGraphics(graphics);img.ApplyMask(circleMask(size));source.Dispose();
+      img.ReleaseGraphics(graphics);img.ApplyMask(circleMask(size));
     }catch(e){img=null;}
     if(Object.keys(ssArtistImages).length>120)ssArtistImages={};ssArtistImages[key]=img;
   }
@@ -46,7 +47,7 @@ function ssArtistLookup(name,x,y){
 function ssArtistMenu(name,x,y){
   var r=ssArtistRecord(name),items=[];
   if(r){
-    items.push({label:'已核验：'+r.name,disabled:true},{label:'MusicBrainz · '+(r.country||r.type||'歌手资料'),disabled:true});
+    items.push({label:r.name,disabled:true},{label:'MusicBrainz · '+(r.country||r.type||'歌手资料'),disabled:true});
     if(r.description)items.push({label:r.description,disabled:true});
     if(r.portrait_license)items.push({label:'头像：'+r.portrait_license+' · '+(r.portrait_author||'Wikimedia Commons'),disabled:true});
     items.push({separator:true});

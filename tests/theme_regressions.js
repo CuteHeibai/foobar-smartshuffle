@@ -134,8 +134,8 @@ test('menu opening, nested hover and closing reuse the displayed scene without r
   for(let i=0;i<10;i++)c.ssPaintPopup({DrawImage(){}});
   assert.equal(base,0);assert.equal(draws,10);c.ssClosePopup();assert.equal(c.ssPopupRestore,true);assert.equal(disposed,0);
 });
-test('menus close on pointer leave, allowing a brief crossing into the child menu',()=>{
-  const h=harness(),c=h.c;c.ssShowPopup([{label:'A'}],10,40);
+test('top menus close on pointer leave, allowing a brief crossing into the child menu',()=>{
+  const h=harness(),c=h.c;c.ssShowPopup([{label:'A'}],10,40);c.ssPopup.root='file';
   c.ssPopup.levels[0].rect={x:10,y:40,w:230,h:100};c.ssPopup.levels.push({items:[],rect:{x:244,y:40,w:230,h:100}});
   c.ssPopupMove(242,60);assert.ok(c.ssMenuLeaveTimer);c.ssPopupMove(250,60);assert.equal(c.ssMenuLeaveTimer,0);
   h.flush();assert.ok(c.ssPopup);c.ssPopupMove(600,300);h.flush();assert.equal(c.ssPopup,null);
@@ -202,7 +202,7 @@ test('late background search results never replace newer input and lyrics retain
 });
 test('artist cards use verified names and their own portraits, never album covers',()=>{
  const h=harness(),c=h.c,calls=[];h.load('views/cards.js');c.ssDrawArtistAvatar=(...args)=>calls.push(args.at(-1));c.ssArtistName=()=> 'Verified';c.ssArtistRecord=()=>({verified:true});c.tC=(g,t)=>calls.push(t);c.artistCover=()=>{throw Error('album cover is not an artist portrait');};
- c.paintArtistCard({FillRoundRect(){}},0,0,160,{name:'Original'},false);assert.deepEqual(calls,['Original','Verified','已核验歌手']);
+ c.paintArtistCard({FillRoundRect(){}},0,0,160,{name:'Original'},false);assert.deepEqual(calls,['Original','Verified','歌手']);
 });
 
 
@@ -226,5 +226,24 @@ test('every artist opening requests silent identity verification without showing
  const h=harness(),c=h.c;h.load('data/discovery.js');c.artistAlbums=[{album:'Album',handle:{}}];c.fb.TitleFormat=()=>({EvalWithMetadb:()=>'?'});c.ssShowPopup=()=>{throw Error('automatic lookup must stay silent');};
  c.ssArtistAuto('Name');const first=c.ssArtistAutoRequest;assert.equal(h.writes.at(-1).task,'artist_auto');assert.equal(h.writes.at(-1).name,'Name');
  c.ssArtistAuto('Name');assert.notEqual(c.ssArtistAutoRequest,first);assert.equal(c.ssArtistAutoStatus.Name,'正在联网核验…');
+});
+
+
+test('context menus stay open after mouse leaves and close on outside click',()=>{
+ const h=harness(),c=h.c;c.ssShowPopup([{label:'Tagging'}],10,40,'native',true);c.ssPopup.root='';c.ssPopup.levels[0].rect={x:10,y:40,w:230,h:100};
+ c.ssPopupMove(700,500);c.ssMenuLeave();h.flush();assert.ok(c.ssPopup,'track context menu must remain open');c.ssPopupClick(700,500);assert.equal(c.ssPopup,null);
+});
+test('a valid GdiBitmap without Dispose remains available for artist rendering',()=>{
+ const h=harness(),c=h.c;h.load('data/discovery.js');let drawn=0;
+ const graphics={SetInterpolationMode(){},DrawImage(){}};const bitmap={Width:120,Height:80};
+ c.gdi={Image:()=>bitmap,CreateImage:()=>({GetGraphics:()=>graphics,ReleaseGraphics(){},ApplyMask(){}})};
+ c.circleMask=()=>({});c.coverCol=()=>1;c.ssArtists.Name={verified:true,name:'Name',portrait:'local.jpg'};
+ c.ssDrawArtistAvatar({DrawImage(){drawn++;},FillEllipse(){}},0,0,64,'Name');assert.equal(drawn,1);assert.ok(c.ssArtistImages['Name|64']);
+});
+test('artist lists contain only confirmed records while all song handles remain intact',()=>{
+ const h=harness(),c=h.c;h.load('data/discovery.js');h.load('data/library.js');
+ const handles={Count:3,0:{Path:'a'},1:{Path:'b'},2:{Path:'c'}};c.libItems=()=>handles;c.libTF=()=>['One','Unknown','Two'];c.ssArtists={One:{verified:true},Two:{verified:true}};
+ const artists=c.getArtistList();assert.deepEqual(Array.from(artists,a=>a.name),['One','Two']);assert.equal(handles.Count,3);
+ c.utils.ReadTextFile=()=>JSON.stringify({Two:{verified:true}});c.ssLoadArtists();assert.equal(c.artistList,null);assert.deepEqual(Array.from(c.getArtistList(),a=>a.name),['Two']);
 });
 console.log(passed+' interaction regression checks passed');

@@ -9,7 +9,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "dist/public-release"
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 
 def copy(source, destination):

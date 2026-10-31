@@ -2,9 +2,9 @@
 
 给本地歌单一个可以拖动的随机偏好小球：**左边少听、右边常听，上方风格跳跃、下方风格相似。** 两轴可以组合，中心为均衡随机；所有位置都保持每轮全覆盖、不放回抽样。
 
-包含原生组件 `foo_smartshuffle`、中文黑灰绿 Verdant 主题和独立本地音频分析工具。当前为 **v1.0.1 测试版**，实际验证环境为 Windows、foobar2000 **2.25.8 x64 便携版**。其他版本、标准安装及不同组件组合尚未验证。
+包含原生组件 `foo_smartshuffle`、中文黑灰绿 Verdant 主题和独立本地音频分析工具。当前为 **v1.0.2 测试版**，实际验证环境为 Windows、foobar2000 **2.25.8 x64 便携版**。其他版本、标准安装及不同组件组合尚未验证。
 
-[下载测试版](https://github.com/CuteHeibai/foobar-smartshuffle/releases/tag/v1.0.1) · [反馈问题](https://github.com/CuteHeibai/foobar-smartshuffle/issues) · [验证记录](docs/verification.md)
+[下载测试版](https://github.com/CuteHeibai/foobar-smartshuffle/releases/tag/v1.0.2) · [反馈问题](https://github.com/CuteHeibai/foobar-smartshuffle/issues) · [验证记录](docs/verification.md)
 
 ## 能做什么
 
@@ -29,7 +29,7 @@
 
 1. 准备 foobar2000 2.25.8 x64 便携版，以及可运行的 Python 3.9+（安装/恢复脚本需要，音频运行时已独立打包）。
 2. 在该副本中安装 [Columns UI](https://www.foobar2000.org/components/view/foo_ui_columns) 和兼容的 JSplitter。本项目已验证 JSplitter 4.3.4；可参照 [Verdant 上游安装说明](https://github.com/superziper/verdant-foobar2000-theme) 获取组件。使用原生歌词面板还需自行安装 ESLyric。
-3. 从 Releases 下载 `foobar-smartshuffle-desktop-1.0.1.zip`，解压后运行：
+3. 从 Releases 下载 `foobar-smartshuffle-desktop-1.0.2.zip`，解压后运行：
 
 ```powershell
 .\scripts\install-public.ps1 -FoobarRoot 'D:\Apps\foobar2000'
@@ -67,7 +67,7 @@ python -m unittest discover -s tests -p test_profile_style.py -v
 .\scripts\package-public.ps1
 ```
 
-核心 16 组 / 25,278 项断言、主题 20 个接口测试、29 个交互回归、字体配置 13 个测试、音频 10 个测试、搜索/资料 18 个测试和安装 3 个测试通过。真实 foobar 副本还验证了整轮播放、插队、自然续轮、CUE、失败处理、重启续接、窗口接口、播放模式交接、插件设置页和恢复。视觉、高 DPI、鼠标手感及主观听感未完成自动验收，完整范围见 [验证记录](docs/verification.md)。
+核心 16 组 / 25,278 项断言、主题 20 个接口测试、32 个交互回归、字体配置 13 个测试、音频 10 个测试、搜索/资料 18 个测试和安装 3 个测试通过。真实 foobar 副本还验证了整轮播放、插队、自然续轮、CUE、失败处理、重启续接、窗口接口、播放模式交接、插件设置页和恢复。视觉、高 DPI、鼠标手感及主观听感未完成自动验收，完整范围见 [验证记录](docs/verification.md)。
 
 `fixture.vcxproj` 和 `tests/host_*.py` 仅用于项目 `test-player` 副本，测试组件不会包含在公开安装包中。
 

@@ -10,7 +10,7 @@ function drawArtist(gr,r){
   ssDrawArtistAvatar(gr,x0,ay,art,viewArtist);
   var tx=x0+art+24, tw=w-art-24, songs=0;
   for(i=0;i<artistAlbums.length;i++) songs+=artistAlbums[i].tracks.length;
-  tL(gr,ssArtistAutoStatus[viewArtist]||(ssArtistRecord(viewArtist)?'已联网核验 · MusicBrainz':'歌手 · 尚未核验'),FONT.eyebrow,COL.text,tx,ay+10,tw,18);
+  tL(gr,'歌手',FONT.eyebrow,COL.text,tx,ay+10,tw,18);
   tL(gr,ssArtistName(viewArtist),FONT.title,COL.text,tx,ay+30,tw,70);
   tL(gr,artistAlbums.length+' 张专辑 '+CH_DOT+' '+songs+' 首歌曲',FONT.meta,COL.text2,tx,ay+112,tw,22);
   var bw=Math.min(w,220),by=r.y+198;gr.FillRoundRect(x0,by,bw,28,8,8,COL.elev);tC(gr,'歌手资料 / 联网核验',FONT.pl,COL.green,x0,by,bw,28);SS_ARTIST_HB={x0:x0,y0:by,x1:x0+bw,y1:by+28};

@@ -16,7 +16,7 @@
 #include <optional>
 #include <future>
 
-DECLARE_COMPONENT_VERSION("Smart Shuffle · 二维随机偏好","1.0.1","本地随机偏好：每轮全覆盖，听歌频率与音频风格二维调节。\n源码随本机安装包提供。")
+DECLARE_COMPONENT_VERSION("Smart Shuffle · 二维随机偏好","1.0.2","本地随机偏好：每轮全覆盖，听歌频率与音频风格二维调节。\n源码随本机安装包提供。")
 VALIDATE_COMPONENT_FILENAME("foo_smartshuffle.dll")
 
 namespace {
@@ -140,7 +140,7 @@ public:
     json list_json(const std::vector<std::string>& ids,size_t limit=SIZE_MAX){json a=json::array();for(size_t i=0;i<ids.size()&&i<limit;++i)a.push_back(track_json(ids[i]));return a;}
     void save(){try{writejson(root/L"store.json",{{"version",1},{"enabled",enabled},{"source",source},{"rounds",rounds},{"temporary_sources",temporarySources},{"layout_reset",uiLayoutReset},{"recent",recent},{"lifetime",lifetime},{"round_audio",roundAudio},{"scanPaused",scanPaused}});}catch(const std::exception& e){error=e.what();}}
     json snapshot(){
-        json j={{"version",1},{"pid",GetCurrentProcessId()},{"component","1.0.1"},{"revision",revision},{"request_id",lastRequest},{"enabled",enabled},{"source",source},{"source_name",source_name()},{"ui_open",uiOpen},{"error",error},{"response",response},{"managed_playlist",Managed}};
+        json j={{"version",1},{"pid",GetCurrentProcessId()},{"component","1.0.2"},{"revision",revision},{"request_id",lastRequest},{"enabled",enabled},{"source",source},{"source_name",source_name()},{"ui_open",uiOpen},{"error",error},{"response",response},{"managed_playlist",Managed}};
         if(!source.empty()){j["point"]=round().preference;j["round"]=round().number;j["remaining_count"]=round().remaining.size();j["remaining"]=list_json(round().remaining);}
         else{j["point"]={{"x",0},{"y",0}};j["round"]=1;j["remaining_count"]=0;j["remaining"]=json::array();}
         j["ui_layout_reset"]=uiLayoutReset;j["preview_pending"]=previewDirty||previewWork.valid();j["now_id"]=nowId;j["queue"]=json::array();
@@ -544,7 +544,7 @@ class QueueObserver:public playback_queue_callback {void on_changed(t_change_ori
 service_factory_single_t<QueueObserver> queueObserver;
 void CALLBACK tick_proc(HWND,UINT,UINT_PTR,DWORD){try{if(engine)engine->tick();}catch(const std::exception& e){console::print((std::string("Smart Shuffle: ")+e.what()).c_str());}catch(...){console::print("Smart Shuffle: callback failed");}}
 class Lifecycle:public initquit {
-    void on_init()override{fb2k::inMainThread([]{try{engine=std::make_unique<Engine>();timer=SetTimer(nullptr,0,40,tick_proc);console::print("Smart Shuffle 1.0.1 loaded (bridge v1)");}catch(const std::exception& e){console::print((std::string("Smart Shuffle init: ")+e.what()).c_str());}});}
+    void on_init()override{fb2k::inMainThread([]{try{engine=std::make_unique<Engine>();timer=SetTimer(nullptr,0,40,tick_proc);console::print("Smart Shuffle 1.0.2 loaded (bridge v1)");}catch(const std::exception& e){console::print((std::string("Smart Shuffle init: ")+e.what()).c_str());}});}
     void on_quit()override{if(timer){KillTimer(nullptr,timer);timer=0;}engine.reset();}
 };
 initquit_factory_t<Lifecycle> lifecycle;

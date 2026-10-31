@@ -2,7 +2,7 @@
 var ssPopup=null,SS_MENU_HB=[],ssPopupHover='',ssPopupSerial=0,ssMenuPollTimer=0,ssMenuLeaveTimer=0;
 function ssMenuKeepOpen(){if(ssMenuLeaveTimer)window.ClearTimeout(ssMenuLeaveTimer);ssMenuLeaveTimer=0;}
 function ssMenuLeave(){
-  if(!ssPopup||ssMenuLeaveTimer)return;
+  if(!ssPopup||!ssPopup.root||ssMenuLeaveTimer)return;
   var serial=ssPopup.serial;
   ssMenuLeaveTimer=window.SetTimeout(function(){ssMenuLeaveTimer=0;if(ssPopup&&ssPopup.serial===serial)ssClosePopup();},120);
 }
