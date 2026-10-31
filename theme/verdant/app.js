@@ -151,9 +151,12 @@ function ssDrawBase(gr){
   drawTitleBar(gr);drawMainCounted(gr);drawNav(gr);drawQueue(gr);drawBar(gr);ssDrawResizers(gr);
 }
 function on_paint(gr){
+  if(ssSelectionDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!ssModal&&!ssPopup&&!fsMode){
+    var sr=ssSelectionZone||R.main;gr.DrawImage(ssSceneImage,sr.x,sr.y,sr.w,sr.h,sr.x,sr.y,sr.w,sr.h);ssPaintRowHover(gr,false);ssDrawSelection(gr);return;
+  }
   if(ssHoverDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!fsMode&&!ssModal&&!ssPopup&&
      !renameEdit&&!ctxMenu&&!confirmDel&&!dupPrompt&&!rgPrompt&&!sgMenuOpen&&!plSortMenuOpen){
-    ssPaintRowHover(gr,true);return;
+    ssPaintRowHover(gr,true);ssDrawSelection(gr);return;
   }
   ssSyncLyricPanel();
   visPlCache=null;   // one playlist scan per frame, shared by drawNav and drawHome
@@ -184,7 +187,7 @@ function on_paint(gr){
   if(dirtyAll || !anyPartial || modal || stale || !ssSceneImage){ // full paint, or an OS/stale paint we can't scope
     clearDirty();
     var baseGraphics=ssBeginScene();ssDrawBase(baseGraphics);ssEndScene(gr,baseGraphics);ssPaintRowHover(gr,false);
-    drawOverlays(gr);
+    ssDrawSelection(gr);drawOverlays(gr);
     ssDrawTransitions(gr);ssDrawPopup(gr);
     return;
   }
@@ -205,6 +208,7 @@ function on_paint(gr){
   if(dirtySearch){ dirtySearch=false; if(view==='search') drawSearchBox(gr,R.main); }
   if(dirtyBar){ dirtyBar=false; drawBar(gr); }
   ssEndScene(targetGraphics,gr,regions);gr=targetGraphics;ssPaintRowHover(gr,false);
+  ssDrawSelection(gr);
   ssDrawTransitions(gr);
   ssDrawResizers(gr);
 }
@@ -236,6 +240,7 @@ function on_mouse_lbtn_down(x,y){
   if(SBH && inRect(x,y,SBH)){ drag='scrollh'; setScrollH(x); return; }
   if(SBN && inRect(x,y,SBN)){ drag='scrolln'; setScrollN(y); return; }
   if(SB && inRect(x,y,SB)){ drag='scroll'; setScroll(y); return; }
+  ssSelectionDown(x,y);
 }
 function on_mouse_rbtn_up(x,y){
   if(ssPopup){ssClosePopup();return true;}
@@ -244,9 +249,7 @@ function on_mouse_rbtn_up(x,y){
   var i;
   for(i=0;i<HB_TR.length;i++)if(inRect(x,y,HB_TR[i])){
     var row=HB_TR[i];
-    if(row.pl!==undefined)return openTrackMenu(row.pl,row.item,x,y);
-    var handle=row.songs?songsTracks[row.ti].h:row.srch?searchTrks[row.idx].h:row.lib?artistAlbums[row.block].tracks[row.idx].handle:null;
-    if(handle){ssOpenNativeMenu('context',{track_id:handle.Path+'|'+handle.SubSong},x,y);return true;}
+    return ssBatchTrackMenu(row,x,y);
   }
   for(i=0;i<HB_CARD.length;i++)if(HB_CARD[i].kind==='artist'&&inRect(x,y,HB_CARD[i])){ssArtistMenu(HB_CARD[i].id,x,y);return true;}
   for(i=0;i<HB_Q.length;i++)if(inRect(x,y,HB_Q[i])&&HB_Q[i].track_id){ssOpenNativeMenu('context',{track_id:HB_Q[i].track_id},x,y);return true;}
@@ -315,6 +318,7 @@ function on_mouse_lbtn_up(x,y){
   if(ssResizeEnd(x,y))return;
   if(ssPopupClick(x,y))return;
   if(ssPointerUp(x,y)) return;
+  if(ssSelectionUp(x,y))return;
   if(SS_LYRIC_BTN && inRect(x,y,SS_LYRIC_BTN)){ ssNativeLyrics(); return; }
   var t;
   // ---- modal overlays first ----
@@ -408,29 +412,29 @@ function on_mouse_lbtn_up(x,y){
     repaintAll(); return;
   }
   if((t=hit(HB_PL,x,y))){ plman.ActivePlaylist=t.i; firstRow=firstRowT=0; view='playlist'; repaintAll(); return; }
-  if((t=hit(HB_Q,x,y))){ if(t.track_id!==undefined) ssSend('play_id',{track_id:t.track_id}); else if(t.q!==undefined) playQueueItem(t.q); else playQueueNext(t.pl,t.item); repaintAll(); return; }
+  if((t=hit(HB_Q,x,y)))return;
   /* Rows play on DOUBLE click -- see on_mouse_lbtn_dblclk. The exception is the play glyph that
      replaces the track number on the hovered row: that is a button, and a button takes one click.
      Rows that draw no glyph (search results, the artist page) carry no pg band and so ignore this. */
   if((t=hit(HB_TR,x,y))){
-    if(t.pgx1!==undefined && x>=t.pgx0 && x<t.pgx1) playRow(t);
+    if((t.srch&&searchTrks[t.idx].reason==='歌词')||(t.pgx1!==undefined && x>=t.pgx0 && x<t.pgx1)) playRow(t);
     return;
   }
 }
 function playRow(t){
-  if(t.srch){ var hs=[], m; for(m=0;m<searchTrks.length;m++) hs.push(searchTrks[m].h); playHandleList(hs,t.idx); }
+  if(t.srch){ssPlaySearchHit(t.idx);}
   else if(t.songs) playSongsRow(t.ti);
   else if(t.lib) playArtistTrack(t.block,t.idx);
   else playPlaylistItem(t.pl,t.item);
   repaintAll();
 }
-// A single click on a list this dense is too easy to fire by accident, and it is the convention
-// every desktop player follows -- including the one this theme is modelled on.
+// Double-click inserts this song at the head of the user queue and starts it.
 function on_mouse_lbtn_dblclk(x,y){
   if(ssModal) return;
   if(ctxMenu||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;
   var t=hit(HB_TR,x,y);
-  if(t) playRow(t);
+  if(t&&!(t.srch&&searchTrks[t.idx].reason==='歌词')) ssEnqueueRow(t);
+  else if(!t&&(t=hit(HB_Q,x,y))){rightTab='queue';if(t.scope==='priority')playQueueItem(t.queueIndex);else if(t.track_id)ssSend('play_id',{track_id:t.track_id});else playQueueNext(t.pl,t.item);repaintAll();}
 }
 function hoverSig(x,y){
   var i;
@@ -484,6 +488,7 @@ function on_mouse_move(x,y){
   if(drag==='scroll'){ setScroll(y); return; }
   if(drag==='scrollh'){ setScrollH(x); return; }
   if(drag==='scrolln'){ setScrollN(y); return; }
+  if(ssSelectionMove(x,y))return;
   var sig=hoverSig(x,y), sk=scrollSection(x,y), z=hoverZone(x,y);
   if(sig!==hoverKey || sk!==scrollKey){   // sk change reveals/hides the section scrollbar
     var rowOnly=sk===scrollKey&&z===hoverZoneKey&&/^(r\d+|q\d+|)$/.test(sig)&&/^(r\d+|q\d+|)$/.test(hoverKey);
@@ -560,6 +565,7 @@ function on_mouse_wheel(step){
     if(lyStWheel(step)) repaintQueue();
     return;
   }
+  if(R.queue&&rightTab==='queue'&&mx>=R.queue.x&&mx<R.queue.x+R.queue.w){ssQueueScroll=clampPx(ssQueueScroll-step*WHEEL_PX,SS_QUEUE_MAX);repaintQueue();return;}
   if(R.navLib && mx>=R.navLib.x && mx<R.navLib.x+R.navLib.w && my>=R.navLib.y && my<R.navLib.y+R.navLib.h){
     navScrollT=clampPx(navScrollT-step*WHEEL_PX,NAV_MAX); startScrollAnim(); return;
   }
@@ -619,6 +625,7 @@ function on_drag_drop(action,x,y,mask){
   navDropHover=false; plDropHover=false; repaintAll();
 }
 function on_script_unload(){
+  ssStopCovers();
   ssHideLyrics();
   ssStop();if(ssSearchTimer)window.ClearTimeout(ssSearchTimer);
   stopLyAnim(); stopCaret(); stopViz(); stopScrollAnim(); stopShimAnim(); stopMemWatch();
@@ -668,10 +675,10 @@ function on_metadb_changed(handles,fromhook){ if(fromhook) return;ssInvalidateSe
    caches that genuinely depend on playlist CONTENT are still cleared by the callbacks that mean
    content changed (items added/removed/reordered, playlists changed). */
 function on_playlist_switch(){ firstRow=firstRowT=0; repaintAll(); }
-function on_playlists_changed(){ ssInvalidateSearch();invalidateItems(); repaintAll(); }
-function on_playlist_items_added(pl){ ssInvalidateSearch();invalidateItems(); if(dupWatch && dupWatch.pl===pl) scheduleDupScan(); repaintAll(); }
-function on_playlist_items_removed(){ ssInvalidateSearch();invalidateItems(); repaintAll(); }
-function on_playlist_items_reordered(){ invalidateItems(); repaintAll(); }
+function on_playlists_changed(){ ssInvalidateSelections();ssInvalidateSearch();invalidateItems(); repaintAll(); }
+function on_playlist_items_added(pl){ ssInvalidateSelections();ssInvalidateSearch();invalidateItems(); if(dupWatch && dupWatch.pl===pl) scheduleDupScan(); repaintAll(); }
+function on_playlist_items_removed(){ ssInvalidateSelections();ssInvalidateSearch();invalidateItems(); repaintAll(); }
+function on_playlist_items_reordered(){ ssInvalidateSelections();invalidateItems(); repaintAll(); }
 function on_item_focus_change(){ repaintAll(); }
 
 layout();
@@ -682,4 +689,5 @@ startMemWatch();   // caches grow into the component's spare memory and back off
 drpSync();         // make foo_verdant agree with the Discord property before anything plays
 
 ssLoadArtists();ssStart();
-console.log('Smart Shuffle Chinese Verdant 1.0.2 ready');
+ssStartCovers();
+console.log('Smart Shuffle Chinese Verdant 1.0.3 ready');

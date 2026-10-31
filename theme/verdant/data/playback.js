@@ -19,7 +19,7 @@ function syncOrderFromFb(){ var o=readOrder(); pbRepeat=o===2?2:(o===1?1:0); }
 function toggleShuffle(){ ssSend('enable',{enabled:!pbShuffle}); repaintAll(); }
 function cycleRepeat(){ pbRepeat=(pbRepeat+1)%3; applyPlaybackOrder(); }
 var ROUTE='__verdant_np__', SHUF='__smartshuffle__';
-function isHiddenPl(nm){ return nm===SHUF; }
+function isHiddenPl(nm){ return nm===SHUF||nm===ROUTE; }
 function playlistOfName(nm){ for(var i=0;i<plman.PlaylistCount;i++) if(plman.GetPlaylistName(i)===nm) return i; return -1; }
 function sameHandle(a,b){ return !!(a&&b&&a.Path===b.Path&&a.SubSong===b.SubSong); }
 function playPlaylistItem(pl,item){

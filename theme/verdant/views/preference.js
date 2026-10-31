@@ -141,16 +141,19 @@ function ssPointerUp(x,y){
   return true;
 }
 function ssDrawNativeQueue(gr,r,x,qy,bottom){
-  if(!pbShuffle||!ssState) return false;
-  var list=ssState.remaining||[], priority=ssState.queue||[], rows=priority.concat(list), rh=Math.max(42,Math.round(35*UISCALE));
-  tL(gr,'接下来 · 第 '+(ssState.round||0)+' 轮',FONT.pl,COL.text,x,qy,r.w-36,28); qy+=29;
-  tL(gr,'本轮剩余 '+(ssState.remaining_count||0)+' 首',FONT.qArtist,COL.green,x,qy,r.w-36,24); qy+=30;
-  for(var i=0;i<rows.length&&qy+rh<=bottom;i++){
-    var tr=rows[i], hb=qRow(gr,r,x,qy,rh); hb.track_id=tr.id; HB_Q.push(hb);
+  if(!ssState) return false;
+  var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rows=priority.concat(list), rh=Math.max(42,Math.round(35*UISCALE));
+  tL(gr,pbShuffle?'接下来 · 第 '+(ssState.round||0)+' 轮':'接下来',FONT.pl,COL.text,x,qy,r.w-36,28); qy+=29;
+  tL(gr,pbShuffle?'本轮剩余 '+(ssState.remaining_count||0)+' 首':ssState.source_name||'顺序播放',FONT.qArtist,COL.green,x,qy,r.w-36,24); qy+=30;
+  var viewport=Math.max(0,bottom-qy);SS_QUEUE_MAX=Math.max(0,rows.length*rh-viewport);ssQueueScroll=Math.max(0,Math.min(ssQueueScroll,SS_QUEUE_MAX));
+  var top=qy,start=Math.floor(ssQueueScroll/rh);qy-=ssQueueScroll-start*rh;
+  for(var i=start;i<rows.length&&qy+rh<=bottom;i++){
+    if(qy<top){qy+=rh;continue;}
+    var tr=rows[i], hb=qRow(gr,r,x,qy,rh); hb.track_id=tr.id;hb.scope=i<priority.length?'priority':pbShuffle?'remaining':'native';hb.queueIndex=i<priority.length?i:pbShuffle?i-priority.length:tr.item;if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}HB_Q.push(hb);
     tL(gr,(i<priority.length?'优先 · ':'')+(tr.title||'未知曲目'),FONT.qName,COL.text,x,qy,r.w-36,Math.round(rh*.55));
     tL(gr,tr.artist||'',FONT.qArtist,COL.text2,x,qy+Math.round(rh*.53),r.w-36,Math.round(rh*.4)); qy+=rh;
   }
-  if(!rows.length) tL(gr,'本轮已播完，点击「重开一轮」继续。',FONT.qArtist,COL.text3,x,qy,r.w-36,32);
+  if(!rows.length) tL(gr,pbShuffle?'本轮已播完，点击「重开一轮」继续。':'已到歌单末尾',FONT.qArtist,COL.text3,x,qy,r.w-36,32);
   return true;
 }
 function ssNativeLyrics(){

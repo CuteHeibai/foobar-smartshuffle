@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import urlparse, unquote
 from analyzer.__main__ import _publish
 
-VERSION=2
+VERSION=3
 UA='foobar-smartshuffle/1.0.1 (https://github.com/CuteHeibai/foobar-smartshuffle)'
 
 def norm(text):
@@ -35,7 +35,7 @@ def aliases(text):
     kana=''.join(t.reading_form() for t in aliases.tokenizer.tokenize(text))
     return list(dict.fromkeys([norm(text),norm(''.join(py)),norm(''.join(p[:1] for p in py)),norm(jaconv.kana2alphabet(jaconv.kata2hira(kana)))]))
 
-def read_lyrics(row,root):
+def read_lyric_document(row,root):
     text=str(row.get('lyrics',''))[:64000]
     path=str(row.get('path',''))
     if path.lower().startswith('file://'):path=path[7:]
@@ -65,11 +65,18 @@ def read_lyrics(row,root):
                 break
             except OSError:continue
     lines=[]
+    offsets=re.findall(r'\[offset:([+-]?\d+)\]',text,re.I)
+    offset=int(offsets[-1])/1000 if offsets else 0
     for line in text.splitlines():
         if re.match(r'^\s*\[(?:ar|al|ti|by|offset|re|ve):',line,re.I):continue
+        times=[max(0,int(m)*60+float(s)-offset) for m,s in re.findall(r'\[(\d+):(\d+(?:\.\d+)?)\]',line)]
         line=re.sub(r'\[[\d:.]+\]|<\d[\d:.]*>','',line).strip()
-        if line:lines.append(line)
-    return '\n'.join(dict.fromkeys(lines))[:64000]
+        if line:
+            for timestamp in times or [None]:lines.append({'text':line,'time':timestamp})
+    return {'text':'\n'.join(dict.fromkeys(line['text'] for line in lines))[:64000],'lines':lines}
+
+def read_lyrics(row,root):
+    return read_lyric_document(row,root)['text']
 
 def search(root,request):
     root=Path(root);root.mkdir(parents=True,exist_ok=True)
@@ -90,19 +97,19 @@ def search(root,request):
         for index,row in enumerate(rows):
             identity=row['id']
             if identity in seen:continue
-            seen.add(identity);lyric=read_lyrics(row,root)
-            signature=hashlib.sha256(json.dumps([VERSION,row,lyric,artists.get(row.get('artist',''),{})],ensure_ascii=False,sort_keys=True).encode()).hexdigest()
+            seen.add(identity);document=read_lyric_document(row,root);lyric=document['text']
+            signature=hashlib.sha256(json.dumps([VERSION,row,document,artists.get(row.get('artist',''),{})],ensure_ascii=False,sort_keys=True).encode()).hexdigest()
             cached=db.execute('SELECT fingerprint,data FROM tracks WHERE id=?',(identity,)).fetchone()
             if cached and cached[0]==signature:data=json.loads(cached[1])
             else:
                 fields=[str(row.get(k,'')) for k in ('title','artist','album')]
                 verified=artists.get(row.get('artist',''),{})
                 if verified.get('verified'):fields.extend([verified.get('name','')]+verified.get('aliases',[]))
-                data={'fields':[aliases(f) for f in fields],'lyrics':lyric,'lyric_keys':[norm(lyric)]}
+                data={'fields':[aliases(f) for f in fields],'lyrics':lyric,'lyric_lines':document['lines'],'lyric_keys':[norm(lyric)]}
                 # Lyric text is searched literally; phonetic search indexes metadata, not entire lyric books.
                 db.execute('INSERT OR REPLACE INTO tracks VALUES(?,?,?)',(identity,signature,json.dumps(data,ensure_ascii=False)))
             if not terms:continue
-            scores=[];reasons=[]
+            scores=[];reasons=[];lyric_terms=[]
             for term in terms:
                 best=0;reason=''
                 for field in data['fields']:
@@ -115,12 +122,16 @@ def search(root,request):
                 if not best and term in data['lyric_keys'][0]:best=35;reason='歌词'
                 if not best:break
                 scores.append(best);reasons.append(reason)
+                if reason=='歌词':lyric_terms.append(term)
             if len(scores)!=len(terms):continue
             reason='歌词' if '歌词' in reasons else '拼音 / 罗马音' if '拼音 / 罗马音' in reasons else '文字'
-            snippet=''
+            snippet='';lyric_time=None
             if reason=='歌词':
-                lines=data['lyrics'].splitlines();snippet=next((line for line in lines if any(t in norm(line) for t in terms)),data['lyrics'][:120])[:160]
-            matches.append({'id':identity,'index':index,'score':sum(scores),'reason':reason,'snippet':snippet})
+                lines=[line for line in data['lyric_lines'] if any(t in norm(line['text']) for t in lyric_terms)]
+                if lines:
+                    line=min(lines,key=lambda line:(-sum(t in norm(line['text']) for t in lyric_terms),line['time'] is None,line['time'] or 0))
+                    snippet=line['text'][:160];lyric_time=line['time']
+            matches.append({'id':identity,'index':index,'score':sum(scores),'reason':reason,'snippet':snippet,'lyric_time':lyric_time})
         db.executemany('DELETE FROM tracks WHERE id=?',[(r[0],) for r in db.execute('SELECT id FROM tracks').fetchall() if r[0] not in seen]);db.commit()
     finally:db.close()
     matches.sort(key=lambda r:(-r['score'],r['index']))

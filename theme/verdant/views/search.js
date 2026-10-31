@@ -74,7 +74,7 @@ function drawSearch(gr,r){
       if(ssRowHover(r.x,Math.max(ry,top),r.x+r.w,Math.min(ry+rh,cropY))) gr.FillRoundRect(x0-8,ry,w+16,rh,4,4,COL.rowHover);
       drawCover(gr,x0,ry+8,40,4,tr.h,tr.album||tr.title);
       tL(gr,tr.title,FONT.rowTitle,COL.text,x0+52,ry+8,w-52-durW,20);
-      tL(gr,tr.snippet?('歌词 · '+tr.snippet):tr.artist+(tr.album?('  '+CH_BULL+'  '+tr.album):''),FONT.rowArtist,COL.text2,x0+52,ry+30,w-52-durW,16);
+      tL(gr,tr.snippet?('歌词 '+(tr.lyric_time!==null&&tr.lyric_time!==undefined?fmtTime(tr.lyric_time):'无时间轴')+' · '+tr.snippet):tr.artist+(tr.album?('  '+CH_BULL+'  '+tr.album):''),FONT.rowArtist,COL.text2,x0+52,ry+30,w-52-durW,16);
       tR(gr,tr.len,FONT.rowCell,COL.text2,r.x+r.w-pad-durW,ry,durW,rh);
       var hy0=Math.max(ry,top), hy1=Math.min(ry+rh,cropY);   // clip the click target to the viewport
       if(hy1>hy0) HB_TR.push({x0:x0-8,y0:hy0,x1:r.x+r.w-pad+8,y1:hy1,srch:true,idx:i});

@@ -46,14 +46,24 @@ function ssArtistLookup(name,x,y){
 }
 function ssArtistMenu(name,x,y){
   var r=ssArtistRecord(name),items=[];
+  function details(){loadArtist(name);view='artist';repaintAll();}
+  function resource(kind){ssSend('artist_resource',{name:name,resource:kind});}
   if(r){
-    items.push({label:r.name,disabled:true},{label:'MusicBrainz · '+(r.country||r.type||'歌手资料'),disabled:true});
-    if(r.description)items.push({label:r.description,disabled:true});
-    if(r.portrait_license)items.push({label:'头像：'+r.portrait_license+' · '+(r.portrait_author||'Wikimedia Commons'),disabled:true});
+    items.push({label:r.name,run:details},{label:'MusicBrainz · '+(r.country||r.type||'歌手资料'),run:function(){resource('source');}});
+    if(r.description)items.push({label:r.description,run:details});
+    if(r.portrait)items.push({label:'头像：在资源管理器中定位图片',run:function(){resource('portrait');}});
+    if(r.portrait_source)items.push({label:'头像来源',run:function(){resource('picture_source');}});
+    items.push({label:'本地资料缓存',run:function(){resource('metadata');}});
     items.push({separator:true});
   }
   items.push({label:r?'重新联网核验…':'联网核验歌手…',run:function(){ssArtistLookup(name,x,y);}});
   ssShowPopup(items,x,y);
+}
+function ssPlaySearchHit(index){
+  var row=searchTrks[index];if(!row)return false;
+  var args={track_id:row.id,tracks:searchTrks.map(function(t){return t.id;})};
+  if(row.lyric_time!==null&&row.lyric_time!==undefined&&isFinite(row.lyric_time)&&row.lyric_time>=0)args.seconds=Number(row.lyric_time);
+  rightTab='lyrics';ssSend('play_match',args);repaintAll();return true;
 }
 function ssScheduleSearch(query){
   if(query===ssSearchQuery&&ssSearchCatalog)return;
@@ -85,7 +95,7 @@ function ssAcceptDiscovery(state){
       searchTrks=[];
       for(var i=0;i<matches.length;i++){
         var match=matches[i],t=index[match.index];if(!t||t.id!==match.id)continue;
-        var copy={};for(var k in t)copy[k]=t[k];copy.reason=match.reason;copy.snippet=match.snippet;searchTrks.push(copy);
+        var copy={};for(var k in t)copy[k]=t[k];copy.reason=match.reason;copy.snippet=match.snippet;copy.lyric_time=match.lyric_time;searchTrks.push(copy);
       }
       var names={};for(i=0;i<searchTrks.length;i++)names[searchTrks[i].artist]=true;
       searchArts=getArtistList().filter(function(a){return names[a.name];}).slice(0,24);

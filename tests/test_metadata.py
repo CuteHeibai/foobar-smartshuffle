@@ -26,6 +26,16 @@ class MetadataTests(unittest.TestCase):
   p=self.root/'a.lrc';p.write_text('[00:01.00]窗外的麻雀\n[ar:x]',encoding='utf-8');self.assertEqual(self.query('窗外')[0]['id'],'cn|0')
   p.write_text('[00:01.00]新的歌词',encoding='utf-8');self.assertFalse(self.query('窗外'));self.assertTrue(self.query('新的歌词'))
   p.unlink();self.assertFalse(self.query('新的歌词'));self.assertEqual(read_lyrics({'path':str(self.root/'missing.cue'),'lyrics':''},self.root),'')
+ def test_lyric_result_retains_fractional_timestamp_and_repeated_lines(self):
+  (self.root/'a.lrc').write_text('[00:03.25]before\n[00:12.500][01:03.50]matched words',encoding='utf-8')
+  result=self.query('matched words')[0];self.assertEqual(result['lyric_time'],12.5);self.assertEqual(result['snippet'],'matched words')
+ def test_timestamp_change_invalidates_cached_search(self):
+  p=self.root/'a.lrc';p.write_text('[00:03.00]needle',encoding='utf-8');self.assertEqual(self.query('needle')[0]['lyric_time'],3)
+  p.write_text('[00:14.25]needle',encoding='utf-8');self.assertEqual(self.query('needle')[0]['lyric_time'],14.25)
+ def test_untimed_lyrics_never_invent_a_timestamp(self):
+  self.assertIsNone(self.query('this ship')[0]['lyric_time'])
+ def test_plain_embedded_copy_does_not_hide_timed_sidecar(self):
+  self.rows[0]['lyrics']='needle';(self.root/'a.lrc').write_text('[00:06.50]needle',encoding='utf-8');self.assertEqual(self.query('needle')[0]['lyric_time'],6.5)
  def test_utf16_lyrics(self):
   (self.root/'a.lrc').write_text('[00:01.00]带有编码的歌词',encoding='utf-16');self.assertEqual(self.query('编码')[0]['id'],'cn|0')
  def test_verified_portrait_survives_refresh_without_an_image(self):

@@ -21,7 +21,7 @@ def check(condition, label):
 
 
 s = b.request("state")
-check(s["version"] == 1 and s["component"] == "1.0.1", "Native component and v1 bridge loaded")
+check(s["version"] == 1 and s["component"] == "1.0.3", "Native component and v1 bridge loaded")
 check(s["remaining_count"] > 2, "Existing real playlist was read")
 before = s["remaining"]
 before_ids = [t["id"] for t in before]

@@ -54,12 +54,14 @@ function ssAcceptState(s){
   }
   if(done&&s.response&&s.response.ok===false){
     ssMessage=s.response.code==='stale_preview'?'歌单已变化，预览已更新；请核对后再次应用。':('操作失败：'+(s.response.message||s.response.code||'请重试'));
+    if(!ssModal)ssError=ssMessage;
   }else if(done){ ssMessage=''; }
   if(done&&done.id===ssApplyId){
     ssApplyId='';
     if(!s.response||s.response.ok!==false){ ssModal=false; ssDragging=false; applyKeyMode(); }
   }
   if(typeof ssAcceptDiscovery==='function')ssAcceptDiscovery(s);
+  if(typeof ssAcceptCovers==='function')ssAcceptCovers(s);
   ssPump(); if(ssModal&&typeof ssRepaintPreference==='function')ssRepaintPreference();else repaintAll();
 }
 function ssPoll(){
@@ -77,7 +79,7 @@ function ssPoll(){
 function ssStart(){
   if(ssStarted) return;
   ssStarted=true;ssStarting=true;ssPoll();ssStarting=false;
-  ssSend('state',{theme_version:'1.0.2',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard});
+  ssSend('state',{theme_version:'1.0.3',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard});
   if(typeof ssReportLayout==='function')ssReportLayout();
   if(typeof UIWizard!=='undefined'&&UIWizard)window.SetTimeout(function(){
     ssSend('state',{theme_chrome_ready:ssConfigureChrome()});

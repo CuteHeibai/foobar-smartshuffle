@@ -31,8 +31,11 @@ def main() -> int:
     arguments = parser.parse_args()
     try:
         if arguments.metadata:
-            from analyzer.metadata import execute
             request=json.loads(arguments.input.read_text(encoding="utf-8-sig"))
+            if request.get('task') == 'covers':
+                from analyzer.covers import execute
+            else:
+                from analyzer.metadata import execute
             result={"version":1,"ok":True,"result":execute(arguments.input.parent,request)}
         else:
             from analyzer.core import analyze_file

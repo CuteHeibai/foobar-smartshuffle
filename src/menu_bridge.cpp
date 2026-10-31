@@ -28,7 +28,9 @@ json MenuBridge::open_context(metadb_handle_list_cref tracks){
     cancel();token_=std::to_string(++sequence_);context_=contextmenu_manager_v2::get();
     context_->init_context(tracks,contextmenu_manager::flag_view_full|contextmenu_manager::flag_show_shortcuts);
     auto tree=context_->build_menu();auto item=serialize(tree);
-    return {{"token",token_},{"items",item.value("children",json::array())},{"track_id",std::string(tracks[0]->get_path())+"|"+std::to_string(tracks[0]->get_subsong_index())}};
+    json result={{"token",token_},{"items",item.value("children",json::array())},{"selected_count",tracks.get_count()}};
+    if(tracks.get_count()==1)result["track_id"]=std::string(tracks[0]->get_path())+"|"+std::to_string(tracks[0]->get_subsong_index());
+    return result;
 }
 void MenuBridge::execute(const std::string& token,unsigned command){
     auto at=commands_.find(command);

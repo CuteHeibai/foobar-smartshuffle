@@ -9,6 +9,7 @@ VALIDATE_COMPONENT_FILENAME("foo_ssfixture.dll")
 namespace {
 using json=nlohmann::json;namespace fs=std::filesystem;
 fs::path root;UINT_PTR timer;std::string last;
+HWND languageDialog=nullptr;
 class SettingsCallback:public preferences_page_callback {public:void on_state_changed()override{}};
 std::wstring wide(const std::string& s){int n=MultiByteToWideChar(CP_UTF8,0,s.c_str(),-1,nullptr,0);std::wstring r(n,0);MultiByteToWideChar(CP_UTF8,0,s.c_str(),-1,r.data(),n);r.pop_back();return r;}
 void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
@@ -74,6 +75,20 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         auto pi=pm->find_or_create_playlist("SmartShuffle CUE acceptance");pm->playlist_clear(pi);metadb_handle_list items;
         playlist_loader::g_path_to_handles_simple(path.c_str(),items,fb2k::noAbort);r["ids"]=json::array();for(auto& h:items)r["ids"].push_back(std::string(h->get_path())+"|"+std::to_string(h->get_subsong_index()));
         pm->playlist_insert_items(pi,0,items,pfc::bit_array_false());r["playlist"]=pi;r["tracks"]=items.get_count();
+    }
+    else if(op=="language_setup"){
+        if(languageDialog)DestroyWindow(languageDialog);
+        struct Template {DLGTEMPLATE dialog;WORD menu,windowClass,title;} layout{};layout.dialog.style=WS_POPUP|DS_CONTROL;layout.dialog.cx=240;layout.dialog.cy=100;
+        languageDialog=CreateDialogIndirectParamW(core_api::get_my_instance(),&layout.dialog,core_api::get_main_window(),[](HWND,UINT,WPARAM,LPARAM)->INT_PTR{return FALSE;},0);
+        if(!languageDialog)throw std::runtime_error("Fixture dialog creation failed");
+        CreateWindowExW(0,L"Static",L"Font family",WS_CHILD,0,0,100,20,languageDialog,reinterpret_cast<HMENU>(101),nullptr,nullptr);
+        CreateWindowExW(0,L"Button",L"&Apply",WS_CHILD,0,25,100,20,languageDialog,reinterpret_cast<HMENU>(102),nullptr,nullptr);
+        CreateWindowExW(0,L"Edit",L"Font family",WS_CHILD,0,50,100,20,languageDialog,reinterpret_cast<HMENU>(103),nullptr,nullptr);
+        SetWindowTextW(languageDialog,L"JSplitter Configuration");r["created"]=true;
+    }else if(op=="language_status"){
+        auto get=[](HWND w){wchar_t text[1024]{};GetWindowTextW(w,text,1024);int n=WideCharToMultiByte(CP_UTF8,0,text,-1,nullptr,0,nullptr,nullptr);std::string out(n,0);WideCharToMultiByte(CP_UTF8,0,text,-1,out.data(),n,nullptr,nullptr);out.pop_back();return out;};
+        r["title"]=get(languageDialog);r["label"]=get(GetDlgItem(languageDialog,101));r["button"]=get(GetDlgItem(languageDialog,102));r["edit"]=get(GetDlgItem(languageDialog,103));
+        DestroyWindow(languageDialog);languageDialog=nullptr;
     }
     else if(op=="status"){
         r["playing"]=playback_control::get()->is_playing();r["position"]=playback_control::get()->playback_get_position();r["playing_playlist"]=pm->get_playing_playlist();r["queue"]=pm->queue_get_count();r["names"]=json::array();

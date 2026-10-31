@@ -37,7 +37,7 @@ function ssPopupChoose(item){
   var token=ssPopup.token;ssClosePopup();
   if(item.run)item.run();else if(item.command!==undefined)ssSend('menu_execute',{token:token,command:item.command});
 }
-function ssMenuLabel(label){return String(label||'').replace(/&&/g,'\u0001').replace(/&/g,'').replace(/\u0001/g,'&').split('\t')[0];}
+function ssMenuLabel(label){var text=String(label||'').replace(/&&/g,'\u0001').replace(/&/g,'').replace(/\u0001/g,'&').split('\t')[0];return typeof ssLocalLabel==='function'?ssLocalLabel(text):text;}
 function ssDrawPopup(gr){
   SS_MENU_HB=[];if(!ssPopup)return;
   var previous=null,scale=Math.max(1,UISCALE),rh=Math.round(34*scale),pad=6;
@@ -112,7 +112,7 @@ function ssPopupKey(key){
 function ssShowPlaybackModes(x,y){
   var items=[{label:'智能随机（每轮全覆盖）',checked:!!(ssState&&ssState.enabled),run:function(){ssSend('playback_mode',{mode:'smart'});}}];
   var orders=(ssState&&ssState.orders)||[{index:0,name:'顺序播放'},{index:1,name:'列表循环'},{index:2,name:'单曲循环'}];
-  for(var i=0;i<orders.length;i++)(function(order){items.push({label:order.name==='默认'?'顺序播放':order.name,checked:!!(ssState&&!ssState.enabled&&ssState.native_order===order.index),run:function(){ssSend('playback_mode',{mode:'native',order:order.index});}});})(orders[i]);
+  for(var i=0;i<orders.length;i++)if(orders[i].index<3)(function(order){items.push({label:['顺序播放','列表循环','单曲循环'][order.index],checked:!!(ssState&&!ssState.enabled&&ssState.native_order===order.index),run:function(){ssSend('playback_mode',{mode:'native',order:order.index});}});})(orders[i]);
   items.push({separator:true},{label:'调整随机偏好…',run:ssOpen},{label:'重新开始一轮',run:function(){ssSend('restart');}},{separator:true},{label:'插件设置…',run:function(){ssSend('settings');}});
   ssShowPopup(items,x,y);
 }

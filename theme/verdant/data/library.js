@@ -241,8 +241,8 @@ function invalidateItems(){ plCacheMap={}; plMetaMap={}; plCoverCache={}; coverP
 
 /* ---- Playlist view sort: only reorders how rows are DISPLAYED. Native item indices (playback,
    row menu, drag targets) are untouched, so order[displayRow] maps to the real item index. */
-var plSort='artist', plSortDir='asc', plSortMenuOpen=false, PL_SORT_HB=[], HB_PLSORT=null, HB_PLSORTDIR=null;
-var PL_SORTS=[['歌曲名','title'],['歌手','artist'],['专辑','album']];
+var plSort='manual', plSortDir='asc', plSortMenuOpen=false, PL_SORT_HB=[], HB_PLSORT=null, HB_PLSORTDIR=null;
+var PL_SORTS=[['手动顺序','manual'],['歌曲名','title'],['歌手','artist'],['专辑','album']];
 var plOrderMap={};
 // Lowercase sort keys built once per playlist and reused across re-sorts, for the same reason as
 // the All Songs index: cmpStr would otherwise lowercase both operands on every comparison.
@@ -260,7 +260,7 @@ function buildPlOrder(pi){
   for(i=0;i<n;i++) order.push(i);
   if(plSort==='title') order.sort(function(a,b){ return cmpK(k.t[a],k.t[b])||cmpK(k.a[a],k.a[b]); });
   else if(plSort==='album') order.sort(function(a,b){ return cmpK(k.l[a],k.l[b])||cmpK(k.a[a],k.a[b])||cmpK(k.t[a],k.t[b]); });
-  else order.sort(function(a,b){ return cmpK(k.a[a],k.a[b])||cmpK(k.l[a],k.l[b])||cmpK(k.t[a],k.t[b]); });
+  else if(plSort==='artist') order.sort(function(a,b){ return cmpK(k.a[a],k.a[b])||cmpK(k.l[a],k.l[b])||cmpK(k.t[a],k.t[b]); });
   if(plSortDir==='desc') order.reverse();
   return order;
 }

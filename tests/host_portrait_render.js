@@ -14,6 +14,9 @@
   var names=libTF('artistName');ssArtists={};if(names.length)ssArtists[names[0]]={verified:true,name:names[0]};artistList=null;
   var list=getArtistList();if(list.some(function(a){return !ssArtistRecord(a.name);}))throw Error('Unconfirmed artist is still listed');
   result.filtered_artists=list.length;result.ok=true;
+  var oldCovers=ssCoverTracks;ssCoverTracks={'fixture|0':{cover:input[0].portrait}};
+  var cover=ssCachedCover({Path:'fixture',SubSong:0});ssCoverTracks=oldCovers;
+  if(!cover||cover.Width!==64)throw Error('Cached song cover did not reach the actual bitmap loader');result.cached_cover=true;
  }catch(error){result.error=String(error);}
  ssArtists=saved;ssArtistImages={};artistList=null;artistTracksMap=null;artistCandCache={};artCardCache={};artCardN=0;
  utils.WriteTextFile(fb.ProfilePath+'smartshuffle\\portrait-test-result.json',JSON.stringify(result),false);

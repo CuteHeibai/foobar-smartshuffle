@@ -100,13 +100,13 @@ function artDone(key,img){
 function startArt(h,key){
   try{
     utils.GetAlbumArtAsyncV2(0,h,0,false,false,false).then(function(res){
-      var img=res?res.image:null;
+      var img=res?res.image:null;if(!img&&typeof ssCachedCover==='function')img=ssCachedCover(h);
       if(img && img.Width>ART_MAXPX){
         try{ img=img.Resize(ART_MAXPX,Math.round(img.Height*ART_MAXPX/img.Width),ART_DOWNSCALE); }catch(e){}
       }
       artDone(key,img); artWarmRepaint();
-    }, function(){ artDone(key,null); });
-  }catch(e){ artDone(key,null); }
+    }, function(){ artDone(key,typeof ssCachedCover==='function'?ssCachedCover(h):null);artWarmRepaint(); });
+  }catch(e){ artDone(key,typeof ssCachedCover==='function'?ssCachedCover(h):null); }
 }
 function getArtK(h,key){                        // cached image, or null (not-loaded -> request async)
   if(!h) return null;

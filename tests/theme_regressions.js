@@ -15,7 +15,7 @@ function harness(){
     hit:(rows,x,y)=>rows.find(r=>x>=r.x0&&x<=r.x1&&y>=r.y0&&y<=r.y1)||null,
   };vm.createContext(c);
   function load(file){const p=path.join(root,file);if(fs.existsSync(p))vm.runInContext(fs.readFileSync(p,'utf8'),c);}
-  load('data/smartshuffle.js');load('ui/motion.js');load('ui/menus.js');load('ui/layout.js');load('ui/files.js');load('ui/hover.js');
+  load('data/smartshuffle.js');load('ui/motion.js');load('ui/menus.js');load('ui/layout.js');load('ui/files.js');load('ui/hover.js');load('ui/selection.js');load('data/selection_host.js');
   return {c,load,writes,paints:()=>paints,flush(){const jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
 }
 test('lyrics are the initial right pane and its first tab',()=>{
@@ -245,5 +245,54 @@ test('artist lists contain only confirmed records while all song handles remain 
  const handles={Count:3,0:{Path:'a'},1:{Path:'b'},2:{Path:'c'}};c.libItems=()=>handles;c.libTF=()=>['One','Unknown','Two'];c.ssArtists={One:{verified:true},Two:{verified:true}};
  const artists=c.getArtistList();assert.deepEqual(Array.from(artists,a=>a.name),['One','Two']);assert.equal(handles.Count,3);
  c.utils.ReadTextFile=()=>JSON.stringify({Two:{verified:true}});c.ssLoadArtists();assert.equal(c.artistList,null);assert.deepEqual(Array.from(c.getArtistList(),a=>a.name),['Two']);
+});
+
+
+test('both internal playlists are excluded from navigation while normal lists remain visible',()=>{
+ const h=harness(),c=h.c;h.load('data/playback.js');h.load('data/library.js');const names=['Music','__verdant_np__','__smartshuffle__','Custom'];c.plman.PlaylistCount=names.length;c.plman.GetPlaylistName=i=>names[i];assert.deepEqual(Array.from(c.visiblePlaylists()),[0,3]);
+});
+test('lyric search activation sends the exact target and timestamp with the search sequence',()=>{
+ const h=harness(),c=h.c;h.load('data/discovery.js');c.rightTab='queue';c.searchTrks=[{id:'a|0'},{id:'b|0',reason:'歌词',lyric_time:12.5}];
+ assert.equal(c.ssPlaySearchHit(1),true);const request=h.writes.at(-1);assert.equal(request.op,'play_match');assert.equal(request.track_id,'b|0');assert.equal(request.seconds,12.5);assert.deepEqual(Array.from(request.tracks),['a|0','b|0']);assert.equal(c.rightTab,'lyrics');
+});
+test('untimed search hit plays normally without a fabricated seek',()=>{
+ const h=harness(),c=h.c;h.load('data/discovery.js');c.searchTrks=[{id:'a|0',reason:'歌词',lyric_time:null}];c.ssPlaySearchHit(0);assert.equal('seconds' in h.writes.at(-1),false);
+});
+test('artist menu entries open artist details, provenance or the actual local image',()=>{
+ const h=harness(),c=h.c;h.load('data/discovery.js');c.ssArtists.Name={verified:true,name:'Canonical',country:'JP',description:'Description',source:'https://musicbrainz.org/artist/id',portrait:'local.png',portrait_license:'CC BY'};
+ let artist='';c.loadArtist=name=>artist=name;c.ssArtistMenu('Name',10,40);let items=c.ssPopup.levels[0].items;items[0].run();assert.equal(artist,'Name');assert.equal(c.view,'artist');assert.ok(items.filter(i=>!i.separator).every(i=>typeof i.run==='function'));
+ items.find(i=>i.label.indexOf('头像')===0).run();assert.equal(h.writes.at(-1).op,'artist_resource');assert.equal(h.writes.at(-1).resource,'portrait');
+});
+test('sorted playlist drag submits native indices and duplicate occurrences stay independent',()=>{
+ const h=harness(),c=h.c;let sent;c.ssSend=(op,args)=>sent={op,args};c.view='playlist';c.R={main:{x:0,y:0,w:600,h:300}};c.window.SetInterval=()=>1;c.utils.IsKeyPressed=()=>false;
+ c.ssState={playlists:[{index:0,guid:'guid',writable:true,name:'List'}]};c.plman.ActivePlaylist=0;c.getPlOrder=()=>[2,0,1];const hs=[{Path:'same',SubSong:0},{Path:'same',SubSong:0},{Path:'z',SubSong:0}];hs.Count=3;c.getItems=()=>hs;
+ c.HB_TR=[2,0,1].map((item,i)=>({pl:0,item,x0:0,x1:600,y0:i*50,y1:(i+1)*50}));c.HB_PL=[];c.HB_Q=[];
+ c.ssSelectionDown(100,20);c.ssSelectionUp(100,20);c.ssSelectionDown(100,20);c.ssSelectionMove(100,145);c.ssSelectionUp(100,145);
+ assert.equal(sent.op,'track_reorder');assert.deepEqual(Array.from(sent.args.order),[0,1,2]);assert.deepEqual(Array.from(sent.args.expected),['same|0','same|0','z|0']);assert.equal(c.plSort,'manual');
+});
+test('multi-select context menu sends the full selected occurrence set to native Converter',()=>{
+ const h=harness(),c=h.c;c.view='songs';c.R={main:{x:0,y:0,w:600,h:300}};c.utils.IsKeyPressed=k=>k===16;c.window.SetInterval=()=>1;c.ssState={playlists:[]};c.canEditPl=()=>false;c.isHiddenPl=()=>false;
+ c.songsTracks=[0,1,2].map(i=>({h:{Path:'track'+i,SubSong:0}}));c.HB_TR=[0,1,2].map(i=>({songs:true,ti:i,x0:0,x1:600,y0:i*50,y1:(i+1)*50}));c.HB_PL=[];c.HB_Q=[];
+ c.utils.IsKeyPressed=()=>false;c.ssSelectionDown(100,20);c.ssSelectionUp(100,20);c.utils.IsKeyPressed=k=>k===16;c.ssSelectionDown(100,120);c.ssSelectionUp(100,120);
+ let request;c.ssOpenNativeMenu=(kind,args,x,y,extra)=>request={kind,args,extra};c.ssBatchTrackMenu(c.HB_TR[1],100,60);
+ assert.equal(request.args.tracks.length,3);assert.ok(request.extra.find(i=>i.label==='移动到歌单').disabled);assert.ok(request.extra.find(i=>i.label==='添加到歌单').children[0].run);
+});
+test('a double click inserts and starts one song without creating a route playlist',()=>{
+ const h=harness(),c=h.c;h.load('data/library.js');c.vizMenuOpen=false;c.window.GetProperty=(k,d)=>d;const app=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
+ c.ssModal=false;c.dupPrompt=c.rgPrompt=null;c.HB_TR=[{songs:true,ti:0,x0:0,y0:0,x1:500,y1:60}];c.songsTracks=[{h:{Path:'song',SubSong:2}}];c.HB_Q=[];c.on_mouse_lbtn_dblclk(100,20);
+ assert.equal(h.writes.at(-1).op,'queue_add');assert.equal(h.writes.at(-1).play,true);assert.deepEqual(Array.from(h.writes.at(-1).tracks),['song|2']);assert.equal(c.rightTab,'queue');
+});
+test('playback menu hides redundant native random modes and keeps four choices',()=>{
+ const h=harness(),c=h.c;c.ssState={orders:[0,1,2,3,4,5,6].map(index=>({index,name:'order'+index}))};c.ssShowPlaybackModes(0,40);
+ assert.deepEqual(Array.from(c.ssPopup.levels[0].items.slice(0,4),i=>i.label),['智能随机（每轮全覆盖）','顺序播放','列表循环','单曲循环']);assert.equal(c.ssPopup.levels[0].items.length,9);
+});
+test('startup cover filter skips real artwork and groups missing tracks for one album lookup',()=>{
+ const h=harness(),c=h.c;h.load('data/covers.js');c.artInFlight=0;c.ssSelectOwner=null;c.ssDragging=false;c.ssCoverRow=t=>({id:t.id,path:t.id,subsong:0,artist:'Artist',album:'Album',album_artist:'Artist'});
+ c.ssCoverRows=[{id:'existing'},{id:'a'},{id:'b'}];let row=0;c.utils.GetAlbumArtAsyncV2=()=>({then(fn){fn(row++===0?{image:{}}:{image:null});}});c.ssCoverStep();c.ssCoverStep();c.ssCoverStep();
+ const req=h.writes.at(-1);assert.equal(req.task,'covers');assert.equal(req.refresh_missing,true);assert.deepEqual(Array.from(req.rows,r=>r.id),['a','b']);assert.equal(c.ssCoverAt,3);
+});
+test('Chinese menu labels preserve native command identity and user-defined text',()=>{
+ const h=harness(),c=h.c;c.utils.ReadTextFile=()=>fs.readFileSync(path.join(root,'locale/zh-CN.json'),'utf8');h.load('ui/localization.js');assert.equal(c.ssMenuLabel('&Convert...\tCtrl+X'),'转换…');assert.equal(c.ssMenuLabel('My preset'),'My preset');
+ c.ssShowPopup([{label:'Convert',command:21}],0,40,'token',true);c.ssPopupChoose(c.ssPopup.levels[0].items[0]);assert.equal(h.writes.at(-1).command,21);assert.equal(h.writes.at(-1).token,'token');
 });
 console.log(passed+' interaction regression checks passed');

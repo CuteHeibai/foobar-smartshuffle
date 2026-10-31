@@ -15,6 +15,11 @@ function drawPlaylist(gr,r){
   gr.FillGradRect(r.x,r.y,r.w,M.headH,90,blend(artHue(plChoice(p.i).single,p.name),COL.base,0.42),COL.base,1.0);
   var s=ssDensity,compact=r.w<800*s, ax=r.x+M.cpad, ay=r.y+(compact?22:44)*s, art=M.artSz;
   drawPlCover(gr,ax,ay,art,8,p.i,p.name);
+  var addW=Math.min(136*s,r.w-art-48*s),addX=r.x+r.w-M.cpad-addW,addY=r.y+10*s;
+  if(canEditPl(p.i)&&addW>82*s){
+    gr.FillRoundRect(addX,addY,addW,28*s,8,8,COL.elev);tC(gr,'＋ 添加文件夹',FONT.pl,COL.green,addX,addY,addW,28*s);
+    HB_PLADD_FOLDER={x0:addX,y0:addY,x1:addX+addW,y1:addY+28*s};
+  }
   // sort pill + asc/desc button, right-aligned like the All Songs group pill; header text
   // stops short of this column so the two can never collide on a narrow panel
   var rx0=r.x+r.w-M.cpad, sortDirW=38, sortPillW=compact?Math.min(230,r.w-100):200, sortGap=8, sortTotalW=sortPillW+sortGap+sortDirW;

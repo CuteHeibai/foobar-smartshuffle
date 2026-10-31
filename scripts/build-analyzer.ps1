@@ -45,7 +45,7 @@ try {
         '--workpath', (Join-Path $buildRoot 'analyzer-work'), '--specpath', (Join-Path $buildRoot 'analyzer-spec'),
         '--paths', $repo, '--collect-all', 'librosa', '--collect-all', 'soundfile', '--collect-all', 'soxr',
         '--collect-all', 'sudachipy', '--collect-all', 'sudachidict_small', '--collect-all', 'pypinyin', '--collect-all', 'jaconv',
-        '--hidden-import', 'analyzer.metadata', '--hidden-import', 'analyzer.core', '--exclude-module', 'matplotlib', '--exclude-module', 'tkinter',
+        '--hidden-import', 'analyzer.metadata', '--hidden-import', 'analyzer.covers', '--hidden-import', 'analyzer.core', '--exclude-module', 'matplotlib', '--exclude-module', 'tkinter',
         (Join-Path $repo 'analyzer/__main__.py'))
     $exe = Join-Path $buildRoot 'analyzer/smartshuffle-analyzer/smartshuffle-analyzer.exe'
     $previousExecutable = $env:SMARTSHUFFLE_ANALYZER_EXE

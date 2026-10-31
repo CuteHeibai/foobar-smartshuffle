@@ -2,9 +2,9 @@
 
 给本地歌单一个可以拖动的随机偏好小球：**左边少听、右边常听，上方风格跳跃、下方风格相似。** 两轴可以组合，中心为均衡随机；所有位置都保持每轮全覆盖、不放回抽样。
 
-包含原生组件 `foo_smartshuffle`、中文黑灰绿 Verdant 主题和独立本地音频分析工具。当前为 **v1.0.2 测试版**，实际验证环境为 Windows、foobar2000 **2.25.8 x64 便携版**。其他版本、标准安装及不同组件组合尚未验证。
+包含原生组件 `foo_smartshuffle`、中文黑灰绿 Verdant 主题和独立本地音频分析工具。当前为 **v1.0.3 测试版**，实际验证环境为 Windows、foobar2000 **2.25.8 x64 便携版**。其他版本、标准安装及不同组件组合尚未验证。
 
-[下载测试版](https://github.com/CuteHeibai/foobar-smartshuffle/releases/tag/v1.0.2) · [反馈问题](https://github.com/CuteHeibai/foobar-smartshuffle/issues) · [验证记录](docs/verification.md)
+[下载测试版](https://github.com/CuteHeibai/foobar-smartshuffle/releases/tag/v1.0.3) · [反馈问题](https://github.com/CuteHeibai/foobar-smartshuffle/issues) · [验证记录](docs/verification.md)
 
 ## 能做什么
 
@@ -20,6 +20,9 @@
 - 最大化时的歌曲悬停只更新旧行、新行并合并到一帧；缓存画面的文字使用灰度抗锯齿。新建歌单的双行文字按实测高度排布。
 - 智能队列及歌曲列表右键可将实际歌曲文件移到回收站，需确认完整路径；共享子曲目文件会提示整文件影响，外部 CUE 暂不支持该操作。
 - 拖动栏间分隔线可调整音乐库、主内容、歌词／队列及底部各区域宽度，自动保存。播放模式菜单中的“插件设置…”或“参数选项 → 工具 → 智能随机”提供“一键恢复默认布局”，恢复宽度和窗口大小，保留歌单、听歌记录及播放设置。
+- 歌单、歌曲与右侧待播队列支持拖动排序。左键拖选、Ctrl 点选、Shift 范围选择后，右键批量复制／移动到现有或新歌单，或使用原生转换器。智能／锁定歌单只允许复制；歌单标题区可批量添加文件夹。
+- 双击单曲将它插到右侧队列最前并立即播放，原有插队内容随后继续；歌词搜索结果单击仍用于播放并定位对应时间。播放模式菜单精简为顺序、列表循环、单曲循环和智能随机。
+- 每次启动后台检查缺少封面的歌曲，按专辑查找 MusicBrainz / Cover Art Archive 并缓存到个人配置目录，不写标签或音乐文件。已有封面优先，同名专辑无法确认时不下载。内置 355 条常用插件菜单与标准设置控件翻译，保留第三方自绘界面的实际覆盖边界。详见[列表操作与汉化](docs/editing-and-covers.md)。
 
 这是本地声学相似度与随机权重调整，不连接网易云推荐服务，也不承诺复现其算法。界面改编自 [superziper/Verdant](https://github.com/superziper/verdant-foobar2000-theme)，并非 Spotify 或网易云官方产品。
 
@@ -29,7 +32,7 @@
 
 1. 准备 foobar2000 2.25.8 x64 便携版，以及可运行的 Python 3.9+（安装/恢复脚本需要，音频运行时已独立打包）。
 2. 在该副本中安装 [Columns UI](https://www.foobar2000.org/components/view/foo_ui_columns) 和兼容的 JSplitter。本项目已验证 JSplitter 4.3.4；可参照 [Verdant 上游安装说明](https://github.com/superziper/verdant-foobar2000-theme) 获取组件。使用原生歌词面板还需自行安装 ESLyric。
-3. 从 Releases 下载 `foobar-smartshuffle-desktop-1.0.2.zip`，解压后运行：
+3. 从 Releases 下载 `foobar-smartshuffle-desktop-1.0.3.zip`，解压后运行：
 
 ```powershell
 .\scripts\install-public.ps1 -FoobarRoot 'D:\Apps\foobar2000'
