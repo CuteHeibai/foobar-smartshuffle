@@ -7,7 +7,7 @@
    Edge cards are therefore blitted through a bitmap with a source rect instead of being drawn
    wide and masked over afterwards. Hover and hit target clip to the same band. */
 function drawPlaylistCard(gr,x,y,w,i,clipL,clipR){
-  var h=w+56;
+  var h=w+M.cardTextH;
   var hx0=(clipL!==undefined&&x<clipL)?clipL:x, hx1=(clipR!==undefined&&x+w>clipR)?clipR:x+w;
   if(hx1<=hx0) return;
   var cardHov=hv(hx0,y,hx1,y+h), clipped=(hx0>x)||(hx1<x+w);
@@ -20,11 +20,11 @@ function drawPlaylistCard(gr,x,y,w,i,clipL,clipR){
   HB_CARD.push({x0:hx0,y0:y,x1:hx1,y1:y+h,kind:'pl',id:i});
 }
 function paintArtistCard(gr,x,y,w,a,hov){
-  gr.FillRoundRect(x,y,w,w+56,8,8,hov?RGB(40,40,40):COL.elev);
+  gr.FillRoundRect(x,y,w,w+M.cardTextH,8,8,hov?RGB(40,40,40):COL.elev);
   var cs=w-24;
-  drawCircle(gr,x+12,y+12,cs,artistCover(a.name,a.handle),a.name);
-  tC(gr,a.name,FONT.card,COL.text,x+12,y+cs+18,w-24,20);
-  tC(gr,'歌手',FONT.plSub,COL.text2,x+12,y+cs+40,w-24,16);
+  ssDrawArtistAvatar(gr,x+12,y+12,cs,a.name);
+  tC(gr,ssArtistName(a.name),FONT.card,COL.text,x+12,y+cs+18,w-24,20);
+  tC(gr,ssArtistRecord(a.name)?'已核验歌手':'歌手 · 待核验',FONT.plSub,COL.text2,x+12,y+cs+40,w-24,16);
 }
 /* The artist grid is the bulk of a home frame -- ~30 cards on a wide window, each an antialiased
    rounded rect, a masked circular cover and two centred labels, all redrawn every paint. Cache
@@ -48,22 +48,20 @@ function evictArtCards(){
 function artCardImg(a,w){
   var key=a.name+'|'+w, e=artCardCache[key];
   if(e){ e.t=++artTick; return e.img; }
-  var ah=artistCover(a.name,a.handle);
-  if(!artistCoverReady(a.name,a.handle)) return null;   // still choosing a cover -> don't bake a placeholder
-  if(ah && !artLoaded(albKey(ah))) return null;         // art still loading -> same
+  // Artist portraits are independently verified; never gate on album artwork.
   if(artCardN>=ART_CARD_CAP) evictArtCards();
   var im=null;
   try{
-    im=gdi.CreateImage(w,w+56); var g=im.GetGraphics();
+    im=gdi.CreateImage(w,w+M.cardTextH); var g=im.GetGraphics();
     g.SetSmoothingMode(2);
-    g.FillSolidRect(0,0,w,w+56,COL.base);
+    g.FillSolidRect(0,0,w,w+M.cardTextH,COL.base);
     paintArtistCard(g,0,0,w,a,false);
     im.ReleaseGraphics(g);
   }catch(e2){ im=null; }
   artCardCache[key]={img:im,t:++artTick}; artCardN++; return im;
 }
 function drawArtistCard(gr,x,y,w,a,clipTop,clipBot){
-  var h=w+56;
+  var h=w+M.cardTextH;
   // clip drawing and the click target to the scroll viewport
   var vy0=(clipTop!==undefined&&y<clipTop)?clipTop:y, vy1=(clipBot!==undefined&&y+h>clipBot)?clipBot:y+h;
   if(vy1<=vy0) return;

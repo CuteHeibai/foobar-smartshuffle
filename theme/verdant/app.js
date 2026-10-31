@@ -3,7 +3,7 @@
    every module shares one global scope, so load order is set there. */
 
 /* ------------------------- state ------------------------- */
-var W=window.Width, H=window.Height, R={}, NP=null, npTitleStr='', npArtistStr='';
+var W=window.Width>=400?window.Width:Number(window.GetProperty('SmartShuffle: last content width',1180)), H=window.Height>=200?window.Height:Number(window.GetProperty('SmartShuffle: last content height',780)), R={}, NP=null, npTitleStr='', npArtistStr='';
 // Repaint scope flags. dirtyAll (sticky) forces a full paint; partial flags accumulate.
 // A full window.Repaint() MUST set dirtyAll (use repaintAll) so a paint serviced while a
 // partial flag is pending can't blank the rest of the window.
@@ -81,7 +81,7 @@ var plDropHover=false, HB_PLADD_FILES=null, HB_PLADD_FOLDER=null;   // empty-pla
 // playlist edit: context menu, inline rename, delete confirm
 var HB_DOTS=[], ctxMenu=null, CTX_HB=[], renameEdit=null, confirmDel=null, CONF_HB=null, RENAME_HB=null;
 
-var rightTab='queue';
+var rightTab='lyrics';
 var view='home', viewArtist='', artistAlbums=[], homeScroll=0, artScroll=0;
 // Fullscreen "chill" mode + its sub-view (default now-playing / lyrics / visualizer)
 var fsMode=false, fsView='default', HB_FS=[], vizTimer=null, vizBars=[];
@@ -89,7 +89,7 @@ var fsMode=false, fsView='default', HB_FS=[], vizTimer=null, vizBars=[];
 /* Search and rename need every key, because the user is typing into them. Everywhere else the
    panel still asks for character keys, which is what lets Space reach on_char and act as
    play/pause -- without it the dialog manager swallows Space before the panel ever sees it. */
-function applyKeyMode(){ try{ window.DlgCode=(ssModal||view==='search'||renameEdit)?DLGC_WANTALLKEYS:DLGC_WANTCHARS; }catch(e){} }
+function applyKeyMode(){ try{ window.DlgCode=(ssModal||ssPopup||confirmDel||view==='search'||renameEdit)?DLGC_WANTALLKEYS:DLGC_WANTCHARS; }catch(e){} }
 
 var searchQuery='', searchScroll=0, searchScrollT=0, searchIdx=null, searchQ2=null, searchArts=[], searchTrks=[], HB_SEARCH=null;
 var HOME_MAXROW=0, ART_MAXBLOCK=0, SEARCH_MAXPX=0;
@@ -103,14 +103,20 @@ function snapShelf(px){ var st=HOME_STRIDE||1; return clampPx(Math.round(px/st)*
 
 
 function layout(){
+  ssResponsiveMetrics(W,H);
   var g=M.gap, top0=TBH+g;   // one uniform gap on every side, incl. below the title bar and above the bar
   R.barY=H-M.barH;
   R.top={x:g,y:top0,bottom:R.barY-g};
-  R.navX=g; R.navW=Math.min(M.navW,Math.max(164,Math.round(W*.19)));
-  R.queueW=Math.min(M.queueW,Math.max(244,Math.round(W*.27))); R.queueX=W-g-R.queueW;
+  var widths=ssLayoutWidths(W);
+  R.navX=g; R.navW=widths.nav;
+  R.queueW=widths.right; R.queueX=W-g-R.queueW;
+  R.barInfoW=widths.info;R.barToolsW=widths.tools;
   R.mainX=R.navX+R.navW+g; R.mainW=R.queueX-g-R.mainX;
-  M.cpad=R.mainW<650?16:24; M.headH=R.mainW<800?226:280; M.artSz=R.mainW<800?96:200; SHEAD=R.mainW<800?246:312;
   var topH=R.top.bottom-R.top.y;
+  var compact=R.mainW<800*ssDensity;
+  M.cpad=Math.round((R.mainW<650*ssDensity?16:24)*ssDensity);
+  M.artSz=Math.round(Math.max(72*ssDensity,Math.min(200*ssDensity,R.mainW*.18,topH*.28)));
+  M.headH=Math.round((compact?120:76)*ssDensity+M.artSz);SHEAD=M.headH+Math.round(20*ssDensity);
   R.navTop={x:R.navX,y:top0,w:R.navW,h:M.navTopH};
   R.navLib={x:R.navX,y:top0+M.navTopH+g*2,w:R.navW,h:topH-M.navTopH-g*2};   // wider gap to the library card
   R.main={x:R.mainX,y:top0,w:R.mainW,h:topH};
@@ -121,7 +127,7 @@ function layout(){
   applyKeyMode();
 }
 // bitmaps are keyed by geometry; and the panel's surface is rebuilt, so the next paint must be full
-function on_size(w,h){ W=w; H=h; layout(); plCardCache={}; artCardCache={}; artCardN=0; skelImgs={}; dirtyAll=true; }
+function on_size(w,h){ if(w<400||h<200)return;W=w; H=h; layout(); ssDropModalImage();ssDropSceneImage(); plCardCache={}; artCardCache={}; artCardN=0; skelImgs={}; dirtyAll=true;ssReportLayout(); }
 
 // name/count come from the per-playlist caches, not fresh interop: this runs on every paint of the playlist view
 function activePl(){ var i=plman.ActivePlaylist; return {i:i, name:i>=0?plName(i):'', count:i>=0?plCount(i):0}; }
@@ -140,11 +146,24 @@ function drawMainCounted(gr){
   drawMain(gr); roundTop(gr,R.main.x,R.main.y,R.main.w);
   shimSettle();
 }
+function ssDrawBase(gr){
+  HB_DOTS=[];gr.FillSolidRect(0,0,W,H,COL.black);
+  drawTitleBar(gr);drawMainCounted(gr);drawNav(gr);drawQueue(gr);drawBar(gr);ssDrawResizers(gr);
+}
 function on_paint(gr){
+  if(ssHoverDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!fsMode&&!ssModal&&!ssPopup&&
+     !renameEdit&&!ctxMenu&&!confirmDel&&!dupPrompt&&!rgPrompt&&!sgMenuOpen&&!plSortMenuOpen){
+    ssPaintRowHover(gr,true);return;
+  }
   ssSyncLyricPanel();
   visPlCache=null;   // one playlist scan per frame, shared by drawNav and drawHome
   gr.SetSmoothingMode(2);
   gr.SetInterpolationMode(5);   // NearestNeighbor: every DrawImage here is 1:1, so filtering is pure cost
+  if(ssPopupRestore&&!ssPopup&&!ssModal&&ssSceneImage){
+    ssPopupRestore=false;gr.DrawImage(ssSceneImage,0,0,W,H,0,0,W,H);window.SetTimeout(repaintAll,32);return;
+  }
+  if(ssModal){clearDirty();ssPaintModal(gr);return;}
+  if(ssPopup){clearDirty();ssPaintPopup(gr);return;}
   var stale=anyDirty() && (Date.now()-dirtySince)>DIRTY_STALE_MS;   // see markDirty
   if(fsMode&&!ssModal){
     /* A visualizer frame changes only the bars. Redrawing the cover, the title, the seek bar and
@@ -161,23 +180,23 @@ function on_paint(gr){
   // A partial paint skips drawOverlays, so a modal's dim backdrop would not be reapplied over the
   // region it redraws (the bar's 1 Hz repaint would flash back to full brightness). While an
   // overlay owns the screen, every paint takes the full path.
-  var modal=ssModal||renameEdit||ctxMenu||confirmDel||dupPrompt||rgPrompt;
-  if(dirtyAll || !anyPartial || modal || stale){ // full paint, or an OS/stale paint we can't scope
+  var modal=ssPopup||renameEdit||ctxMenu||confirmDel||dupPrompt||rgPrompt;
+  if(dirtyAll || !anyPartial || modal || stale || !ssSceneImage){ // full paint, or an OS/stale paint we can't scope
     clearDirty();
-    HB_DOTS=[];
-    gr.FillSolidRect(0,0,W,H,COL.black);   // black canvas -> panels read as separated cards (Spotify look)
-    drawTitleBar(gr);
-    // main before nav: the home shelf's leftmost card is drawn partly outside the panel
-    // (continuous scroll), so nav must repaint over that bleed -- same reason queue follows main
-    drawMainCounted(gr);
-    drawNav(gr);
-    drawQueue(gr);
-    drawBar(gr);
+    var baseGraphics=ssBeginScene();ssDrawBase(baseGraphics);ssEndScene(gr,baseGraphics);ssPaintRowHover(gr,false);
     drawOverlays(gr);
-    drawPreference(gr);
+    ssDrawTransitions(gr);ssDrawPopup(gr);
     return;
   }
   // partial composite: only the regions actually flagged (each drawn over live content)
+  var regions=[];
+  if(dirtyTitle)regions.push({x:0,y:0,w:W,h:TBH});
+  if(dirtyMain)regions.push(R.main);
+  if(dirtyNav)regions.push({x:R.navTop.x,y:R.navTop.y,w:R.navLib.w,h:R.navLib.y+R.navLib.h-R.navTop.y});
+  if(dirtyQueue)regions.push(R.queue);
+  if(dirtySearch)regions.push(R.main);
+  if(dirtyBar)regions.push({x:0,y:R.barY,w:W,h:M.barH});
+  var targetGraphics=gr;gr=ssBeginScene();
   if(dirtyTitle){ dirtyTitle=false; drawTitleBar(gr); }
   if(dirtyMain||dirtyNav) HB_DOTS=[];   // these rebuild their hover targets
   if(dirtyMain){ dirtyMain=false; drawMainCounted(gr); }
@@ -185,10 +204,13 @@ function on_paint(gr){
   if(dirtyQueue){ dirtyQueue=false; drawQueue(gr); }
   if(dirtySearch){ dirtySearch=false; if(view==='search') drawSearchBox(gr,R.main); }
   if(dirtyBar){ dirtyBar=false; drawBar(gr); }
+  ssEndScene(targetGraphics,gr,regions);gr=targetGraphics;ssPaintRowHover(gr,false);
+  ssDrawTransitions(gr);
+  ssDrawResizers(gr);
 }
 
 function drawMain(gr){
-  HB_CARD=[]; HB_TR=[]; SB=null; SBH=null;   // clear stale click targets from the previous view
+  HB_CARD=[]; HB_TR=[]; SB=null; SBH=null;SS_ARTIST_HB=null;   // clear stale click targets from the previous view
   if(view!=='songs'){ HB_SG=null; SG_HB=[]; HB_RGNORM=null; }
   if(view!=='playlist'){ HB_PLSORT=null; HB_PLSORTDIR=null; PL_SORT_HB=[]; }
   applyKeyMode();
@@ -205,8 +227,10 @@ function drawMain(gr){
 function seekFrac(x){ return HB_SEEK?clamp01((x-HB_SEEK.x)/HB_SEEK.w):0; }
 function applyVol(x){ if(HB_VOL){ fb.Volume=pos2vol(clamp01((x-HB_VOL.x)/HB_VOL.w)); repaintBar(); } }
 function on_mouse_lbtn_down(x,y){
+  if(ssPopup)return;
   if(ssPointerDown(x,y)) return;
   if(ctxMenu||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;   // overlays are modal; dismissal/actions handled on button-up
+  if(ssResizeBegin(x,y))return;
   if(HB_SEEK && inRect(x,y,HB_SEEK)){ drag='seek'; dragFrac=seekFrac(x); repaintBar(); return; }
   if(HB_VOL && inRect(x,y,HB_VOL)){ drag='vol'; applyVol(x); return; }
   if(SBH && inRect(x,y,SBH)){ drag='scrollh'; setScrollH(x); return; }
@@ -214,11 +238,18 @@ function on_mouse_lbtn_down(x,y){
   if(SB && inRect(x,y,SB)){ drag='scroll'; setScroll(y); return; }
 }
 function on_mouse_rbtn_up(x,y){
+  if(ssPopup){ssClosePopup();return true;}
   if(ssModal) return true;
   if(ctxMenu||confirmDel||renameEdit||dupPrompt||rgPrompt) return true;   // a modal is open: swallow
   var i;
-  // playlist-view track rows carry {pl,item}; rows in All Songs / artist / search views don't
-  if(view==='playlist'){ for(i=0;i<HB_TR.length;i++){ if(HB_TR[i].pl!==undefined && inRect(x,y,HB_TR[i])){ return openTrackMenu(HB_TR[i].pl,HB_TR[i].item,x,y); } } }
+  for(i=0;i<HB_TR.length;i++)if(inRect(x,y,HB_TR[i])){
+    var row=HB_TR[i];
+    if(row.pl!==undefined)return openTrackMenu(row.pl,row.item,x,y);
+    var handle=row.songs?songsTracks[row.ti].h:row.srch?searchTrks[row.idx].h:row.lib?artistAlbums[row.block].tracks[row.idx].handle:null;
+    if(handle){ssOpenNativeMenu('context',{track_id:handle.Path+'|'+handle.SubSong},x,y);return true;}
+  }
+  for(i=0;i<HB_CARD.length;i++)if(HB_CARD[i].kind==='artist'&&inRect(x,y,HB_CARD[i])){ssArtistMenu(HB_CARD[i].id,x,y);return true;}
+  for(i=0;i<HB_Q.length;i++)if(inRect(x,y,HB_Q[i])&&HB_Q[i].track_id){ssOpenNativeMenu('context',{track_id:HB_Q[i].track_id},x,y);return true;}
   for(i=0;i<HB_PL.length;i++){ if(inRect(x,y,HB_PL[i])){ openPlaylistMenu(HB_PL[i].i,x,y); return true; } }
   for(i=0;i<HB_CARD.length;i++){ if(inRect(x,y,HB_CARD[i]) && HB_CARD[i].kind==='pl'){ openPlaylistMenu(HB_CARD[i].id,x,y); return true; } }
   return false;   // elsewhere: let JSplitter's own panel menu through (Reload / Configure / Properties)
@@ -239,19 +270,26 @@ function playArtistTrack(block,idx){
   playHandleList(hs,idx);
 }
 function getSearchIdx(){
-  if(searchIdx) return searchIdx;
-  var lib=libItems();
+  if(searchIdx)return searchIdx;
+  var list=fb.CreateHandleList(),seen={},library=libItems(),i,p;
+  function add(handles){if(!handles)return;for(var k=0;k<handles.Count;k++){
+    var handle=handles[k],id=handle.Path+'|'+handle.SubSong;if(seen[id])continue;seen[id]=true;list.Add(handle);
+  }}
+  add(library);
+  for(p=0;p<plman.PlaylistCount;p++)if(!isHiddenPl(plName(p)))try{add(plman.GetPlaylistItems(p));}catch(e){}
   var out=[];
-  if(lib && lib.Count){
-    var t=libTF('title'), a=libTF('artist'), al=libTF('album'), l=libTF('len');
-    for(var i=0;i<t.length;i++) out.push({h:lib[i],title:t[i],artist:a[i],album:al[i],len:l[i],key:(t[i]+' '+a[i]+' '+al[i]).toLowerCase()});
+  if(list.Count){
+    var titles=TF.title.EvalWithMetadbs(list),artists=TF.artist.EvalWithMetadbs(list),albums=TF.album.EvalWithMetadbs(list),lengths=TF.len.EvalWithMetadbs(list),ly=[];
+    try{ly=fb.TitleFormat('$if2(%lyrics%,$if2(%unsynced lyrics%,$if2(%unsyncedlyrics%,%syncedlyrics%)))').EvalWithMetadbs(list);}catch(e){}
+    for(i=0;i<list.Count;i++)out.push({id:list[i].Path+'|'+list[i].SubSong,h:list[i],title:titles[i],artist:artists[i],album:albums[i],len:lengths[i],lyrics:ly[i]||'',key:(titles[i]+' '+artists[i]+' '+albums[i]).toLowerCase()});
   }
-  searchIdx=out; return out;
+  searchIdx=out;return out;
 }
+
 function computeSearch(){
   var q=searchQuery.trim().toLowerCase();
   if(q===searchQ2) return;
-  searchQ2=q; searchArts=[]; searchTrks=[];
+  searchQ2=q; searchArts=[]; searchTrks=[];ssScheduleSearch(q);
   if(!q) return;
   var arts=getArtistList(), i;
   for(i=0;i<arts.length && searchArts.length<24;i++){ if(arts[i].name.toLowerCase().indexOf(q)>=0) searchArts.push(arts[i]); }
@@ -262,17 +300,20 @@ function doCtrl(act){
   if(act==='play') fb.PlayOrPause();
   else if(act==='next') ssSend('next');
   else if(act==='prev') ssSend('previous');
-  else if(act==='shuffle') toggleShuffle();
+  else if(act==='playback_mode'||act==='shuffle'||act==='repeat') ssShowPlaybackModes(Math.max(8,W-320),R.barY-80);
   else if(act==='preference') ssOpen();
   else if(act==='output') ssShowOutputs(Math.max(0,W-350),R.barY);
   else if(act==='scan_pause') ssSend('scan_pause',{paused:!(ssState&&ssState.scan&&ssState.scan.paused)});
   else if(act==='scan_retry') ssSend('scan_retry');
   else if(act==='restart') ssSend('restart');
-  else if(act==='repeat') cycleRepeat();
   else if(act==='fullscreen'){ enterFullscreen(); return; }
   repaintAll();
 }
 function on_mouse_lbtn_up(x,y){
+  if(ssRecycleClick(x,y))return;
+  if(!ssPopup&&!ssModal&&SS_ARTIST_HB&&inRect(x,y,SS_ARTIST_HB)){ssArtistMenu(viewArtist,x,y);return;}
+  if(ssResizeEnd(x,y))return;
+  if(ssPopupClick(x,y))return;
   if(ssPointerUp(x,y)) return;
   if(SS_LYRIC_BTN && inRect(x,y,SS_LYRIC_BTN)){ ssNativeLyrics(); return; }
   var t;
@@ -417,6 +458,7 @@ function hoverSig(x,y){
   if(HB_PLADD_FILES && inRect(x,y,HB_PLADD_FILES)) return 'pladdf';
   if(HB_PLADD_FOLDER && inRect(x,y,HB_PLADD_FOLDER)) return 'pladdd';
   if(HB_ALLSONGS && inRect(x,y,HB_ALLSONGS)) return 'als';
+  if(SS_ARTIST_HB && inRect(x,y,SS_ARTIST_HB))return 'artistverify';
   if(HB_SG && inRect(x,y,HB_SG)) return 'sgb';
   if(HB_RGNORM && inRect(x,y,HB_RGNORM)) return 'nzb';
   if(HB_PLSORT && inRect(x,y,HB_PLSORT)) return 'psb';
@@ -434,6 +476,8 @@ function hoverSig(x,y){
 }
 function on_mouse_move(x,y){
   mx=x; my=y;
+  if(ssResizeMove(x,y))return;
+  if(ssPopupMove(x,y))return;
   if(ssPointerMove(x,y)) return;
   if(drag==='seek'){ dragFrac=seekFrac(x); repaintBar(); return; }
   if(drag==='vol'){ applyVol(x); return; }
@@ -442,9 +486,11 @@ function on_mouse_move(x,y){
   if(drag==='scrolln'){ setScrollN(y); return; }
   var sig=hoverSig(x,y), sk=scrollSection(x,y), z=hoverZone(x,y);
   if(sig!==hoverKey || sk!==scrollKey){   // sk change reveals/hides the section scrollbar
+    var rowOnly=sk===scrollKey&&z===hoverZoneKey&&/^(r\d+|q\d+|)$/.test(sig)&&/^(r\d+|q\d+|)$/.test(hoverKey);
     hoverKey=sig; scrollKey=sk;
     // an overlay owns the whole screen and on_paint forces a full paint while one is open
     if(renameEdit||ctxMenu||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
+    else if(rowOnly&&!fsMode&&ssSceneImage)ssRequestRowHover();
     else { repaintZone(hoverZoneKey); if(z!==hoverZoneKey) repaintZone(z); }   // clear the old highlight, then draw the new
   }
   hoverZoneKey=z;
@@ -461,17 +507,21 @@ function scrollSection(x,y){
   return '';
 }
 function on_mouse_leave(){
+  ssMenuLeave();
   mx=-1; my=-1;
   if(hoverKey!==''||scrollKey!==''){
-    hoverKey=''; scrollKey='';
+    var wasRow=/^[rq]\d+$/.test(hoverKey);hoverKey=''; scrollKey='';
     if(renameEdit||ctxMenu||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
+    else if(wasRow&&ssSceneImage&&!fsMode)ssRequestRowHover();
     else repaintZone(hoverZoneKey);
   }
   hoverZoneKey='';
 }
-function on_key_down(key){ if(ssKeyDown(key)) return; }
+function on_key_down(key){ if(ssRecycleKey(key)||ssPopupKey(key)||ssKeyDown(key)) return; }
 function on_char(code){
+  if(ssPopup)return;
   if(ssModal) return;
+  if(confirmDel)return;
   if(renameEdit){
     if(code===8) renameEdit.text=renameEdit.text.slice(0,-1);
     else if(code===27){ cancelRename(); return; }              // Esc = cancel
@@ -496,6 +546,7 @@ function on_char(code){
   }
 }
 function on_mouse_wheel(step){
+  if(ssPopupWheel(step))return;
   if(ssModal) return;
   if(fsMode){
     // lyrics with no timestamps don't roll themselves, so here the wheel scrolls them; with nothing
@@ -569,11 +620,12 @@ function on_drag_drop(action,x,y,mask){
 }
 function on_script_unload(){
   ssHideLyrics();
-  ssStop();
+  ssStop();if(ssSearchTimer)window.ClearTimeout(ssSearchTimer);
   stopLyAnim(); stopCaret(); stopViz(); stopScrollAnim(); stopShimAnim(); stopMemWatch();
   if(dupWatch && dupWatch.timer) window.ClearTimeout(dupWatch.timer);
 }
 function invalidateLibrary(){
+  ssSearchCatalog='';ssSearchQuery='';ssSearchRequest='';
   artistList=null; artistTracksMap=null; artistCandCache={}; coverPickCache={}; warmed={}; searchIdx=null; searchQ2=null;
   songsIdx=null; songsRows=null; songsTracks=null; libCovCache=null; libCount_=-1;
   libItems_=null; libTFCache={};   // everything above is derived from these
@@ -608,7 +660,7 @@ function on_volume_change(){ repaintBar(); }
 // ReplayGain can also be switched from foobar's own Playback menu -- keep the pill honest
 function on_replaygain_mode_changed(){ repaintMain(); }
 // rgStat included: a ReplayGain scan lands as a tag write, so this is how the pill learns it finished
-function on_metadb_changed(handles,fromhook){ if(fromhook) return; invalidateItems(); albKeyCache={}; hueCache={}; artistCandCache={}; coverPickCache={}; songsIdx=null; songsRows=null; songsTracks=null; rgStat=null; updateNP(); repaintAll(); }
+function on_metadb_changed(handles,fromhook){ if(fromhook) return;ssInvalidateSearch(); invalidateItems(); albKeyCache={}; hueCache={}; artistCandCache={}; coverPickCache={}; songsIdx=null; songsRows=null; songsTracks=null; rgStat=null; updateNP(); repaintAll(); }
 /* A switch changes which playlist is ACTIVE, not what any playlist contains -- and every cache
    invalidateItems() drops is keyed by playlist index, so none of them went stale here. Dropping
    them meant each switch re-derived covers and re-ran the art gates against an artCache that had
@@ -616,18 +668,18 @@ function on_metadb_changed(handles,fromhook){ if(fromhook) return; invalidateIte
    caches that genuinely depend on playlist CONTENT are still cleared by the callbacks that mean
    content changed (items added/removed/reordered, playlists changed). */
 function on_playlist_switch(){ firstRow=firstRowT=0; repaintAll(); }
-function on_playlists_changed(){ invalidateItems(); repaintAll(); }
-function on_playlist_items_added(pl){ invalidateItems(); if(dupWatch && dupWatch.pl===pl) scheduleDupScan(); repaintAll(); }
-function on_playlist_items_removed(){ invalidateItems(); repaintAll(); }
+function on_playlists_changed(){ ssInvalidateSearch();invalidateItems(); repaintAll(); }
+function on_playlist_items_added(pl){ ssInvalidateSearch();invalidateItems(); if(dupWatch && dupWatch.pl===pl) scheduleDupScan(); repaintAll(); }
+function on_playlist_items_removed(){ ssInvalidateSearch();invalidateItems(); repaintAll(); }
 function on_playlist_items_reordered(){ invalidateItems(); repaintAll(); }
 function on_item_focus_change(){ repaintAll(); }
 
 layout();
 updateNP();
-syncOrderFromFb(); applyPlaybackOrder();   // intelligent ordering is native; repeat remains native too
+syncOrderFromFb();   // Mode is owned by the native component; loading a theme never changes it.
 capVolume();       // pull a remembered volume back under the slider's ceiling
 startMemWatch();   // caches grow into the component's spare memory and back off as it fills
 drpSync();         // make foo_verdant agree with the Discord property before anything plays
 
-ssStart();
-console.log('Smart Shuffle Chinese Verdant 1.0.0 ready');
+ssLoadArtists();ssStart();
+console.log('Smart Shuffle Chinese Verdant 1.0.1 ready');

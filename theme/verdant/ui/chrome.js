@@ -5,10 +5,23 @@
 /* Custom window title bar via UI Wizard (foo_ui_wizard) - frameless + our own controls */
 var TBH = Math.round(32*UISCALE), CAPBW = Math.round(46*UISCALE);
 var UIWizard=null; try{ UIWizard=new ActiveXObject('UIWizard'); }catch(e){ UIWizard=null; }
-var MENUS=[['文件','file'],['音乐库','library'],['帮助','help']];
+var MENUS=[['文件','file'],['编辑','edit'],['视图','view'],['播放','playback'],['音乐库','library'],['帮助','help']];
 var MENU_END=0, capW=-1, capEnd=-1;
-function applyCaption(){ if(!UIWizard) return; if(capW===W && capEnd===MENU_END) return; capW=W; capEnd=MENU_END; try{ UIWizard.SetCaptionAreaSize(MENU_END,0,Math.max(0,W-CAPBW*3-MENU_END),TBH); }catch(e){} }
-function openMenu(root,x,y){ try{ var mm=fb.CreateMainMenuManager(); mm.Init(root); var m=window.CreatePopupMenu(); mm.BuildMenu(m,1,600); var id=m.TrackPopupMenu(x,y); if(id>0) mm.ExecuteByID(id-1); }catch(e){} }
+function applyCaption(){ if(!UIWizard) return; if(capW===W && capEnd===MENU_END) return; try{ UIWizard.SetCaptionAreaSize(MENU_END,0,Math.max(0,W-CAPBW*3-MENU_END),TBH);capW=W;capEnd=MENU_END; }catch(e){} }
+function ssConfigureChrome(){
+  if(!UIWizard)return false;
+  try{
+    if(UIWizard.FrameStyle!==3)UIWizard.FrameStyle=3;
+    UIWizard.MoveStyle=0;UIWizard.DisableWindowSizing=false;UIWizard.DisableWindowMaximizing=false;UIWizard.DarkMode=true;
+    if(!window.GetProperty('SmartShuffle: comfortable window initialized',false)){
+      UIWizard.ExitMaximize();UIWizard.SetWindowSize(1180,780);
+      window.SetProperty('SmartShuffle: comfortable window initialized',true);
+    }
+    capW=-1;applyCaption();
+    return UIWizard.FrameStyle===3&&!UIWizard.DisableWindowSizing&&!UIWizard.DisableWindowMaximizing&&capW===W;
+  }catch(e){return false;}
+}
+function openMenu(root,x,y){ ssOpenNativeMenu('main',{root:root},x,y); }
 
 // small hover "..." button; records a HB_DOTS target that opens the menu just below it
 function drawDots(gr,cx,cy,pl){
@@ -150,7 +163,8 @@ function drawOverlays(gr){
       CTX_HB.push({x0:mnx,y0:iy,x1:mnx+iw,y1:iy+ih,act:it.act});
     }
   }
-  if(confirmDel){
+  if(confirmDel&&confirmDel.kind==='file')ssDrawRecycleConfirm(gr);
+  else if(confirmDel){
     var cw=380, ch=180, cy=Math.round((H-ch)/2), cx=modalPanel(gr,cw,ch,cy);
     tL(gr,'删除此歌单？',FONT.sect,COL.text,cx+28,cy+24,cw-56,26);
     tL(gr,'将从音乐库移除歌单「'+confirmDel.name+'」。',FONT.pl,COL.text2,cx+28,cy+58,cw-56,40);

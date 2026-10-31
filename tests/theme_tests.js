@@ -11,13 +11,15 @@ function harness() {
   const writes = [], timers = new Map(); let next = 0;
   const c = { console, Date, Math, JSON, isFinite, Number,
     fb: { ProfilePath: 'P:\\', IsPlaying: false },
-    window: { SetTimeout: fn => { timers.set(++next, fn); return next; }, ClearTimeout: id => timers.delete(id), SetInterval: () => 99, ClearInterval: () => {}, Repaint: () => {} },
+    UISCALE:1,
+    window: { Width:1100,Height:740, SetTimeout: fn => { timers.set(++next, fn); return next; }, ClearTimeout: id => timers.delete(id), SetInterval: () => 99, ClearInterval: () => {}, Repaint: () => {}, RepaintRect:()=>{} },
     utils: { WriteTextFile: (p, t) => { writes.push(JSON.parse(t)); return true; }, ReadTextFile: () => { throw Error('not ready'); } },
-    repaintAll: () => {}, applyKeyMode: () => {}, pbShuffle: true, fsMode: false,
+    repaintAll: () => {}, applyKeyMode: () => {}, pbShuffle: true, fsMode: false,confirmDel:null,
   };
   vm.createContext(c);
   const file = path.join(root, 'data/smartshuffle.js');
   if (fs.existsSync(file)) vm.runInContext(fs.readFileSync(file, 'utf8'), c);
+  for(const extra of ['ui/motion.js','ui/menus.js','ui/layout.js','ui/files.js'])vm.runInContext(fs.readFileSync(path.join(root,extra),'utf8'),c);
   function ack(extra = {}) {
     c.ssAcceptState(Object.assign({ version: 1, revision: 1, enabled: true, request_id: writes.at(-1)?.id || '', ui_open: 0, point: { x: 0, y: 0 }, preview: null, response: { ok: true } }, extra));
   }
@@ -124,10 +126,9 @@ test('output picker changes only explicitly selected different native IDs', () =
   vm.runInContext(fs.readFileSync(path.join(root, 'data/output.js'), 'utf8'), c);
   c.fb.GetOutputDevices = () => JSON.stringify([{ name: 'ASIO: Current', active: true, output_id: 'o1', device_id: 'd1' },{ name: 'Speakers [exclusive]', output_id:'o2', device_id:'d2' }]);
   c.fb.SetOutputDevice = (...args) => changes.push(args);
-  let selected = 0;
-  c.window.CreatePopupMenu = () => ({ AppendMenuItem() {}, CheckMenuRadioItem() {}, TrackPopupMenu: () => selected });
-  c.ssShowOutputs(0,0); selected = 1; c.ssShowOutputs(0,0); assert.equal(changes.length,0);
-  selected = 2; c.ssShowOutputs(0,0); assert.deepEqual(changes,[['o2','d2']]);
+  c.ssShowOutputs(0,0);assert.equal(changes.length,0);
+  c.ssPopupChoose(c.ssPopup.levels[0].items[0]);assert.equal(changes.length,0);
+  c.ssShowOutputs(0,0);c.ssPopupChoose(c.ssPopup.levels[0].items[1]);assert.deepEqual(changes,[['o2','d2']]);
 });
 test('local lyrics resolve artist-title in profile lyrics and retain time parsing', () => {
   const c = harness().c;
@@ -150,7 +151,7 @@ test('modal geometry fits 900 by 600 at 125 and 150 percent with eight visible r
 test('startup sends one theme readiness handshake with native panel window', () => {
   const h = harness(); h.c.window.ID = 12345; h.c.ssStart(); h.c.ssStart();
   assert.equal(h.writes.length,1); assert.equal(h.writes[0].op,'state');
-  assert.equal(h.writes[0].theme_version,'1.0.0'); assert.equal(h.writes[0].theme_window,12345);
+  assert.equal(h.writes[0].theme_version,'1.0.1'); assert.equal(h.writes[0].theme_window,12345);
 });
 test('missing named child requests native ESLyric host and waits for actual ready visibility', () => {
   const h = harness(), c = h.c; c.window.ID = 9876; c.R = { queue: { x:650,y:50,w:250,h:450 } }; c.rightTab='lyrics';

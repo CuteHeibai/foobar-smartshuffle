@@ -91,6 +91,7 @@ function loadArtist(name){
     map[al].tracks.push({title:titles[i], dur:lens[i], handle:lib[i]});
   }
   for(var j=0;j<order.length;j++) artistAlbums.push(map[order[j]]);
+  ssArtistAuto(name);
 }
 
 /* ---- "All Songs" library view: one index of every library track (built once, invalidated by

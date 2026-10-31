@@ -1,4 +1,4 @@
-"""Local v1 bridge client; serializes requests and waits for the native acknowledgement."""
+"""Local v1 bridge client with isolated request/reply files alongside the theme channel."""
 import argparse
 import json
 import os
@@ -28,10 +28,25 @@ class Bridge:
 
     def request(self, op, **fields):
         request = {"version": 1, "id": uuid.uuid4().hex, "op": op, **fields}
-        temporary = self.root / "client-request.tmp"
+        commands = self.root / 'commands'
+        commands.mkdir(exist_ok=True)
+        pending = commands / (request['id'] + '.json')
+        reply = self.root / 'replies' / (request['id'] + '.json')
+        temporary = pending.with_suffix('.tmp')
         temporary.write_text(json.dumps(request, ensure_ascii=False), encoding="utf-8")
-        os.replace(temporary, self.root / "request.json")
-        return self.wait(lambda s: s.get("request_id") == request["id"])
+        os.replace(temporary, pending)
+        until = time.monotonic() + 15
+        while time.monotonic() < until:
+            try:
+                result = json.loads(reply.read_text(encoding='utf-8-sig'))
+                if result.get('request_id') == request['id']:
+                    reply.unlink(missing_ok=True)
+                    return result
+            except (OSError, ValueError):
+                pass
+            time.sleep(.03)
+        pending.unlink(missing_ok=True)
+        raise TimeoutError('native bridge command timed out: ' + op)
 
 
 if __name__ == "__main__":

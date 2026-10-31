@@ -5,13 +5,13 @@
 function drawHome(gr,r){
   HB_CARD=[];
   var pad=M.cpad, x0=r.x+pad, w=r.w-pad*2, rightEdge=r.x+r.w, i;
-  var gap=16, cardW=176, cols=Math.max(2,Math.floor((w+gap)/(cardW+gap)));
+  var gap=Math.round(16*ssDensity), cardW=Math.round(176*ssDensity), cols=Math.max(2,Math.floor((w+gap)/(cardW+gap)));
   cardW=Math.floor((w-gap*(cols-1))/cols);
-  var cardH=cardW+56;
+  var cardH=cardW+M.cardTextH;
   // ---- geometry ----
   var shelfTitleY=r.y+18, shelfY=shelfTitleY+42;
   var pls=visiblePlaylists();
-  var scardW=(pls.length>cols)?Math.floor((w-cols*gap)/(cols+0.4)):cardW, scardH=scardW+56;
+  var scardW=(pls.length>cols)?Math.floor((w-cols*gap)/(cols+0.4)):cardW, scardH=scardW+M.cardTextH;
   var artTitleY=shelfY+scardH+(pls.length>cols?26:16), gy=artTitleY+42;   // artist grid top
   var cropY=r.y+r.h, rowStep=cardH+8, viewH=cropY-gy;
   // The artist grid waits on getArtistList (a full-library TF pass); the shelf does not -- playlist

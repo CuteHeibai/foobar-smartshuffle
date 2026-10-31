@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from bridge import Bridge
 
 b = Bridge(PROFILE)
-b.wait(lambda s: s.get("theme", {}).get("version") == "1.0.0" and
+b.wait(lambda s: s.get("theme", {}).get("version") == "1.0.1" and
        (not os.environ.get("SS_TEST_PID") or s.get("pid") == int(os.environ["SS_TEST_PID"])))
 
 

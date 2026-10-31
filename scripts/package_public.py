@@ -1,4 +1,4 @@
-"""Public assets: own component/theme/runtime, with notices and no UI/ESLyric binaries."""
+"""Public assets include licensed UI Wizard; Columns UI/JSplitter/ESLyric remain dependencies."""
 import hashlib
 from importlib import metadata
 import json
@@ -9,7 +9,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "dist/public-release"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 
 def copy(source, destination):
@@ -30,13 +30,14 @@ def main():
     bundle = OUTPUT / f"foobar-smartshuffle-{VERSION}"
     payload = bundle / "payload"
     copy(component, payload / "components/foo_smartshuffle/foo_smartshuffle.dll")
+    copy(ROOT / "vendor/verdant-foobar2000-theme-master/components/foo_ui_wizard", payload / "components/foo_ui_wizard")
     copy(runtime, payload / "runtime/smartshuffle-analyzer")
     copy(ROOT / "theme/verdant", payload / "theme/verdant")
     copy(ROOT / "theme/columns-ui-layout.cfg",
          payload / "config/foo_ui_columns.dll.cfg")
     for name in ("README.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "licenses"):
         copy(ROOT / name, bundle / name)
-    for name in ("install-public.ps1", "install.ps1", "install.py"):
+    for name in ("install-public.ps1", "install.ps1", "install.py", "profile_style.py"):
         copy(ROOT / "scripts" / name, bundle / "scripts" / name)
     copy(ROOT / "docs", bundle / "docs")
     copy(Path(sys.base_prefix) / "LICENSE.txt", bundle / "licenses/analyzer/CPython-LICENSE.txt")

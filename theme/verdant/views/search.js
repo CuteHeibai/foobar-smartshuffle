@@ -14,7 +14,7 @@ function drawSearchBox(gr,r){
   var empty=!searchQuery.length, caretH=20, caretY=boxY+(boxH-caretH)/2, caretX;
   if(empty){
     caretX=txtX;
-    tL(gr,'搜索歌曲、歌手或专辑',FONT.searchTxt,COL.text3,txtX+12,boxY,txtW-12,boxH);
+    tL(gr,'歌曲、拼音、罗马音或歌词',FONT.searchTxt,COL.text3,txtX+12,boxY,txtW-12,boxH);
   } else {
     tL(gr,searchQuery,FONT.searchTxt,COL.text,txtX,boxY,txtW,boxH);
     caretX=txtX+Math.min(txtW,gr.CalcTextWidth(searchQuery,FONT.searchTxt))+2;
@@ -31,19 +31,19 @@ function drawSearch(gr,r){
   var boxH=SBOX_H, boxY=r.y+SBOX_TOP;
   if(!searchQuery.length){
     drawSearchBox(gr,r);
-    tL(gr,'搜索歌单与音乐库。',FONT.qArtist,COL.text3,x0+2,boxY+boxH+18,w,18);
+    tL(gr,'支持拼音 / 首字母、日语罗马音、近似拼写及本地歌词。',FONT.qArtist,COL.text3,x0+2,boxY+boxH+18,w,18);
     return;
   }
   if(!searchArts.length && !searchTrks.length){
     drawSearchBox(gr,r);
-    tC(gr,'未找到相关结果：'+searchQuery+'"',FONT.sect,COL.text2,r.x,r.y+Math.round(r.h/2),r.w,24);
+    tC(gr,ssSearchBusy?'正在检索本地索引…':ssSearchError||('未找到相关结果：'+searchQuery),FONT.sect,COL.text2,r.x,r.y+Math.round(r.h/2),r.w,24);
     return;
   }
   var top=boxY+boxH+26, cropY=r.y+r.h, viewH=cropY-top;
   // ---- measure the document, then clamp the scroll to it ----
   var gap=16, cardW=176, cols=Math.max(2,Math.floor((w+gap)/(cardW+gap)));
   cardW=Math.floor((w-gap*(cols-1))/cols);
-  var cardH=cardW+56, rh=56, durW=64;
+  var cardH=cardW+M.cardTextH, rh=M.rowH, durW=64;
   var artsH=searchArts.length?(42+Math.ceil(searchArts.length/cols)*(cardH+8)+18):0;
   var contentH=artsH+(searchTrks.length?(38+searchTrks.length*rh):0);
   var maxPx=Math.max(0,contentH-viewH);
@@ -71,10 +71,10 @@ function drawSearch(gr,r){
       if(ry>=cropY) break;
       if(ry+rh<=top) continue;
       var tr=searchTrks[i];
-      if(hv(r.x,Math.max(ry,top),r.x+r.w,Math.min(ry+rh,cropY))) gr.FillRoundRect(x0-8,ry,w+16,rh,4,4,COL.rowHover);
+      if(ssRowHover(r.x,Math.max(ry,top),r.x+r.w,Math.min(ry+rh,cropY))) gr.FillRoundRect(x0-8,ry,w+16,rh,4,4,COL.rowHover);
       drawCover(gr,x0,ry+8,40,4,tr.h,tr.album||tr.title);
       tL(gr,tr.title,FONT.rowTitle,COL.text,x0+52,ry+8,w-52-durW,20);
-      tL(gr,tr.artist+(tr.album?('  '+CH_BULL+'  '+tr.album):''),FONT.rowArtist,COL.text2,x0+52,ry+30,w-52-durW,16);
+      tL(gr,tr.snippet?('歌词 · '+tr.snippet):tr.artist+(tr.album?('  '+CH_BULL+'  '+tr.album):''),FONT.rowArtist,COL.text2,x0+52,ry+30,w-52-durW,16);
       tR(gr,tr.len,FONT.rowCell,COL.text2,r.x+r.w-pad-durW,ry,durW,rh);
       var hy0=Math.max(ry,top), hy1=Math.min(ry+rh,cropY);   // clip the click target to the viewport
       if(hy1>hy0) HB_TR.push({x0:x0-8,y0:hy0,x1:r.x+r.w-pad+8,y1:hy1,srch:true,idx:i});

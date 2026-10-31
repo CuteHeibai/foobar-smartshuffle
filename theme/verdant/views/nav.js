@@ -5,28 +5,28 @@
 // one sidebar row: cover + name + subtitle. pi<0 draws the library mosaic instead of a playlist cover.
 function drawNavRow(gr,y,h,on,hov,pi,name,sub){
   if(on||hov) gr.FillRoundRect(R.navLib.x+8,y,R.navLib.w-16,h-4,6,6,on?COL.rowActive:COL.rowHover);
-  var cs=44, cx=R.navLib.x+16, cy=y+(h-cs)/2;
+  var s=ssDensity,cs=44*s, cx=R.navLib.x+16*s, cy=y+(h-cs)/2;
   if(pi>=0) drawPlCover(gr,cx,cy,cs,4,pi,name); else drawLibCover(gr,cx,cy,cs,4);
   var tx=cx+cs+12, tw=R.navLib.x+R.navLib.w-16-tx-((hov&&pi>=0)?26:0);   // leave room for the "..." button
-  tL(gr,name,FONT.pl,on?COL.green:COL.text,tx,y+8,tw,20);
-  tL(gr,sub,FONT.plSub,COL.text2,tx,y+30,tw,16);
+  tL(gr,name,FONT.pl,on?COL.green:COL.text,tx,y+8*s,tw,20*s);
+  tL(gr,sub,FONT.plSub,COL.text2,tx,y+30*s,tw,16*s);
 }
 function drawNav(gr){
   HB_PL=[];
   // top card: Home + Search as two wide icon buttons spanning the sidebar
   panelBg(gr,R.navTop,COL.base);
-  var m=16, g=12, bh=54, iy=R.navTop.y+Math.round((R.navTop.h-bh)/2);
+  var s=ssDensity,m=16*s, g=12*s, bh=54*s, iy=R.navTop.y+Math.round((R.navTop.h-bh)/2);
   var bw=Math.floor((R.navTop.w-2*m-g)/2);
   var hx=R.navTop.x+m, sx2=hx+bw+g;
   var hon=(view==='home'), hhov=hv(hx,iy,hx+bw,iy+bh);
   if(hon||hhov) gr.FillRoundRect(hx,iy,bw,bh,10,10,hon?COL.rowActive:COL.rowHover);
-  drawIcon(gr,'home',hon?COL.text:COL.text2,hx,iy-8,bw,bh-8,23);
-  tC(gr,'首页',FONT.plSub,hon?COL.text:COL.text2,hx,iy+32,bw,22);
+  drawIcon(gr,'home',hon?COL.text:COL.text2,hx,iy-8*s,bw,bh-8*s,23*s);
+  tC(gr,'首页',FONT.plSub,hon?COL.text:COL.text2,hx,iy+32*s,bw,22*s);
   HB_HOME={x0:hx,y0:iy,x1:hx+bw,y1:iy+bh};
   var son=(view==='search'), shov=hv(sx2,iy,sx2+bw,iy+bh);
   if(son||shov) gr.FillRoundRect(sx2,iy,bw,bh,10,10,son?COL.rowActive:COL.rowHover);
-  drawIcon(gr,'search',son?COL.text:COL.text2,sx2,iy-8,bw,bh-8,23);
-  tC(gr,'搜索',FONT.plSub,son?COL.text:COL.text2,sx2,iy+32,bw,22);
+  drawIcon(gr,'search',son?COL.text:COL.text2,sx2,iy-8*s,bw,bh-8*s,23*s);
+  tC(gr,'搜索',FONT.plSub,son?COL.text:COL.text2,sx2,iy+32*s,bw,22*s);
   HB_SEARCH={x0:sx2,y0:iy,x1:sx2+bw,y1:iy+bh};
   // The canvas gap between the two cards is inside the region repaintNavAll invalidates but is
   // painted by neither of them -- it used to survive only because a full paint cleared the whole
@@ -37,10 +37,10 @@ function drawNav(gr){
   panelBg(gr,R.navLib,COL.base);
   tL(gr,'音乐库',FONT.lib,COL.text2,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
   var active=plman.ActivePlaylist, pls=visiblePlaylists();
-  var footH=72, footTop=R.navLib.y+R.navLib.h-footH;   // pinned "add playlist" footer, always visible
-  var pinY=R.navLib.y+48, pinH=58;                     // pinned "All Songs" row, drawn after the crop below
+  var footH=72*s, footTop=R.navLib.y+R.navLib.h-footH;   // pinned "add playlist" footer, always visible
+  var pinY=R.navLib.y+48*s, pinH=58*s;
   // scrollable playlist list (continuous pixel scroll), cropped just above the footer
-  var listTop=pinY+pinH+10, rh=58, cropY=footTop-6, viewH=cropY-listTop;
+  var listTop=pinY+pinH+10*s, rh=58*s, cropY=footTop-6, viewH=cropY-listTop;
   var contentH=pls.length*rh, maxPx=Math.max(0,contentH-viewH);
   NAV_MAX=maxPx;
   navScroll=clampPx(navScroll,maxPx); navScrollT=clampPx(navScrollT,maxPx);
@@ -93,9 +93,13 @@ function drawAddPlaylist(gr,footTop,footH){
   var tx=ax+bs+12, tw=bx+bw-12-tx;
   if(drop){ tL(gr,'拖入以导入',FONT.pl,COL.green,tx,by+Math.round((bh-20)/2),tw,20); }
   else {
-    var ty=by+Math.round((bh-35)/2);          // two-line block, optically centred
-    tL(gr,'新建歌单',FONT.pl,hot?COL.text:COL.text2,tx,ty,tw,19);
-    tL(gr,'拖入文件或点击',FONT.plSub,COL.text3,tx,ty+19,tw,16);
+    var firstH=Math.max(Math.ceil(20*ssDensity),lineH(gr,FONT.pl)),secondH=Math.max(Math.ceil(17*ssDensity),lineH(gr,FONT.plSub)),gap=Math.ceil(4*ssDensity);
+    if(firstH+secondH+gap<=bh-4){
+      var ty=by+Math.round((bh-firstH-secondH-gap)/2);
+      tL(gr,'新建歌单',FONT.pl,hot?COL.text:COL.text2,tx,ty,tw,firstH);
+      tL(gr,'拖入文件或点击',FONT.plSub,COL.text3,tx,ty+firstH+gap,tw,secondH);
+    }else tL(gr,'新建歌单',FONT.pl,hot?COL.text:COL.text2,tx,by,tw,bh);
+
   }
   HB_ADDPL={x0:bx,y0:by,x1:bx+bw,y1:by+bh};
 }

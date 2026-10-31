@@ -16,52 +16,50 @@ function drawTrackBar(gr,x,y,w,th,trackCol,pos){
 function drawBar(gr){
   HB_CTRL=[];
   var by=R.barY;
+  var s=ssDensity;
   gr.FillSolidRect(0,by,W,M.barH,COL.black);
   var playing=fb.IsPlaying&&!fb.IsPaused;
   // left: cover + title/artist
-  var cs=64, cx=16, cy=by+(M.barH-cs)/2;
+  var cs=Math.round(64*s), cx=Math.round(16*s), cy=by+(M.barH-cs)/2;
   drawCover(gr,cx,cy,cs,5,NP,'np');
-  var tx=cx+cs+14;
-  tL(gr,npTitleStr,FONT.npTitle,COL.text,tx,by+26,Math.max(80,W/2-150-tx),20);
-  tL(gr,npArtistStr,FONT.npArtist,COL.text2,tx,by+50,Math.max(80,W/2-150-tx),18);
+  var tx=cx+cs+14*s;
+  tL(gr,npTitleStr,FONT.npTitle,COL.text,tx,by+26*s,Math.max(20,R.barInfoW-tx-12*s),20*s);
+  tL(gr,npArtistStr,FONT.npArtist,COL.text2,tx,by+50*s,Math.max(20,R.barInfoW-tx-12*s),18*s);
   // center: transport row + seekbar
-  var cxC=Math.round(W/2);
-  var pcy=by+34, pb=hv(cxC-27,by+7,cxC+27,by+61)?52:48, pbx=cxC-pb/2, pby=pcy-pb/2;
-  ctrlBtn(gr,'shuffle',cxC-108,pcy,pbShuffle,'shuffle',22,26);
-  ctrlBtn(gr,'prev',cxC-58,pcy,false,'prev',22,26);
+  var centerW=W-R.barInfoW-R.barToolsW,cxC=Math.round(R.barInfoW+centerW/2);
+  var pcy=by+34*s, pb=(hv(cxC-27*s,by+7*s,cxC+27*s,by+61*s)?52:48)*s, pbx=cxC-pb/2, pby=pcy-pb/2;
+  ctrlBtn(gr,'prev',cxC-58*s,pcy,false,'prev',22*s,26*s);
   gr.FillEllipse(pbx,pby,pb,pb,COL.text);
   drawIcon(gr,playing?'pause':'play',COL.black,pbx,pby,pb,pb,Math.round(pb*0.5));
   HB_CTRL.push({x0:pbx,y0:pby,x1:pbx+pb,y1:pby+pb,act:'play'});
-  ctrlBtn(gr,'next',cxC+58,pcy,false,'next',22,26);
-  ctrlBtn(gr,pbRepeat===2?'repeat1':'repeat',cxC+108,pcy,pbRepeat>0,'repeat',22,26);
-  var sbW=Math.min(Math.round(W*0.36),560), sbX=cxC-sbW/2, sbY=by+74;
+  ctrlBtn(gr,'next',cxC+58*s,pcy,false,'next',22*s,26*s);
+  var sbW=Math.max(60,Math.min(centerW-112*s,560*s)), sbX=cxC-sbW/2, sbY=by+74*s;
   var len=fb.PlaybackLength, pos=(drag==='seek')?dragFrac:(len>0?fb.PlaybackTime/len:0);
-  HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,5,COL.seekbg,pos);
-  tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text2,sbX-54,sbY-7,46,17);
-  tL(gr,fmtTime(len),FONT.time,COL.text2,sbX+sbW+10,sbY-7,46,17);
+  HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,5*s,COL.seekbg,pos);
+  tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text2,sbX-54*s,sbY-7*s,46*s,17*s);
+  tL(gr,fmtTime(len),FONT.time,COL.text2,sbX+sbW+10*s,sbY-7*s,46*s,17*s);
   // right: volume + fullscreen
-  var prefX=W-282;
-  tC(gr,'随机偏好',FONT.pl,COL.green,prefX,by+4,112,30);
-  HB_CTRL.push({x0:prefX,y0:by+4,x1:prefX+112,y1:by+34,act:'preference'});
-  tC(gr,'音频输出',FONT.plSub,COL.text2,prefX+118,by+4,90,30);
-  HB_CTRL.push({x0:prefX+118,y0:by+4,x1:prefX+208,y1:by+34,act:'output'});
-  tC(gr,'新一轮',FONT.plSub,COL.text2,prefX+212,by+4,66,30);
-  HB_CTRL.push({x0:prefX+212,y0:by+4,x1:prefX+278,y1:by+34,act:'restart'});
+  var prefX=W-R.barToolsW+6,modeW=R.barToolsW-114;
+  var modeName=pbShuffle?'智能随机':(ssState&&ssState.order_name)||'顺序播放';
+  tC(gr,modeName+' ▾',FONT.pl,pbShuffle?COL.green:COL.text,prefX,by+4*s,modeW,30*s);
+  HB_CTRL.push({x0:prefX,y0:by+4*s,x1:prefX+modeW,y1:by+34*s,act:'playback_mode'});
+  tC(gr,'音频输出 ▾',FONT.plSub,COL.text2,W-106,by+4*s,100,30*s);
+  HB_CTRL.push({x0:W-106,y0:by+4*s,x1:W-6,y1:by+34*s,act:'output'});
   var scan=ssState&&ssState.scan;
   var scanText=scan?('分析 '+scan.completed+'/'+scan.total+(scan.failed?' · 失败 '+scan.failed:'')):'等候智能随机组件';
-  tL(gr,ssOutputError||ssError||scanText,FONT.plSub,(ssError||ssOutputError)?RGB(245,150,130):COL.text3,prefX,by+70,170,22);
+  tL(gr,ssOutputError||ssError||scanText,FONT.plSub,(ssError||ssOutputError)?RGB(245,150,130):COL.text3,prefX,by+70*s,R.barToolsW-122,22*s);
   if(scan){
-    tC(gr,scan.paused?'继续':'暂停',FONT.plSub,COL.text2,W-110,by+68,52,26);
-    HB_CTRL.push({x0:W-110,y0:by+68,x1:W-58,y1:by+94,act:'scan_pause'});
+    tC(gr,scan.paused?'继续':'暂停',FONT.plSub,COL.text2,W-110,by+68*s,52,26*s);
+    HB_CTRL.push({x0:W-110,y0:by+68*s,x1:W-58,y1:by+94*s,act:'scan_pause'});
     if(scan.failed){
-      tC(gr,'重试',FONT.plSub,COL.green,W-56,by+68,48,26);
-      HB_CTRL.push({x0:W-56,y0:by+68,x1:W-8,y1:by+94,act:'scan_retry'});
+      tC(gr,'重试',FONT.plSub,COL.green,W-56,by+68*s,48,26*s);
+      HB_CTRL.push({x0:W-56,y0:by+68*s,x1:W-8,y1:by+94*s,act:'scan_retry'});
     }
   }
-  var gearC=by+50, fsx=W-46;
+  var gearC=by+50*s, fsx=W-46;
   drawIcon(gr,'expand',hv(fsx-8,gearC-16,fsx+30,gearC+16)?COL.text:COL.text2,fsx,gearC-13,26,26,22);
   HB_CTRL.push({x0:fsx-8,y0:gearC-16,x1:fsx+30,y1:gearC+16,act:'fullscreen'});
-  var volW=104, volX=fsx-24-volW, volY=gearC-2;
+  var volW=Math.min(104*s,R.barToolsW-110), volX=fsx-24-volW, volY=gearC-2*s;
   drawIcon(gr,'volume',COL.text2,volX-32,gearC-13,26,26,22);
   HB_VOL=drawTrackBar(gr,volX,volY,volW,5,COL.seekbg,clamp01(vol2pos(fb.Volume)));
 }

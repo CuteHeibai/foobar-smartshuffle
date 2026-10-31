@@ -50,6 +50,7 @@ include('data/playback.js');
 include('data/smartshuffle.js');
 include('data/output.js');
 include('data/lyrics.js');
+include('data/discovery.js');
 include('data/replaygain.js');
 include('data/discord.js');
 include('data/dedupe.js');
@@ -57,6 +58,11 @@ include('data/playlist_edit.js');
 
 include('ui/skeleton.js');
 include('ui/chrome.js');
+include('ui/motion.js');
+include('ui/hover.js');
+include('ui/menus.js');
+include('ui/layout.js');
+include('ui/files.js');
 
 include('views/cards.js');
 include('views/nav.js');

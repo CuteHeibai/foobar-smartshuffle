@@ -17,6 +17,7 @@ Copy-Item -LiteralPath (Join-Path $repo 'build\eslyric\foo_uie_eslyric.dll') -De
 Copy-Item -LiteralPath $analyzer -Destination (Join-Path $payload 'runtime') -Recurse
 Copy-Item -LiteralPath (Join-Path $repo 'theme\verdant') -Destination (Join-Path $payload 'theme') -Recurse
 Copy-Item -LiteralPath (Join-Path $repo 'vendor\verdant-foobar2000-theme-master\components\foo_ui_columns') -Destination (Join-Path $payload 'components') -Recurse
+Copy-Item -LiteralPath (Join-Path $repo 'vendor\verdant-foobar2000-theme-master\components\foo_ui_wizard') -Destination (Join-Path $payload 'components') -Recurse
 Copy-Item -LiteralPath (Join-Path $repo 'vendor\verdant-foobar2000-theme-master\dist-config\foo_ui_columns.dll.cfg') -Destination (Join-Path $payload 'config')
 $component=Join-Path $dist 'foo_smartshuffle.fb2k-component'
 if(Test-Path -LiteralPath $component){Remove-Item -LiteralPath $component -Force}

@@ -1,4 +1,4 @@
-param([switch]$Offline, [switch]$SkipInstall)
+﻿param([switch]$Offline, [switch]$SkipInstall)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $repo = Split-Path -Parent $PSScriptRoot
@@ -44,7 +44,8 @@ try {
         '--name', 'smartshuffle-analyzer', '--distpath', (Join-Path $buildRoot 'analyzer'),
         '--workpath', (Join-Path $buildRoot 'analyzer-work'), '--specpath', (Join-Path $buildRoot 'analyzer-spec'),
         '--paths', $repo, '--collect-all', 'librosa', '--collect-all', 'soundfile', '--collect-all', 'soxr',
-        '--hidden-import', 'analyzer.core', '--exclude-module', 'matplotlib', '--exclude-module', 'tkinter',
+        '--collect-all', 'sudachipy', '--collect-all', 'sudachidict_small', '--collect-all', 'pypinyin', '--collect-all', 'jaconv',
+        '--hidden-import', 'analyzer.metadata', '--hidden-import', 'analyzer.core', '--exclude-module', 'matplotlib', '--exclude-module', 'tkinter',
         (Join-Path $repo 'analyzer/__main__.py'))
     $exe = Join-Path $buildRoot 'analyzer/smartshuffle-analyzer/smartshuffle-analyzer.exe'
     $previousExecutable = $env:SMARTSHUFFLE_ANALYZER_EXE

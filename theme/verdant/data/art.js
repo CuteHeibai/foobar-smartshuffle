@@ -310,7 +310,7 @@ function plCoverReady(pi){
   h=c.single; return !h || artLoaded(albKey(h));
 }
 function paintPlCard(gr,x,y,w,pi,hov){
-  gr.FillRoundRect(x,y,w,w+56,8,8,hov?RGB(40,40,40):COL.elev);
+  gr.FillRoundRect(x,y,w,w+M.cardTextH,8,8,hov?RGB(40,40,40):COL.elev);
   var cs=w-24;
   drawPlCover(gr,x+12,y+12,cs,6,pi,plName(pi));
   tL(gr,plName(pi),FONT.card,COL.text,x+12,y+cs+18,w-24-(hov?26:0),20);
@@ -319,9 +319,9 @@ function paintPlCard(gr,x,y,w,pi,hov){
 function renderPlCard(pi,w,hov){
   var im=null;
   try{
-    im=gdi.CreateImage(w,w+56); var g=im.GetGraphics();
+    im=gdi.CreateImage(w,w+M.cardTextH); var g=im.GetGraphics();
     g.SetSmoothingMode(2);
-    g.FillSolidRect(0,0,w,w+56,COL.base);   // the card's rounded corners must reveal the panel bg
+    g.FillSolidRect(0,0,w,w+M.cardTextH,COL.base);   // the card's rounded corners must reveal the panel bg
     paintPlCard(g,0,0,w,pi,hov);
     im.ReleaseGraphics(g);
   }catch(e){ im=null; }

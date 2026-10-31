@@ -16,7 +16,7 @@ var COL = {
   rowHover:RGBA(255,255,255,18), rowActive:RGBA(255,255,255,38),
   line:RGBA(255,255,255,28), seekbg:RGB(77,77,77)
 };
-var M = { pad:8, gap:8, navW:210, queueW:350, barH:96, navTopH:84, rowH:56, radius:10, cpad:24, headH:280, artSz:200 };   // navW/queueW: sidebar + queue widths
+var M = { pad:8, gap:8, navW:210, queueW:350, barH:96, navTopH:84, rowH:56, cardTextH:56, radius:10, cpad:24, headH:280, artSz:200 };
 var PALETTE=[RGB(83,62,140),RGB(30,120,110),RGB(150,64,92),RGB(43,92,160),RGB(120,92,44),RGB(58,120,64),RGB(140,80,120),RGB(52,100,150),RGB(96,72,52),RGB(70,70,96)];
 
 /* ------------------------- fonts (create once) -------------------------
@@ -24,9 +24,10 @@ var PALETTE=[RGB(83,62,140),RGB(30,120,110),RGB(150,64,92),RGB(43,92,160),RGB(12
    from the panel property (or the display DPI). That is why props.js loads first, and why a
    scale change needs a panel reload rather than just a repaint.
    Regular (non-bold) text uses 'Segoe UI Semibold' so it doesn't read thin. */
+var SS_BASE_UI_SCALE=UISCALE,ssDensity=1;
 function gf(name,sz,style){ return gdi.Font(name, Math.max(1,Math.round(sz*UISCALE)), style||0); }
-function F(sz,bold){ return gf('Microsoft YaHei UI', sz, bold?1:0); }
-var FONT = {
+function F(sz,bold){ return gf('Segoe UI', sz, bold?1:0); }
+function ssCreateFonts(){return {
   lib:F(15,1), pl:F(13,1), plSub:F(11,0),
   eyebrow:F(11,1), title:F(32,1), meta:F(13,0),
   rowTitle:F(14,0), rowArtist:F(12,0), rowNum:F(13,0), rowCell:F(13,0), head:F(12,1),
@@ -34,12 +35,13 @@ var FONT = {
   npTitle:F(15,0), npArtist:F(12,0), time:F(12,0),
   icon:gf('Segoe MDL2 Assets',15), iconBtn:gf('Segoe MDL2 Assets',18),
   navIco:gf('Segoe MDL2 Assets',24), cap:gf('Segoe MDL2 Assets',10),
-  menu:gf('Microsoft YaHei UI',12), card:gf('Microsoft YaHei UI',14,1), sect2:gf('Microsoft YaHei UI',22,1),
-  searchTxt:gf('Microsoft YaHei UI',16,0),
-  lyric:gf('Microsoft YaHei UI',18,1), fsLyric:gf('Microsoft YaHei UI',30,1),
-  fsSrc:gf('Microsoft YaHei UI',13,0),
-  fsSrcName:gf('Microsoft YaHei UI',13,1)   // bold: the playlist name, vs. the plain-weight fixed caption
-};
+  menu:F(12), card:F(14,1), sect2:F(22,1),
+  searchTxt:F(16),
+  lyric:F(18,1), fsLyric:F(30,1),
+  fsSrc:F(13),
+  fsSrcName:F(13,1)   // bold: the playlist name, vs. the plain-weight fixed caption
+};}
+var FONT=ssCreateFonts();
 function chr(c){ return String.fromCharCode(c); }
 // MDL2 fallbacks for drawIcon when gdi.LoadSVG is unavailable (keys mirror ICONS), plus caption buttons
 var GLYPH = {
@@ -60,15 +62,20 @@ var DT_C = 0x1|0x4|0x20|0x800;           // center + vcenter + singleline + nopr
 var LH_F=[], LH_V=[];
 function lineH(gr,f){
   for(var i=0;i<LH_F.length;i++) if(LH_F[i]===f) return LH_V[i];
-  var n=0; try{ n=Math.ceil(gr.CalcTextHeight('Ag',f)); }catch(e){ n=0; }
+  var n=0; try{ n=Math.ceil(gr.CalcTextHeight('国Agあ',f)); }catch(e){ n=0; }
   LH_F.push(f); LH_V.push(n); return n;
 }
 var fitY=0, fitH=0;
 function fitV(gr,f,y,h){ var n=lineH(gr,f); if(n>h){ fitY=y-((n-h)>>1); fitH=n; } else { fitY=y; fitH=h; } }
-function tL(gr,s,f,c,x,y,w,h){ fitV(gr,f,y,h); gr.GdiDrawText(s,f,c,x,fitY,w,fitH,DT_L); }
-function tR(gr,s,f,c,x,y,w,h){ fitV(gr,f,y,h); gr.GdiDrawText(s,f,c,x,fitY,w,fitH,DT_R); }
-function tC(gr,s,f,c,x,y,w,h){ fitV(gr,f,y,h); gr.GdiDrawText(s,f,c,x,fitY,w,fitH,DT_C); }
-function tCE(gr,s,f,c,x,y,w,h){ fitV(gr,f,y,h); gr.GdiDrawText(s,f,c,x,fitY,w,fitH,DT_C|0x8000); }   // centered, ellipsized
+function ssText(gr,s,f,c,x,y,w,h,align,ellipsis){
+  if(w<=0||h<=0)return;fitV(gr,f,y,h);gr.SetTextRenderingHint(3);
+  gr.DrawString(String(s),f,c,Math.round(x),Math.round(fitY),Math.max(1,Math.round(w)),Math.max(1,Math.round(fitH)),
+    (align<<28)|(1<<24)|((ellipsis?3:0)<<20)|0x1000);
+}
+function tL(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,0,true);}
+function tR(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,2,false);}
+function tC(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,1,false);}
+function tCE(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,1,true);}
 
 /* ------------------------- vector icons (SVG rasterized via gdi.LoadSVG, tinted + cached) ------------------------- */
 var ICONS={

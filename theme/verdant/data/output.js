@@ -16,18 +16,12 @@ function ssParseOutputs(raw){
 }
 function ssShowOutputs(x,y){
   try{
-    var list=ssParseOutputs(fb.GetOutputDevices()), menu=window.CreatePopupMenu(), active=0;
-    if(!list.length){ menu.AppendMenuItem(1,1,'无法读取音频设备，请打开 foobar2000 输出设置。'); }
-    for(var i=0;i<list.length;i++){
-      menu.AppendMenuItem(0,i+1,ssOutputLabel(list[i]).replace(/&/g,'&&'));
-      if(list[i].active) active=i+1;
-    }
-    if(active) menu.CheckMenuRadioItem(1,list.length,active);
-    var id=menu.TrackPopupMenu(x,y);
-    if(id>0&&id<=list.length){
-      var d=list[id-1];
-      if(!d.active) fb.SetOutputDevice(d.output_id,d.device_id);
-    }
+    var list=ssParseOutputs(fb.GetOutputDevices()), rows=[];
+    if(!list.length)rows.push({label:'无法读取音频设备，请打开输出设置。',disabled:true});
+    for(var i=0;i<list.length;i++)(function(d){
+      rows.push({label:ssOutputLabel(d),checked:!!d.active,run:function(){if(!d.active)fb.SetOutputDevice(d.output_id,d.device_id);}});
+    })(list[i]);
+    ssShowPopup(rows,x,y);
     ssOutputError='';
   }catch(e){ ssOutputError='输出切换失败：'+e.message; }
   repaintAll();

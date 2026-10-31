@@ -1,5 +1,6 @@
 """Acceptance against a RUNNING disposable player. Never targets the live installation."""
 import json
+import subprocess
 from pathlib import Path
 import sys
 import time
@@ -20,7 +21,7 @@ def check(condition, label):
 
 
 s = b.request("state")
-check(s["version"] == 1 and s["component"] == "1.0.0", "Native component and v1 bridge loaded")
+check(s["version"] == 1 and s["component"] == "1.0.1", "Native component and v1 bridge loaded")
 check(s["remaining_count"] > 2, "Existing real playlist was read")
 before = s["remaining"]
 before_ids = [t["id"] for t in before]
@@ -48,7 +49,7 @@ check(first not in [t["id"] for t in s["remaining"]], "Real playback start consu
 heard = [first]
 expected = [t["id"] for t in s["remaining"]]
 for target in expected:
-    b.request("next")
+    subprocess.run([str(REPO / 'test-player/foobar2000.exe'), '/next'], check=True)
     s = b.wait(lambda s: s["now_id"] == target, timeout=10)
     heard.append(s["now_id"])
 check(len(heard) == len(before) and len(set(heard)) == len(heard), "Real native Next traverses a complete unique round")
@@ -56,7 +57,7 @@ check(s["round"] >= 2, "Next round prepared automatically")
 last = heard[-1]
 next_id = s["remaining"][0]["id"]
 check(last != next_id, "Round boundary does not repeat its final track")
-b.request("next")
+subprocess.run([str(REPO / 'test-player/foobar2000.exe'), '/next'], check=True)
 s = b.wait(lambda s: s["now_id"] == next_id)
 check(s["now_id"] == next_id, "Playback continues into the next round")
 
@@ -64,7 +65,7 @@ s = b.request("open")
 s = b.wait(lambda s: not s.get("preview_pending") and s.get("preview") and bool(s["preview"]["token"]))
 old_token = s["preview"]["token"]
 next_id = s["remaining"][0]["id"]
-b.request("next")
+subprocess.run([str(REPO / 'test-player/foobar2000.exe'), '/next'], check=True)
 b.wait(lambda s: s["now_id"] == next_id)
 s = b.request("apply", token=old_token)
 check(not s["response"]["ok"], "A preview from before a playback change cannot overwrite the current round")

@@ -144,7 +144,7 @@ function skelCardsCached(gr,x,y,w,h,cardW,gap){
   else skelCards(gr,x,y,w,h,cardW,gap);
 }
 function skelCards(gr,x,y,w,h,cardW,gap){
-  var cardH=cardW+56, cs=cardW-24, cx, cy;
+  var cardH=cardW+M.cardTextH, cs=cardW-24, cx, cy;
   for(cy=y; cy<y+h; cy+=cardH+8){
     for(cx=x; cx+cardW<=x+w; cx+=cardW+gap){
       var ch=Math.min(cardH,y+h-cy); if(ch<24) break;

@@ -14,7 +14,7 @@ function qRowMeta(h){
 // hover cue + click target for one queue row; rows are rh apart so the boxes tile exactly
 function qRow(gr,r,x,qy,rh){
   var x0=x-8, y0=qy-6, x1=r.x+r.w-10, y1=qy+rh-6;
-  if(hv(x0,y0,x1,y1)) gr.FillRoundRect(x0,y0,x1-x0,y1-y0,6,6,COL.rowHover);
+  if(ssRowHover(x0,y0,x1,y1)) gr.FillRoundRect(x0,y0,x1-x0,y1-y0,6,6,COL.rowHover);
   return {x0:x0,y0:y0,x1:x1,y1:y1};
 }
 // cover + title + artist, the layout every queue entry shares
@@ -29,11 +29,11 @@ function drawQueue(gr){
   var r=R.queue; panelBg(gr,r,COL.base);
   var x=r.x+18;
   var qOn=rightTab==='queue';
-  tL(gr,'队列',FONT.tab,qOn?COL.text:COL.text2,x,r.y+16,64,26);
-  tL(gr,'歌词',FONT.tab,qOn?COL.text2:COL.text,x+70,r.y+16,64,26);
-  gr.FillSolidRect(qOn?x:x+70,r.y+46,qOn?54:50,3,COL.green);
-  HB_TABS.push({x0:x-6,y0:r.y+8,x1:x+64,y1:r.y+48,tab:'queue'});
-  HB_TABS.push({x0:x+70,y0:r.y+8,x1:x+134,y1:r.y+48,tab:'lyrics'});
+  tL(gr,'歌词',FONT.tab,qOn?COL.text2:COL.text,x,r.y+16,64,26);
+  tL(gr,'队列',FONT.tab,qOn?COL.text:COL.text2,x+70,r.y+16,64,26);
+  gr.FillSolidRect(qOn?x+70:x,r.y+46,50,3,COL.green);
+  HB_TABS.push({x0:x-6,y0:r.y+8,x1:x+64,y1:r.y+48,tab:'lyrics'});
+  HB_TABS.push({x0:x+70,y0:r.y+8,x1:x+134,y1:r.y+48,tab:'queue'});
 
   if(!qOn){
     SS_LYRIC_BTN={x0:r.x+r.w-86,y0:r.y+12,x1:r.x+r.w-12,y1:r.y+44};

@@ -1,5 +1,6 @@
 #include <foobar2000/SDK/foobar2000.h>
 #include <foobar2000/SDK/ui_element.h>
+#include <foobar2000/SDK/configStore.h>
 #include "lyrics_host.hpp"
 #include <algorithm>
 #include <cstdint>
@@ -113,7 +114,9 @@ public:
             error_ = "歌词面板父窗口或子窗口已销毁";
         }
         const bool ready = healthy();
-        return {{"ready", ready}, {"visible", ready && visible_ && IsWindowVisible(window_) != FALSE}, {"error", error_}};
+        bool segoe=false,simsun=false;
+        if(ready)try{auto cfg=instance_->get_configuration();std::string data(static_cast<const char*>(cfg->get_data()),cfg->get_data_size());segoe=data.find("Segoe UI")!=std::string::npos;simsun=data.find("SimSun")!=std::string::npos;}catch(...){}
+        return {{"ready", ready}, {"visible", ready && visible_ && IsWindowVisible(window_) != FALSE}, {"error", error_},{"configuration_segoe_ui",segoe},{"configuration_simsun",simsun}};
     }
 
     bool query_color(const GUID& which, t_ui_color& result) override {
@@ -142,6 +145,7 @@ private:
     UINT dpi_ = 0;
     bool visible_ = false;
     std::string error_;
+    std::string lastConfiguration_;
     ui_element::ptr element_;
     ui_element_instance::ptr instance_;
 
@@ -154,7 +158,7 @@ private:
         if (font_ && dpi_ == effective) return;
         const auto replacement = CreateFontW(-MulDiv(15, static_cast<int>(effective), 96), 0, 0, 0,
             FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-            CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei UI");
+            CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
         if (!replacement) throw std::runtime_error("无法创建歌词面板字体");
         const auto old = font_;
         font_ = replacement;
@@ -175,10 +179,18 @@ private:
         if (element_.is_empty()) throw std::runtime_error("未找到 ESLyric UI 元素，请安装并启用 foo_uie_eslyric");
         auto config = element_->get_default_configuration();
         if (config.is_empty()) throw std::runtime_error("ESLyric 未提供默认面板配置");
+        auto store=fb2k::configStore::get();
+        auto saved=store->getConfigBlob("smartshuffle.lyrics.panel.config");
+        if(!saved->size())saved=store->getConfigBlob("ui.elem.36A795A3-110B-4398-995A-84CEA2B13427.config");
+        if(saved->size())config=ui_element_config::g_create(element_->get_guid(),saved->data(),saved->size());
         visible_ = true;
         instance_ = element_->instantiate(parent_, config, ui_element_instance_callback_get_ptr());
         if (instance_.is_empty()) throw std::runtime_error("ESLyric 未返回面板实例");
         window_ = instance_->get_wnd();
+        if(window_){
+            SetWindowLongPtrW(window_,GWL_STYLE,GetWindowLongPtrW(window_,GWL_STYLE)&~WS_BORDER);
+            SetWindowLongPtrW(window_,GWL_EXSTYLE,GetWindowLongPtrW(window_,GWL_EXSTYLE)&~(WS_EX_CLIENTEDGE|WS_EX_STATICEDGE));
+        }
         if (!healthy()) throw std::runtime_error("ESLyric 未将歌词窗口创建在请求的主题面板内");
         instance_->notify(ui_element_notify_colors_changed, 0, nullptr, 0);
         instance_->notify(ui_element_notify_font_changed, 0, nullptr, 0);
@@ -189,10 +201,19 @@ private:
         const bool changed = visible_ != visible;
         visible_ = visible;
         if (!healthy()) return;
+        if(!visible)persist_configuration();
         if (changed) instance_->notify(ui_element_notify_visibility_changed, visible ? 1 : 0, nullptr, 0);
         ShowWindow(window_, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
     }
+    void persist_configuration() noexcept {
+        if(instance_.is_empty())return;
+        try{
+            auto cfg=instance_->get_configuration();std::string data(static_cast<const char*>(cfg->get_data()),cfg->get_data_size());
+            if(data!=lastConfiguration_){fb2k::configStore::get()->setConfigBlob("smartshuffle.lyrics.panel.config",data.data(),data.size());lastConfiguration_=std::move(data);}
+        }catch(...){}
+    }
     void release() noexcept {
+        persist_configuration();
         visible_ = false;
         // SDK explicitly permits destroying the instance window before releasing
         // its service. Keep callback and font valid for WM_DESTROY and its destructor.

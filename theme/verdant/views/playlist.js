@@ -13,24 +13,24 @@ function drawPlaylist(gr,r){
     return;
   }
   gr.FillGradRect(r.x,r.y,r.w,M.headH,90,blend(artHue(plChoice(p.i).single,p.name),COL.base,0.42),COL.base,1.0);
-  var compact=r.w<800, ax=r.x+M.cpad, ay=r.y+(compact?22:44), art=M.artSz;
+  var s=ssDensity,compact=r.w<800*s, ax=r.x+M.cpad, ay=r.y+(compact?22:44)*s, art=M.artSz;
   drawPlCover(gr,ax,ay,art,8,p.i,p.name);
   // sort pill + asc/desc button, right-aligned like the All Songs group pill; header text
   // stops short of this column so the two can never collide on a narrow panel
   var rx0=r.x+r.w-M.cpad, sortDirW=38, sortPillW=compact?Math.min(230,r.w-100):200, sortGap=8, sortTotalW=sortPillW+sortGap+sortDirW;
-  var sortX=compact?ax:Math.max(ax+art+24,rx0-sortTotalW), sortY=ay+(compact?156:142);
-  var tx=ax+art+24, tw=compact?rx0-tx:Math.max(120,sortX-12-tx);
+  var sortX=compact?ax:Math.max(ax+art+24*s,rx0-sortTotalW), sortY=ay+(compact?art+42*s:142*s);
+  var tx=ax+art+24*s, tw=compact?rx0-tx:Math.max(120,sortX-12-tx);
   tL(gr,'歌单',FONT.eyebrow,COL.text,tx,ay+6,tw,18);
   tL(gr,p.name,FONT.title,COL.text,tx,ay+28,tw,84);
   var meta0=getMeta(p.i);
-  tL(gr,p.count+' 首歌曲'+(meta0.totalSec>0?(' '+CH_DOT+' '+fmtDur(meta0.totalSec)):''),FONT.meta,COL.text2,compact?ax:tx,ay+(compact?116:150),compact?r.w-M.cpad*2:tw,22);
+  tL(gr,p.count+' 首歌曲'+(meta0.totalSec>0?(' '+CH_DOT+' '+fmtDur(meta0.totalSec)):''),FONT.meta,COL.text2,compact?ax:tx,ay+(compact?art+12*s:150*s),compact?r.w-M.cpad*2:tw,22*s);
   HB_PLSORT=drawDropPill(gr,sortX,sortY,sortPillW,38,'排序：'+labelOf(PL_SORTS,plSort,'歌手'),plSortMenuOpen);
   drawSortDirBtn(gr,sortX+sortPillW+sortGap,sortY,sortDirW,38);
 
   // track list
   var lx=r.x+M.cpad, rx=r.x+r.w-M.cpad;
   var listTop=r.y+M.headH+8;
-  var numW=30, durW=64, cgap=16;
+  var numW=30*s, durW=64*s, cgap=16*s;
   var albumW=compact?0:Math.round((rx-lx-numW-durW-cgap*3)*0.34);
   var titleX=lx+numW+cgap, titleW=(rx-lx-numW-durW-albumW-cgap*3);
   var albumX=titleX+titleW+cgap;
@@ -49,19 +49,19 @@ function drawPlaylist(gr,r){
                   || (shufHere && sameHandle(h,NP));   // playing from this playlist's hidden shuffle copy
     // the row whose context menu is open stays lit (brighter than hover)
     var isMenuRow=!!(ctxMenu && ctxMenu.kind==='track' && ctxMenu.pl===p.i && ctxMenu.item===j);
-    var isHover=hv(r.x,ry,r.x+r.w,ry+rh)||isMenuRow;
+    var isHover=ssRowHover(r.x,ry,r.x+r.w,ry+rh)||isMenuRow;
     if(isHover) gr.FillRoundRect(lx-8,ry,rx-lx+16,rh,4,4,isMenuRow?COL.rowActive:COL.rowHover);
     var titleCol=isPlaying?COL.green:COL.text;
     if(isHover) drawIcon(gr,'play',COL.text,lx,ry,numW,rh,14);
     else tL(gr,String(d+1),FONT.rowNum,isPlaying?COL.green:COL.text2,lx,ry,numW,rh);
-    var cs=40, cy=ry+(rh-cs)/2, alb=meta.album[j];
+    var cs=40*s, cy=ry+(rh-cs)/2, alb=meta.album[j];
     drawCover(gr,titleX,cy,cs,3,h,alb||String(j),meta.artkey[j]);
     var ttx=titleX+cs+12, ttw=titleW-cs-12;
-    tL(gr,meta.title[j],FONT.rowTitle,titleCol,ttx,ry+8,ttw,20);
-    tL(gr,meta.artist[j],FONT.rowArtist,COL.text2,ttx,ry+30,ttw,16);
+    tL(gr,meta.title[j],FONT.rowTitle,titleCol,ttx,ry+8*s,ttw,20*s);
+    tL(gr,meta.artist[j],FONT.rowArtist,COL.text2,ttx,ry+30*s,ttw,16*s);
     if(albumW>0) tL(gr,alb,FONT.rowCell,COL.text2,albumX,ry,albumW,rh);
     tR(gr,meta.len[j],FONT.rowCell,COL.text2,rx-durW,ry,durW,rh);
-    HB_TR.push({x0:lx-8,y0:ry,x1:rx+8,y1:ry+rh,pl:p.i,item:j,pgx0:lx,pgx1:lx+numW});
+    HB_TR.push({x0:lx-8,y0:Math.max(ry,rowsTop),x1:rx+8,y1:Math.min(ry+rh,cropY),rowY:ry,rowH:rh,pl:p.i,item:j,pgx0:lx,pgx1:lx+numW});
   }
   // crop the partial rows top & bottom, then draw the sticky column header on top
   gr.FillSolidRect(r.x,rowsTop-rh,r.w,rh,COL.base);

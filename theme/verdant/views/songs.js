@@ -13,7 +13,7 @@ function drawSongs(gr,r){
   var cov=libChoice(), g=songsGroup;
   // header: gradient wash + mosaic cover + title/meta, mirroring the playlist header
   gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,blend(artHue(cov.single,'__lib__'),COL.base,0.42),COL.base,1.0);
-  var compact=r.w<800, rx=r.x+r.w-M.cpad, lx=r.x+M.cpad, ay=r.y+(compact?22:44), art=M.artSz;
+  var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad, lx=r.x+M.cpad, ay=r.y+(compact?22:44)*s, art=M.artSz;
   drawLibCover(gr,lx,ay,art,8);
   // header text stops short of the pill column so the two can never collide on a narrow panel
   var gpW=compact?Math.max(150,Math.floor((r.w-M.cpad*2-8)*.54)):232, pgap=8, nzW=compact?r.w-M.cpad*2-gpW-pgap:Math.max(196,Math.round(gr.CalcTextWidth('音量均衡',FONT.pl))+72);
@@ -21,9 +21,9 @@ function drawSongs(gr,r){
   var tx=lx+art+24, tw=compact?rx-tx:Math.max(120,clX-12-tx);
   tL(gr,'音乐库',FONT.eyebrow,COL.text,tx,ay+6,tw,18);
   tL(gr,'全部歌曲',FONT.title,COL.text,tx,ay+28,tw,84);
-  tL(gr,fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):''),FONT.meta,COL.text2,compact?lx:tx,ay+(compact?116:150),compact?r.w-M.cpad*2:tw,22);
-  HB_RGNORM=drawNormalizePill(gr,clX,ay+(compact?156:142),nzW,38);
-  HB_SG=drawDropPill(gr,gpX,ay+(compact?156:142),gpW,38,'分组：'+labelOf(SONGS_GROUPS,songsGroup,'不分组'),sgMenuOpen);
+  tL(gr,fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):''),FONT.meta,COL.text2,compact?lx:tx,ay+(compact?art+12*s:150*s),compact?r.w-M.cpad*2:tw,22*s);
+  HB_RGNORM=drawNormalizePill(gr,clX,ay+(compact?art+42*s:142*s),nzW,38*s);
+  HB_SG=drawDropPill(gr,gpX,ay+(compact?art+42*s:142*s),gpW,38*s,'分组：'+labelOf(SONGS_GROUPS,songsGroup,'不分组'),sgMenuOpen);
   // one line of truth under the pill: what normalizing has left to do, or what it's currently doing
   if(!compact && rgStat && rgStat.total>0){
     var nzCap=rgScanFailed ? "Couldn't start foobar's ReplayGain scanner"
@@ -76,22 +76,22 @@ function drawSongs(gr,r){
     if(vy1<=vy0) continue;                                     // under the sticky header don't take the mouse
     if(row.k==='t'){
       var t=row.t, isPlaying=!!(NP && t.h && t.h.Path===NP.Path);
-      var isHover=hv(lx-8,vy0,rx+8,vy1);
+      var isHover=ssRowHover(lx-8,vy0,rx+8,vy1);
       if(isHover) gr.FillRoundRect(lx-8,ry,rx-lx+16,gh,4,4,COL.rowHover);
       if(isHover) drawIcon(gr,'play',COL.text,numX,ry,numW,gh,14);
       else tR(gr,String(row.n),FONT.rowNum,isPlaying?COL.green:COL.text2,numX,ry,numW-8,gh);
       if(flat){
-        var cs=40, cy=ry+(gh-cs)/2;
+        var cs=40*s, cy=ry+(gh-cs)/2;
         drawCover(gr,titleX,cy,cs,3,t.h,t.album||t.title,t.artkey);
-        tL(gr,t.title,FONT.rowTitle,isPlaying?COL.green:COL.text,titleX+cs+12,ry+8,titleW-cs-12,20);
-        tL(gr,t.artist,FONT.rowArtist,COL.text2,titleX+cs+12,ry+30,titleW-cs-12,16);
+        tL(gr,t.title,FONT.rowTitle,isPlaying?COL.green:COL.text,titleX+cs+12,ry+8*s,titleW-cs-12,20*s);
+        tL(gr,t.artist,FONT.rowArtist,COL.text2,titleX+cs+12,ry+30*s,titleW-cs-12,16*s);
       } else {
         tL(gr,t.title,FONT.rowTitle,isPlaying?COL.green:COL.text,titleX,ry,titleW,gh);
       }
       if(showAlbum) tL(gr,t.album,FONT.rowCell,COL.text2,colX,ry,colW,gh);
       else if(showArtist) tL(gr,t.artist,FONT.rowCell,COL.text2,colX,ry,colW,gh);
       tR(gr,t.len,FONT.rowCell,COL.text2,rx-durW,ry,durW,gh);
-      HB_TR.push({x0:lx-8,y0:vy0,x1:rx+8,y1:vy1,songs:true,ti:row.ti,pgx0:numX,pgx1:numX+numW});
+      HB_TR.push({x0:lx-8,y0:vy0,x1:rx+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:numX,pgx1:numX+numW});
     } else {
       /* Group header: every kind is the same block on the same rhythm (GAP, artwork, PADB),
          differing only in indent, artwork size and -- for the artist banner -- a slab + eyebrow. */
@@ -105,7 +105,7 @@ function drawSongs(gr,r){
       var hHov=isArt && hb1>hb0 && hv(lx-8,hb0,rx+8,hb1);
       if(banner) gr.FillRoundRect(lx-8,blockTop,rx-lx+16,blockH,8,8,hHov?COL.hover:RGB(34,34,34));
       else if(hHov) gr.FillRoundRect(lx-8,blockTop-4,rx-lx+16,blockH+8,6,6,COL.rowHover);
-      if(isArt) drawCircle(gr,hx,hy,acs,rowCover(row),row.label);
+      if(isArt) ssDrawArtistAvatar(gr,hx,hy,acs,row.label);
       else drawRounded(gr,hx,hy,acs,5,row.handle,row.seed);
       // text block centred against the artwork, running to the same right edge as the rows
       var htx=hx+acs+SG_TGAP, htw=rx-htx;
@@ -114,7 +114,7 @@ function drawSongs(gr,r){
       var sub=banner?(fmtNum(row.albums||1)+' album'+((row.albums||1)===1?'':'s')+'  '+CH_DOT+'  '+fmtNum(row.count)+' 首歌曲')
                     :((row.sub?row.sub+'  '+CH_DOT+'  ':'')+fmtNum(row.count)+' 首歌曲');
       if(banner) tL(gr,'歌手',FONT.eyebrow,COL.text3,htx,ty0,htw,eyeH);
-      tL(gr,row.label,nest?FONT.sect:FONT.sect2,COL.text,htx,ty0+eyeH,htw,nameH);
+      tL(gr,isArt?ssArtistName(row.label):row.label,nest?FONT.sect:FONT.sect2,COL.text,htx,ty0+eyeH,htw,nameH);
       tL(gr,sub,FONT.plSub,COL.text2,htx,ty0+eyeH+nameH,htw,subH);
       // artist headers are a shortcut to the full artist page
       if(isArt && hb1>hb0) HB_CARD.push({x0:lx-8,y0:hb0,x1:rx+8,y1:hb1,kind:'artist',id:row.label});

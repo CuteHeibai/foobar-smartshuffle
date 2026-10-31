@@ -27,13 +27,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Extract 65 bounded local audio features.")
     parser.add_argument("--input", required=True, type=Path, help="Decoded mono float32 WAV input")
     parser.add_argument("--output", required=True, type=Path, help="Atomic UTF-8 JSON result path")
+    parser.add_argument("--metadata", action="store_true", help="Local search / explicit artist verification task")
     arguments = parser.parse_args()
     try:
-        from analyzer.core import analyze_file
-        result = {"version": 1, "ok": True, "features": analyze_file(arguments.input)}
+        if arguments.metadata:
+            from analyzer.metadata import execute
+            request=json.loads(arguments.input.read_text(encoding="utf-8-sig"))
+            result={"version":1,"ok":True,"result":execute(arguments.input.parent,request)}
+        else:
+            from analyzer.core import analyze_file
+            result = {"version": 1, "ok": True, "features": analyze_file(arguments.input)}
         exit_code = 0
     except Exception as error:
-        result = {"version": 1, "ok": False, "error": f"Audio analysis failed: {error}"}
+        result = {"version": 1, "ok": False, "error": str(error)}
         exit_code = 1
     try:
         _publish(arguments.output, result)

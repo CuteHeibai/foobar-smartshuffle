@@ -11,10 +11,9 @@ function openPlaylistMenu(pl,x,y){
 }
 // right-click a playlist row. Locked/auto playlists offer nothing -> fall through to JSplitter's menu
 function openTrackMenu(pl,item,x,y){
-  if(!canEditPl(pl)) return false;
-  ctxMenu={kind:'track', pl:pl, item:item, x:x, y:y,
-           items:[{label:'从此歌单移除',act:'trkremove',danger:true}]};
-  repaintAll(); return true;
+  var extra=[];
+  if(canEditPl(pl))extra.push({label:'从此歌单移除',run:function(){removeTrackFromPl(pl,item);}},{separator:true});
+  ssOpenNativeMenu('context',{playlist:pl,item:item},x,y,extra);return true;
 }
 function canEditPl(pl){
   if(pl<0) return false;

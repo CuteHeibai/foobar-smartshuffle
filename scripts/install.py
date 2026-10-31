@@ -58,6 +58,8 @@ def install(payload, target, with_eslyric=True):
     if not (target / "foobar2000.exe").is_file() or not (target / "portable_mode_enabled").exists():
         raise ValueError("This local installer requires the known portable x64 foobar folder")
     profile = target / "profile"
+    existing_layout = profile / "configuration/foo_ui_columns.dll.cfg"
+    preserve_layout = (profile / "user-components-x64/foo_smartshuffle/foo_smartshuffle.dll").is_file() and existing_layout.is_file() and b"verdant" in existing_layout.read_bytes().lower()
     mapping = [
         ("theme/verdant", "profile/verdant"),
         ("components/foo_smartshuffle", "profile/user-components-x64/foo_smartshuffle"),
@@ -66,6 +68,8 @@ def install(payload, target, with_eslyric=True):
     ]
     if not (profile / "user-components-x64/foo_ui_columns/foo_ui_columns.dll").exists():
         mapping.append(("components/foo_ui_columns", "profile/user-components-x64/foo_ui_columns"))
+    if not (profile / "user-components-x64/foo_ui_wizard/foo_ui_wizard.dll").exists():
+        mapping.append(("components/foo_ui_wizard", "profile/user-components-x64/foo_ui_wizard"))
     if not (profile / "user-components-x64/foo_uie_jsplitter/foo_uie_jsplitter.dll").exists():
         raise ValueError("Installed JSplitter is required; it is intentionally reused")
     if with_eslyric:
@@ -80,7 +84,7 @@ def install(payload, target, with_eslyric=True):
     stamp = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).strftime("%Y%m%d-%H%M%S-%f")
     backup = target / "smartshuffle-backups" / stamp
     backup.mkdir(parents=True)
-    entries = [destination for _, destination in mapping] + ["profile/config.sqlite", "profile/playlists-v2.0", "profile/smartshuffle/store.json", "profile/smartshuffle/features.json", "profile/smartshuffle/request.json", "profile/smartshuffle/state.json"]
+    entries = [destination for _, destination in mapping] + ["profile/configuration/foo_uie_eslyric.dll.cfg", "profile/config.sqlite", "profile/playlists-v2.0", "profile/smartshuffle/store.json", "profile/smartshuffle/features.json", "profile/smartshuffle/request.json", "profile/smartshuffle/state.json"]
     manifest = {"version": 1, "target": str(target), "entries": []}
     for relative in entries:
         existing = safe_child(target, relative)
@@ -102,11 +106,16 @@ def install(payload, target, with_eslyric=True):
         "Start-Process -FilePath $exe\n", encoding="utf-8-sig")
     try:
         for source, destination in mapping:
+            if preserve_layout and destination == "profile/configuration/foo_ui_columns.dll.cfg":
+                continue
             dst = safe_child(target, destination)
             if dst.is_dir():
                 shutil.rmtree(dst)
             copy(safe_child(payload, source), dst)
         select_interface(profile / "config.sqlite")
+        from profile_style import apply_profile
+        style_report = apply_profile(profile)
+        (backup / "appearance-migration.json").write_text(json.dumps(style_report, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
         restore(backup)
         raise

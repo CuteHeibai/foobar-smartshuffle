@@ -4,7 +4,7 @@ var SS_ROOT=fb.ProfilePath+'smartshuffle\\', ssState=null, ssFlight=null, ssOut=
 var ssSession=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2), ssPollTimer=null;
 var ssModal=false, ssDraft={x:0,y:0}, ssDraftTimer=null, ssDragging=false, ssSeenOpen=0;
 var ssOwnOpen={}, ssApplyId='', ssMessage='', ssError='', ssLastJSON='', ssOpenDraftPending=false;
-var ssStarted=false;
+var ssStarted=false,ssStarting=false;
 function ssClamp(v){ v=Number(v); return isFinite(v)?Math.max(-1,Math.min(1,v)):0; }
 function ssPoint(p){ return {x:ssClamp(p&&p.x),y:ssClamp(p&&p.y)}; }
 function ssPointSame(a,b){ return !!a&&!!b&&Math.abs(a.x-b.x)<0.00001&&Math.abs(a.y-b.y)<0.00001; }
@@ -13,6 +13,7 @@ function ssSend(op,args){
   for(k in (args||{})) if(k!=='version'&&k!=='id'&&k!=='op') r[k]=args[k];
   if(op==='preview') ssOut=ssOut.filter(function(q){return q.op!=='preview';});
   if(op==='lyrics_panel') ssOut=ssOut.filter(function(q){return q.op!=='lyrics_panel';});
+  if(op==='menu_open') ssOut=ssOut.filter(function(q){return q.op!=='menu_open';});
   if(op==='cancel') ssOut=ssOut.filter(function(q){return q.op!=='preview';});
   ssOut.push(r); ssPump(); return r.id;
 }
@@ -27,10 +28,21 @@ function ssPump(){
 }
 function ssAcceptState(s){
   if(!s||s.version!==1) return;
+  if(ssState&&s.pid&&ssState.pid!==s.pid)ssSeenOpen=0;
+  if(ssStarting)ssSeenOpen=s.ui_open||0;
   ssState=s;
+  if(s.ui_layout_reset&&typeof ssResetLayout==='function'){
+    var resetSeen=Number(window.GetProperty('SmartShuffle: layout reset applied',0));
+    if(s.ui_layout_reset>resetSeen){
+      try{ssResetLayout();window.SetProperty('SmartShuffle: layout reset applied',s.ui_layout_reset);}
+      catch(e){ssError='布局恢复未完成：'+String(e);console.log('Smart Shuffle layout reset: '+String(e));}
+    }
+  }
   if(typeof s.enabled==='boolean') pbShuffle=s.enabled;
   var done=null;
   if(ssFlight&&s.request_id===ssFlight.id){ done=ssFlight; ssFlight=null; }
+  if(typeof ssAcceptMenu==='function')ssAcceptMenu(done,s);
+  if(typeof ssAcceptFiles==='function')ssAcceptFiles(done,s);
   if(s.ui_open>ssSeenOpen){
     ssSeenOpen=s.ui_open;
     if(!ssModal&&!ssOwnOpen[s.request_id]) ssShow(false);
@@ -47,7 +59,8 @@ function ssAcceptState(s){
     ssApplyId='';
     if(!s.response||s.response.ok!==false){ ssModal=false; ssDragging=false; applyKeyMode(); }
   }
-  ssPump(); repaintAll();
+  if(typeof ssAcceptDiscovery==='function')ssAcceptDiscovery(s);
+  ssPump(); if(ssModal&&typeof ssRepaintPreference==='function')ssRepaintPreference();else repaintAll();
 }
 function ssPoll(){
   try{
@@ -63,12 +76,17 @@ function ssPoll(){
 }
 function ssStart(){
   if(ssStarted) return;
-  ssStarted=true; ssPoll();
-  ssSend('state',{theme_version:'1.0.0',theme_window:Number(window.ID)||0});
-  ssPollTimer=window.SetInterval(ssPoll,200);
+  ssStarted=true;ssStarting=true;ssPoll();ssStarting=false;
+  ssSend('state',{theme_version:'1.0.1',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard});
+  if(typeof ssReportLayout==='function')ssReportLayout();
+  if(typeof UIWizard!=='undefined'&&UIWizard)window.SetTimeout(function(){
+    ssSend('state',{theme_chrome_ready:ssConfigureChrome()});
+  },100);
+  ssPollTimer=window.SetInterval(ssPoll,50);
 }
 function ssStop(){ if(ssPollTimer) window.ClearInterval(ssPollTimer); if(ssDraftTimer) window.ClearTimeout(ssDraftTimer); }
 function ssShow(local){
+  if(typeof ssDropModalImage==='function')ssDropModalImage();
   ssModal=true; ssDragging=false; ssMessage=''; ssApplyId='';
   if(typeof ssSyncLyricPanel==='function') ssSyncLyricPanel();
   ssDraft=ssPoint(ssState&&((ssState.preview&&ssState.preview.point)||ssState.point));
@@ -83,9 +101,10 @@ function ssOpen(){
 function ssSetDraft(x,y){
   if(!ssModal||ssApplyId) return;
   ssDraft={x:ssClamp(x),y:ssClamp(y)}; ssOpenDraftPending=false; ssMessage='';
+  if(typeof ssRecordTrail==='function')ssRecordTrail(ssDraft);
   if(ssDraftTimer) window.ClearTimeout(ssDraftTimer);
   ssDraftTimer=window.SetTimeout(function(){ ssDraftTimer=null; if(ssModal) ssSend('preview',ssDraft); },150);
-  repaintAll();
+  if(typeof ssRepaintPreference==='function')ssRepaintPreference();else repaintAll();
 }
 function ssReady(){
   var p=ssState&&ssState.preview;
@@ -99,6 +118,7 @@ function ssCancel(){
   if(ssApplyId) return; // An applied transaction already sent cannot be undone by a late cancel.
   if(ssDraftTimer){ window.ClearTimeout(ssDraftTimer); ssDraftTimer=null; }
   ssModal=false; ssDragging=false; ssOpenDraftPending=false;
+  if(typeof ssDropModalImage==='function')ssDropModalImage();
   ssSend('cancel'); applyKeyMode(); repaintAll();
 }
 function ssMapPoint(x,y,g){ return {x:ssClamp((x-g.x)/g.size*2-1),y:ssClamp(1-(y-g.y)/g.size*2)}; }
