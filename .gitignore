@@ -1,0 +1,9 @@
+vendor/
+build/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.superpowers/
+test-player/
+backups/
