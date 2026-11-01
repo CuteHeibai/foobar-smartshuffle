@@ -81,7 +81,7 @@ function ssCreateSelectionController(options){
     }else if(!ctrl&&!shift){selected=Object.create(null);anchor=null;}
     gesture={index:index,x:event.x,y:event.y,lastX:event.x,lastY:event.y,base:base,
       ctrl:ctrl,shift:shift,wasSelected:wasSelected,mode:'pending',moved:false,
-      reorder:index>=0&&context.writable&&!ctrl&&!shift&&(wasSelected||!context.multiple),
+      reorder:index>=0&&context.writable&&!ctrl&&!shift&&(wasSelected||!context.multiple||options.dragUnselected),
       rect:null,insertIndex:null,targetIndex:null,indicator:null};
     return true;
   }
@@ -100,7 +100,7 @@ function ssCreateSelectionController(options){
     gesture.lastX=x;gesture.lastY=y;
     var dx=x-gesture.x,dy=y-gesture.y;
     if(!gesture.moved&&dx*dx+dy*dy>=threshold*threshold){
-      gesture.moved=true;gesture.mode=gesture.reorder?'reorder':(context.multiple?'marquee':'pending');
+      gesture.moved=true;gesture.mode=gesture.reorder?'reorder':(context.multiple&&options.marquee!==false?'marquee':'pending');
     }
     if(gesture.mode==='reorder')updateInsertion(y);
     else if(gesture.mode==='marquee'){

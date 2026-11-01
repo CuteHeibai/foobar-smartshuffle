@@ -85,7 +85,7 @@ class ProfileStyleTests(unittest.TestCase):
             payload = dict(style.read_records(after))[FONT_ID]
             for offset in (4, 116, 232):
                 self.assertEqual(struct.unpack_from('<I', payload, offset + 16)[0], 2)
-                self.assertEqual(payload[offset + 48:offset + 112], 'Segoe UI'.encode('utf-16le').ljust(64, b'\0'))
+                self.assertEqual(payload[offset + 48:offset + 112], 'Microsoft YaHei UI'.encode('utf-16le').ljust(64, b'\0'))
                 self.assertEqual(payload[offset + 20:offset + 43], before[offset + 20:offset + 43])
             self.assertEqual(payload[344:], before[344:])
             self.assertEqual(style.apply_profile(root)['files_changed'], [])
@@ -114,7 +114,7 @@ class ProfileStyleTests(unittest.TestCase):
             style.apply_profile(root)
             after = dict(style.read_records((root / 'configuration/foo_ui_columns.dll.cfg').read_bytes()))[FONT_ID]
             self.assertNotIn(b'Cambria', after)
-            self.assertEqual(after.count(b'Segoe UI'), 6)
+            self.assertEqual(after.count(b'Microsoft YaHei UI'), 6)
             self.assertEqual(after.count(struct.pack('<iiif', 700, 5, 2, 24.0)), 3)
             self.assertEqual(after.count(struct.pack('<IIf', 1, 0x74686777, 650.0)), 3)
 
@@ -137,7 +137,7 @@ class ProfileStyleTests(unittest.TestCase):
                 c.executemany('INSERT INTO configBlobs VALUES(?,?)', [(ESL_KEY, ESL), ('core.output', b'untouched')])
             result = style.apply_profile(root)
             actual = dict(style.read_records((root / 'configuration/foo_uie_eslyric.dll.cfg').read_bytes()))[ESL_ID]
-            expected = ESL[:43] + bytes.fromhex('3a13083c109003180020012a085365676f65205549') + ESL[63:]
+            expected = ESL[:43] + bytes.fromhex('3a1d083c109003180020012a12') + b'Microsoft YaHei UI' + ESL[63:]
             self.assertEqual(actual, expected)
             self.assertEqual(result['eslyric_fonts'], 2)
             with closing(sqlite3.connect(root / 'config.sqlite')) as c:
@@ -235,6 +235,19 @@ class ProfileStyleTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 style.apply_profile(root)
 
+
+    def test_saved_native_lyrics_panel_font_is_migrated_with_default_config(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.make_profile(d)
+            with closing(sqlite3.connect(root / 'config.sqlite')) as c, c:
+                c.execute('CREATE TABLE configBlobs(name TEXT PRIMARY KEY,value BLOB)')
+                c.executemany('INSERT INTO configBlobs VALUES(?,?)', [(ESL_KEY, ESL), ('smartshuffle.lyrics.panel.config', ESL)])
+            style.apply_profile(root)
+            with closing(sqlite3.connect(root / 'config.sqlite')) as c:
+                for key in [ESL_KEY, 'smartshuffle.lyrics.panel.config']:
+                    value = c.execute('SELECT value FROM configBlobs WHERE name=?', (key,)).fetchone()[0]
+                    self.assertIn(b'Microsoft YaHei UI', value)
+                    self.assertTrue(value.endswith(b'\xca\x02\x06SimSun'))
 
 if __name__ == '__main__':
     unittest.main()

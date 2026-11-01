@@ -1,14 +1,14 @@
 ﻿/* Selection is keyed by row occurrence, so duplicate files stay independent. */
-var ssMainSelect=ssCreateSelectionController(),ssNavSelect=ssCreateSelectionController(),ssQueueSelect=ssCreateSelectionController();
+var ssMainSelect=ssCreateSelectionController({marquee:false,dragUnselected:true}),ssNavSelect=ssCreateSelectionController(),ssQueueSelect=ssCreateSelectionController();
 var ssSelectOwner=null,ssMainRows=[],ssMainIndex={},ssNavRows=[],ssQueueRows=[],ssSelectPaint=0,ssSelectionDirty=false,ssSelectionZone=null,ssSelectionContextKey='';
 var ssSelectContext=null,ssSelectScroll=0;
 function ssInvalidateSelections(){
   if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectOwner=null;ssMainRows=[];ssSelectionContextKey='';
   ssMainSelect.setContext({kind:'track',key:'invalidated',items:[],rows:[]});
 }
-function ssTrackID(h){return h.Path+'|'+h.SubSong;}
+function ssTrackID(h){return (h.RawPath||h.Path)+'|'+h.SubSong;}
 function ssPlaylistInfo(index){var lists=ssState&&ssState.playlists||[];for(var i=0;i<lists.length;i++)if(lists[i].index===index)return lists[i];return null;}
-function ssSelectionRepaint(){if(ssSelectPaint)return;ssSelectPaint=window.SetTimeout(function(){ssSelectPaint=0;ssSelectionDirty=true;var r=ssSelectionZone||R.main;window.RepaintRect(r.x,r.y,r.w,r.h);},16);}
+function ssSelectionRepaint(){if(ssSelectPaint)return;ssSelectPaint=window.SetTimeout(function(){ssSelectPaint=0;ssSelectionDirty=true;var r=ssSelectionZone||R.main;ssQueueInteractionDamage(r);window.RepaintRect(r.x,r.y,r.w,r.h);},16);}
 function ssMainSelectionContext(){
   var rows=[],key=view,items=[],i,j,pi,order,handles,info;
   if(view==='playlist'){
@@ -51,7 +51,7 @@ function ssSelectionDown(x,y){
   else if(HB_TR.length&&x>=R.main.x&&x<R.main.x+R.main.w&&y>=HB_TR[0].y0&&y<R.main.y+R.main.h){ssMainSelectionContext();ssSelectOwner=ssMainSelect;}
   else return false;
   ssSelectionZone=ssSelectOwner===ssMainSelect?R.main:ssSelectOwner===ssNavSelect?R.navLib:R.queue;
-  if(!ssSelectOwner.start({index:index,x:x,y:y,ctrl:ctrl,shift:shift})){ssSelectOwner=null;return false;}
+  if(!ssSelectOwner.start({index:index,x:x,y:y,ctrl:false,shift:false})){ssSelectOwner=null;return false;}
   if(!ssSelectScroll)ssSelectScroll=window.SetInterval(ssSelectionScroll,50);
   ssSelectionRepaint();return true;
 }
@@ -120,6 +120,11 @@ function ssSelectionPayload(row){
   var indices=ssMainSelect.selectedIndices(),selected=indices.map(function(i){return ssMainRows[i];}),args={tracks:selected.map(function(r){return ssTrackID(r.h);})};
   if(row.pl!==undefined){var info=ssPlaylistInfo(row.pl);if(info){args.playlist_guid=info.guid;args.items=selected.map(function(r){return r.item;});}}
   return args;
+}
+function ssToggleTrackSelection(row){
+  ssCancelSelectionGesture();ssMainSelectionContext();var index=ssMainRowIndex(row);if(index<0)return true;
+  ssMainSelect.start({index:index,x:row.x0+1,y:row.y0+1,ctrl:true});ssMainSelect.end(row.x0+1,row.y0+1);
+  ssSelectionZone=R.main;ssSelectionRepaint();return true;
 }
 function ssBatchTrackMenu(row,x,y){
   var args=ssSelectionPayload(row),lists=ssState&&ssState.playlists||[],copy=[],move=[],canMove=row.pl!==undefined&&canEditPl(row.pl);

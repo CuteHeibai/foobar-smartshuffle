@@ -13,7 +13,7 @@ HWND languageDialog=nullptr;
 class SettingsCallback:public preferences_page_callback {public:void on_state_changed()override{}};
 std::wstring wide(const std::string& s){int n=MultiByteToWideChar(CP_UTF8,0,s.c_str(),-1,nullptr,0);std::wstring r(n,0);MultiByteToWideChar(CP_UTF8,0,s.c_str(),-1,r.data(),n);r.pop_back();return r;}
 void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
-    std::ifstream f(root/L"fixture-request.json");if(!f)return;json q;f>>q;auto id=q.at("id").get<std::string>();if(id==last)return;last=id;
+    std::ifstream f(root/L"fixture-request.json");if(!f)return;json q;f>>q;f.close();auto id=q.at("id").get<std::string>();if(id==last)return;last=id;
     auto pm=playlist_manager::get();json r={{"id",id},{"ok",true}};std::string op=q.at("op");
     if(op=="setup"){
         auto files=q.at("files").get<std::vector<std::string>>();auto name=q.value("name",std::string("SmartShuffle acceptance"));auto pi=pm->find_or_create_playlist(name.c_str());pm->playlist_clear(pi);metadb_handle_list items;
@@ -46,6 +46,16 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
             DestroyWindow(instance->get_wnd());instance.release();break;
         }
         r["found"]=found;
+    }
+    else if(op=="panel"){
+        struct Find {HWND w=nullptr;std::wstring title;};Find found;found.title=q.value("kind",std::string{})=="update"?L"Smart Shuffle · 更新":L"Smart Shuffle · 随机偏好";
+        EnumThreadWindows(GetCurrentThreadId(),[](HWND w,LPARAM p)->BOOL{auto f=reinterpret_cast<Find*>(p);wchar_t cls[128]{},title[256]{};GetClassNameW(w,cls,128);GetWindowTextW(w,title,256);if(std::wstring(cls)==L"SmartShufflePanel"&&std::wstring(title)==f->title){f->w=w;return FALSE;}return TRUE;},reinterpret_cast<LPARAM>(&found));
+        r["exists"]=IsWindow(found.w)!=FALSE;
+        if(found.w){ShowWindow(found.w,SW_HIDE);r["apply_enabled"]=IsWindowEnabled(GetDlgItem(found.w,IDOK))!=FALSE;r["automatic"]=SendMessageW(GetDlgItem(found.w,1103),BM_GETCHECK,0,0)==BST_CHECKED;
+            RECT rect{};GetClientRect(found.w,&rect);r["width"]=rect.right;r["height"]=rect.bottom;
+            if(q.value("render",false)){auto dc=GetDC(found.w),mem=CreateCompatibleDC(dc);auto bitmap=CreateCompatibleBitmap(dc,rect.right,rect.bottom);auto old=SelectObject(mem,bitmap);SendMessageW(found.w,WM_PRINTCLIENT,reinterpret_cast<WPARAM>(mem),PRF_CLIENT);r["rendered"]=GetPixel(mem,2,2)==RGB(18,18,18);SelectObject(mem,old);DeleteObject(bitmap);DeleteDC(mem);ReleaseDC(found.w,dc);}
+            if(q.contains("command"))SendMessageW(found.w,WM_COMMAND,q.at("command").get<int>(),0);
+        }
     }
     else if(op=="items"){
         metadb_handle_list list;pm->playlist_get_all_items(q.at("playlist").get<size_t>(),list);r["items"]=json::array();

@@ -23,20 +23,20 @@ var PALETTE=[RGB(83,62,140),RGB(30,120,110),RGB(150,64,92),RGB(43,92,160),RGB(12
    Every font is built here at load time from UISCALE, which core/props.js has already resolved
    from the panel property (or the display DPI). That is why props.js loads first, and why a
    scale change needs a panel reload rather than just a repaint.
-   Regular (non-bold) text uses 'Segoe UI Semibold' so it doesn't read thin. */
+   Regular text uses Inter; headings use its medium weight. */
 var SS_BASE_UI_SCALE=UISCALE,ssDensity=1;
-var SS_FONT_META=[],SS_FIT_FONTS=[];
+var SS_FONT_META=[],SS_FIT_FONTS=[],SS_SCRIPT_FONTS={};
 function gf(name,sz,style){var size=Math.max(1,Math.round(sz*UISCALE)),font=gdi.Font(name,size,style||0);SS_FONT_META.push({font:font,name:name,size:size,style:style||0});return font;}
-function F(sz,bold){ return gf('Segoe UI', sz, bold?1:0); }
+function F(sz,bold){ return gf(bold?'Inter Medium':'Inter', sz, 0); }
 function ssCreateFonts(){return {
   lib:F(15,1), pl:F(13,1), plSub:F(11,0),
-  eyebrow:F(11,1), title:F(32,1), meta:F(13,0),
+  eyebrow:F(11,1), title:F(28,1), meta:F(13,0),
   rowTitle:F(14,0), rowArtist:F(12,0), rowNum:F(13,0), rowCell:F(13,0), head:F(12,1),
   tab:F(16,1), sect:F(15,1), qName:F(13,0), qArtist:F(11,0),
   npTitle:F(15,0), npArtist:F(12,0), time:F(12,0),
   icon:gf('Segoe MDL2 Assets',15), iconBtn:gf('Segoe MDL2 Assets',18),
   navIco:gf('Segoe MDL2 Assets',24), cap:gf('Segoe MDL2 Assets',10),
-  menu:F(12), card:F(14,1), sect2:F(22,1),
+  menu:F(12), card:F(14,1), sect2:F(20,1),
   searchTxt:F(16),
   lyric:F(18,1), fsLyric:F(30,1),
   fsSrc:F(13),
@@ -74,14 +74,19 @@ function ssFitFont(gr,font,height,text,width){
   var key=fitWidth?String(text)+'|'+Math.floor(width):'';
   for(var i=0;i<SS_FIT_FONTS.length;i++){var c=SS_FIT_FONTS[i];if(c.base===font&&c.height===limit&&c.key===key)return c.font;}
   var meta=null;for(i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
-  if(!meta)meta={name:font.Name||'Segoe UI',size:font.Size||14,style:font.Style||0};
+  if(!meta)meta={name:font.Name||'Inter',size:font.Size||14,style:font.Style||0};
   var ratio=Math.min(1,limit/Math.max(1,lineH(gr,font)));if(fitWidth)ratio=Math.min(ratio,width/Math.max(1,gr.CalcTextWidth(text,font)));
   var size=Math.max(1,Math.floor(meta.size*ratio)),f;
   do{f=gdi.Font(meta.name,size,meta.style);if(lineH(gr,f)<=limit&&(!fitWidth||gr.CalcTextWidth(text,f)<=width))break;}while(--size>0);
   if(SS_FIT_FONTS.length>=192)SS_FIT_FONTS=[];SS_FIT_FONTS.push({base:font,height:limit,key:key,font:f});return f;
 }
+function ssScriptFont(text,font){
+  var name=/[\u3040-\u30ff]/.test(text)?'Yu Gothic UI':/[\u2e80-\u9fff\uff00-\uffef]/.test(text)?'Microsoft YaHei UI':null;if(!name)return font;
+  var meta=null;for(var i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
+  if(!meta||meta.name===name)return font;var key=name+'|'+meta.size+'|'+meta.style;if(!SS_SCRIPT_FONTS[key]){var f=gdi.Font(name,meta.size,meta.style);SS_FONT_META.push({font:f,name:name,size:meta.size,style:meta.style});SS_SCRIPT_FONTS[key]=f;}return SS_SCRIPT_FONTS[key];
+}
 function ssText(gr,s,f,c,x,y,w,h,align,ellipsis){
-  if(w<=0||h<=0)return;gr.SetTextRenderingHint(3);f=ssFitFont(gr,f,h);
+  if(w<=0||h<=0)return;s=String(s);gr.SetTextRenderingHint(5);f=ssFitFont(gr,ssScriptFont(s,f),h);
   gr.DrawString(String(s),f,c,Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)),
     (align<<28)|(1<<24)|((ellipsis?3:0)<<20)|0x1000);
 }

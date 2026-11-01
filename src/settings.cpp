@@ -1,5 +1,6 @@
 #include <foobar2000/SDK/foobar2000.h>
 #include "settings.hpp"
+#include "native_dialogs.hpp"
 
 namespace native_ss {
 namespace {
@@ -9,7 +10,7 @@ class SettingsInstance:public preferences_page_instance {
 public:
     SettingsInstance(HWND parent,preferences_page_callback::ptr callback):callback_(callback){
         HDC dc=GetDC(parent);dpi_=GetDeviceCaps(dc,LOGPIXELSY);ReleaseDC(parent,dc);
-        font_=CreateFontW(-MulDiv(15,dpi_,96),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");
+        font_=CreateFontW(-MulDiv(15,dpi_,96),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");
         brush_=CreateSolidBrush(RGB(18,18,18));
         static ATOM registered=[](){WNDCLASSEXW c{sizeof(c)};c.lpfnWndProc=proc;c.hInstance=core_api::get_my_instance();c.hCursor=LoadCursor(nullptr,IDC_ARROW);c.lpszClassName=L"SmartShuffleSettings";return RegisterClassExW(&c);}();
         if(!registered)throw std::runtime_error("无法注册智能随机设置页");
@@ -18,22 +19,24 @@ public:
     }
     ~SettingsInstance(){if(IsWindow(window_))DestroyWindow(window_);if(font_)DeleteObject(font_);if(brush_)DeleteObject(brush_);}
     HWND get_wnd()override{return window_;}
-    t_uint32 get_state()override{return preferences_state::dark_mode_supported|(pending_?preferences_state::changed:0)|preferences_state::resettable;}
+    t_uint32 get_state()override{return preferences_state::dark_mode_supported|(pending_?preferences_state::changed:0)|(themed_installation()?preferences_state::resettable:0);}
     void apply()override{if(pending_){request_layout_reset();pending_=false;callback_->on_state_changed();}}
-    void reset()override{pending_=true;callback_->on_state_changed();}
+    void reset()override{if(themed_installation()){pending_=true;callback_->on_state_changed();}}
 private:
-    HWND window_=nullptr,description_=nullptr,button_=nullptr,status_=nullptr;HFONT font_=nullptr;HBRUSH brush_=nullptr;
+    HWND window_=nullptr,description_=nullptr,button_=nullptr,status_=nullptr,update_=nullptr;HFONT font_=nullptr;HBRUSH brush_=nullptr;
     int dpi_=96;bool pending_=false;preferences_page_callback::ptr callback_;
     int px(int n){return MulDiv(n,dpi_,96);}
     void create_controls(HWND w){
         description_=CreateWindowW(L"STATIC",L"拖动页面栏间的分隔线，可调整音乐库、主内容、歌词栏，以及底部歌曲信息、播放和输出区域的宽度。调整后会自动保存。",WS_CHILD|WS_VISIBLE,0,0,0,0,w,nullptr,core_api::get_my_instance(),nullptr);
         button_=CreateWindowW(L"BUTTON",L"一键恢复默认布局",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,w,reinterpret_cast<HMENU>(1001),core_api::get_my_instance(),nullptr);
+        update_=CreateWindowW(L"BUTTON",L"检查更新…",WS_CHILD|WS_VISIBLE|WS_TABSTOP,0,0,0,0,w,reinterpret_cast<HMENU>(1002),core_api::get_my_instance(),nullptr);
         status_=CreateWindowW(L"STATIC",L"恢复默认宽度和 1180×780 窗口大小。歌单、听歌记录、随机偏好和音频输出会保留。",WS_CHILD|WS_VISIBLE,0,0,0,0,w,nullptr,core_api::get_my_instance(),nullptr);
-        for(auto child:{description_,button_,status_})SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(font_),TRUE);
+        for(auto child:{description_,button_,status_,update_})SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(font_),TRUE);
+        if(!themed_installation()){ShowWindow(button_,SW_HIDE);SetWindowTextW(description_,L"通过“播放 → 随机偏好 → 调整随机偏好”打开二维偏好窗口。独立插件版保留现有界面、字体及歌词设置。");SetWindowTextW(status_,L"更新窗口可检查新版本、下载独立插件包，并设置是否在启动时检查更新。");}
         resize(w);
     }
     void resize(HWND w){RECT r{};GetClientRect(w,&r);int width=std::max(px(40),int(r.right)-px(40));
-        MoveWindow(description_,px(20),px(20),width,px(92),TRUE);MoveWindow(button_,px(20),px(124),std::min(width,px(236)),px(42),TRUE);MoveWindow(status_,px(20),px(184),width,px(94),TRUE);}
+        MoveWindow(description_,px(20),px(20),width,px(92),TRUE);MoveWindow(button_,px(20),px(124),std::min(width,px(220)),px(42),TRUE);MoveWindow(update_,px(252),px(124),std::max(px(80),std::min(width-px(232),px(180))),px(42),TRUE);MoveWindow(status_,px(20),px(184),width,px(94),TRUE);}
     static LRESULT CALLBACK proc(HWND w,UINT msg,WPARAM wp,LPARAM lp){
         auto self=reinterpret_cast<SettingsInstance*>(GetWindowLongPtrW(w,GWLP_USERDATA));
         if(msg==WM_NCCREATE){self=static_cast<SettingsInstance*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams);SetWindowLongPtrW(w,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(self));}
@@ -50,6 +53,7 @@ private:
             try{request_layout_reset();self->pending_=false;self->callback_->on_state_changed();SetWindowTextW(self->status_,L"已恢复默认布局和窗口大小。歌单、听歌记录及播放设置保持不变。");}
             catch(...){SetWindowTextW(self->status_,L"恢复未完成，请关闭设置页后重试。");}return 0;
         }
+        if(msg==WM_COMMAND&&LOWORD(wp)==1002&&HIWORD(wp)==BN_CLICKED){open_updates(true);return 0;}
         if(msg==WM_NCDESTROY){self->window_=nullptr;SetWindowLongPtrW(w,GWLP_USERDATA,0);}
         return DefWindowProcW(w,msg,wp,lp);
     }

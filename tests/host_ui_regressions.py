@@ -47,11 +47,11 @@ s = b.wait(lambda s: s.get('theme', {}).get('chrome_ready') and s.get('lyrics_pa
 check(s['theme']['ui_wizard'], 'Window chrome dependency is instantiated and frame setup completed')
 check(s['hover_focus']['installed'] and s['hover_focus']['surface']==s['theme']['window'],
       'Hover focus and wheel routing hook is registered to the actual theme window')
-check(s['lyrics_panel']['ready'] and s['lyrics_panel']['configuration_segoe_ui'] and
-      not s['lyrics_panel']['configuration_simsun'], 'Native ESLyric opens by default with the saved Segoe UI panel configuration')
+check(s['lyrics_panel']['ready'] and s['lyrics_panel']['configuration_yahei_ui'] and
+      not s['lyrics_panel']['configuration_simsun'], 'Native ESLyric opens by default with the saved Microsoft YaHei UI panel configuration')
 a = b.request('appearance')['response']
-check(a['dark_mode'] and all(v['family'] == 'Segoe UI' for v in a['fonts'].values()),
-      'Live host reads dark mode and all six standard plugin font roles as Segoe UI')
+check(a['dark_mode'] and all(v['family'] == 'Microsoft YaHei UI' for v in a['fonts'].values()),
+      'Live host reads dark mode and all six standard plugin font roles as Microsoft YaHei UI')
 before = b.request('state')
 preferences = fixture('settings', reset=True)
 check(preferences['found'] and preferences['window'] and preferences['state'] & (1 << 16),

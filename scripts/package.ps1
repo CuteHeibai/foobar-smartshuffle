@@ -15,13 +15,14 @@ New-Item -ItemType Directory -Path (Join-Path $payload 'components\foo_smartshuf
 Copy-Item -LiteralPath (Join-Path $repo 'build\foo_smartshuffle.dll') -Destination (Join-Path $payload 'components\foo_smartshuffle')
 Copy-Item -LiteralPath (Join-Path $repo 'build\eslyric\foo_uie_eslyric.dll') -Destination (Join-Path $payload 'components\eslyric-warp')
 Copy-Item -LiteralPath $analyzer -Destination (Join-Path $payload 'runtime') -Recurse
+Copy-Item -LiteralPath (Join-Path $repo 'assets\fonts') -Destination (Join-Path $payload 'fonts') -Recurse
 Copy-Item -LiteralPath (Join-Path $repo 'theme\verdant') -Destination (Join-Path $payload 'theme') -Recurse
 Copy-Item -LiteralPath (Join-Path $repo 'vendor\verdant-foobar2000-theme-master\components\foo_ui_columns') -Destination (Join-Path $payload 'components') -Recurse
 Copy-Item -LiteralPath (Join-Path $repo 'vendor\verdant-foobar2000-theme-master\components\foo_ui_wizard') -Destination (Join-Path $payload 'components') -Recurse
 Copy-Item -LiteralPath (Join-Path $repo 'vendor\verdant-foobar2000-theme-master\dist-config\foo_ui_columns.dll.cfg') -Destination (Join-Path $payload 'config')
 $component=Join-Path $dist 'foo_smartshuffle.fb2k-component'
 if(Test-Path -LiteralPath $component){Remove-Item -LiteralPath $component -Force}
-Compress-Archive -LiteralPath (Join-Path $repo 'build\foo_smartshuffle.dll') -DestinationPath (Join-Path $dist 'foo_smartshuffle.zip') -Force
+Compress-Archive -LiteralPath (Join-Path $repo 'build\foo_smartshuffle.dll'),(Join-Path $repo 'assets\fonts') -DestinationPath (Join-Path $dist 'foo_smartshuffle.zip') -Force
 Move-Item -LiteralPath (Join-Path $dist 'foo_smartshuffle.zip') -Destination $component -Force
 # Include source and reproducible scripts, but never private listening data or the SDK archive.
 $delivery=Join-Path $dist 'foobar-smartshuffle-local'
@@ -32,7 +33,7 @@ if(Test-Path -LiteralPath $delivery){
 }
 New-Item -ItemType Directory -Path $delivery -Force | Out-Null
 Copy-Item -LiteralPath $payload -Destination $delivery -Recurse
-foreach($name in @('src','analyzer','scripts','tests','docs','theme','foo_smartshuffle.vcxproj','fixture.vcxproj','README.md','.gitignore')){
+foreach($name in @('src','analyzer','scripts','tests','docs','theme','assets','AGENTS.md','foo_smartshuffle.vcxproj','fixture.vcxproj','README.md','.gitignore')){
     Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $delivery -Recurse -Force
 }
 Get-ChildItem -LiteralPath $delivery -Directory -Filter '__pycache__' -Recurse | ForEach-Object {

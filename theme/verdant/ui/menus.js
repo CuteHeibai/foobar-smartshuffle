@@ -113,6 +113,6 @@ function ssShowPlaybackModes(x,y){
   var items=[{label:'智能随机（每轮全覆盖）',checked:!!(ssState&&ssState.enabled),run:function(){ssSend('playback_mode',{mode:'smart'});}}];
   var orders=(ssState&&ssState.orders)||[{index:0,name:'顺序播放'},{index:1,name:'列表循环'},{index:2,name:'单曲循环'}];
   for(var i=0;i<orders.length;i++)if(orders[i].index<3)(function(order){items.push({label:['顺序播放','列表循环','单曲循环'][order.index],checked:!!(ssState&&!ssState.enabled&&ssState.native_order===order.index),run:function(){ssSend('playback_mode',{mode:'native',order:order.index});}});})(orders[i]);
-  items.push({separator:true},{label:'调整随机偏好…',run:ssOpen},{label:'重新开始一轮',run:function(){ssSend('restart');}},{separator:true},{label:'插件设置…',run:function(){ssSend('settings');}});
+  items.push({separator:true},{label:'调整随机偏好…',run:ssOpen},{label:'重新开始一轮',run:function(){ssSend('restart');}},{separator:true},{label:(ssState&&ssState.update&&ssState.update.available?'发现更新 '+ssState.update.release.version:'检查更新…'),run:function(){ssSend('update_open');}},{label:'插件设置…',run:function(){ssSend('settings');}});
   ssShowPopup(items,x,y);
 }

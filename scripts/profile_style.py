@@ -289,7 +289,7 @@ def _offline_profile(profile):
             raise ctypes.WinError(ctypes.get_last_error())
 
 
-def apply_profile(profile, family='Segoe UI'):
+def apply_profile(profile, family='Microsoft YaHei UI'):
     """Apply to an offline profile; return changed counts and unsupported settings.
 
     No player is launched or closed. On Windows an existing running marker
@@ -355,24 +355,26 @@ def _apply_profile(profile, family):
             pending.append((path, after))
 
     database = profile / 'config.sqlite'
-    db_change = None
+    db_changes = []
     if database.exists():
         with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)) as connection:
-            row = connection.execute('SELECT value FROM configBlobs WHERE name=?', (ESL_KEY,)).fetchone()
-        if row:
-            try:
-                after = convert(ESL_KEY, row[0], lambda v: _eslyric(v, family), 'eslyric_fonts')
-            except ValueError as exc:
-                result['unsupported'].append(ESL_KEY + ': ' + str(exc))
-                after = row[0]
-            if after != row[0]:
-                db_change = (row[0], after)
+            for key in (ESL_KEY, 'smartshuffle.lyrics.panel.config'):
+                row = connection.execute('SELECT value FROM configBlobs WHERE name=?', (key,)).fetchone()
+                if row:
+                    try:
+                        after = convert(key, row[0], lambda v: _eslyric(v, family), 'eslyric_fonts')
+                    except ValueError as exc:
+                        result['unsupported'].append(key + ': ' + str(exc))
+                        after = row[0]
+                    if after != row[0]:
+                        db_changes.append((key, row[0], after))
     # The installer handles rollback of the combined file/database operation.
-    if db_change:
+    if db_changes:
         with closing(sqlite3.connect(database.as_uri() + '?mode=rw', uri=True)) as connection, connection:
-            cursor = connection.execute('UPDATE configBlobs SET value=? WHERE name=? AND value=?', (db_change[1], ESL_KEY, db_change[0]))
-            if cursor.rowcount != 1:
-                raise ValueError('ESLyric config changed while preparing migration')
+            for key, before, after in db_changes:
+                cursor = connection.execute('UPDATE configBlobs SET value=? WHERE name=? AND value=?', (after, key, before))
+                if cursor.rowcount != 1:
+                    raise ValueError('ESLyric config changed while preparing migration')
         result['files_changed'].append('config.sqlite')
     for path, after in pending:
         temporary = path.with_name(path.name + '.style-tmp')
@@ -388,6 +390,6 @@ def _apply_profile(profile, family):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('profile', type=Path)
-    parser.add_argument('--family', default='Segoe UI')
+    parser.add_argument('--family', default='Microsoft YaHei UI')
     args = parser.parse_args()
     print(json.dumps(apply_profile(args.profile, args.family), ensure_ascii=False, indent=2))

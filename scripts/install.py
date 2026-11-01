@@ -53,7 +53,9 @@ def restore(backup):
     return root
 
 
-def install(payload, target, with_eslyric=True):
+def install(payload, target, with_eslyric=True, edition="full"):
+    if edition not in {"full", "core"}:
+        raise ValueError("Unknown edition")
     payload, target = Path(payload).resolve(), Path(target).resolve()
     if not (target / "foobar2000.exe").is_file() or not (target / "portable_mode_enabled").exists():
         raise ValueError("This local installer requires the known portable x64 foobar folder")
@@ -61,30 +63,34 @@ def install(payload, target, with_eslyric=True):
     existing_layout = profile / "configuration/foo_ui_columns.dll.cfg"
     preserve_layout = (profile / "user-components-x64/foo_smartshuffle/foo_smartshuffle.dll").is_file() and existing_layout.is_file() and b"verdant" in existing_layout.read_bytes().lower()
     mapping = [
-        ("theme/verdant", "profile/verdant"),
         ("components/foo_smartshuffle", "profile/user-components-x64/foo_smartshuffle"),
         ("runtime", "profile/smartshuffle/runtime"),
-        ("config/foo_ui_columns.dll.cfg", "profile/configuration/foo_ui_columns.dll.cfg"),
     ]
-    if not (profile / "user-components-x64/foo_ui_columns/foo_ui_columns.dll").exists():
-        mapping.append(("components/foo_ui_columns", "profile/user-components-x64/foo_ui_columns"))
-    if not (profile / "user-components-x64/foo_ui_wizard/foo_ui_wizard.dll").exists():
-        mapping.append(("components/foo_ui_wizard", "profile/user-components-x64/foo_ui_wizard"))
-    if not (profile / "user-components-x64/foo_uie_jsplitter/foo_uie_jsplitter.dll").exists():
-        raise ValueError("Installed JSplitter is required; it is intentionally reused")
-    if with_eslyric:
-        source = profile / "user-components-x64/foo_uie_eslyric/foo_uie_eslyric.dll"
-        digest = hashlib.sha256(source.read_bytes()).hexdigest()
-        if digest not in {"ac2e2c8fa2a481c8c217ce53d57f2bd8582c771bf75deab888207e43af43c583", "b3b5c5cbe93d0c515a15c4cdb44915bb729d76682a405d86095bed0e31df46df"}:
-            raise ValueError("ESLyric changed since investigation; refusing an incompatible binary patch")
-        mapping.append(("components/eslyric-warp/foo_uie_eslyric.dll", "profile/user-components-x64/foo_uie_eslyric/foo_uie_eslyric.dll"))
+    if (payload / "fonts").is_dir():
+        mapping.append(("fonts", "profile/smartshuffle/fonts"))
+    if edition == "full":
+        mapping += [("theme/verdant", "profile/verdant"),
+                    ("config/foo_ui_columns.dll.cfg", "profile/configuration/foo_ui_columns.dll.cfg")]
+        for component in ("foo_ui_columns", "foo_ui_wizard"):
+            if not (profile / f"user-components-x64/{component}/{component}.dll").exists():
+                mapping.append((f"components/{component}", f"profile/user-components-x64/{component}"))
+        if not (profile / "user-components-x64/foo_uie_jsplitter/foo_uie_jsplitter.dll").exists():
+            raise ValueError("Installed JSplitter is required; it is intentionally reused")
+        if with_eslyric:
+            source = profile / "user-components-x64/foo_uie_eslyric/foo_uie_eslyric.dll"
+            digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            if digest not in {"ac2e2c8fa2a481c8c217ce53d57f2bd8582c771bf75deab888207e43af43c583", "b3b5c5cbe93d0c515a15c4cdb44915bb729d76682a405d86095bed0e31df46df"}:
+                raise ValueError("ESLyric changed since investigation; refusing an incompatible binary patch")
+            mapping.append(("components/eslyric-warp/foo_uie_eslyric.dll", "profile/user-components-x64/foo_uie_eslyric/foo_uie_eslyric.dll"))
     for source, _ in mapping:
         if not safe_child(payload, source).exists():
             raise FileNotFoundError(source)
     stamp = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).strftime("%Y%m%d-%H%M%S-%f")
     backup = target / "smartshuffle-backups" / stamp
     backup.mkdir(parents=True)
-    entries = [destination for _, destination in mapping] + ["profile/configuration/foo_uie_eslyric.dll.cfg", "profile/config.sqlite", "profile/playlists-v2.0", "profile/smartshuffle/store.json", "profile/smartshuffle/features.json", "profile/smartshuffle/request.json", "profile/smartshuffle/state.json"]
+    entries = [destination for _, destination in mapping] + ["profile/playlists-v2.0", "profile/smartshuffle/store.json", "profile/smartshuffle/features.json", "profile/smartshuffle/request.json", "profile/smartshuffle/state.json", "profile/smartshuffle/installation.json"]
+    if edition == "full":
+        entries += ["profile/configuration/foo_uie_eslyric.dll.cfg", "profile/config.sqlite"]
     manifest = {"version": 1, "target": str(target), "entries": []}
     for relative in entries:
         existing = safe_child(target, relative)
@@ -112,10 +118,13 @@ def install(payload, target, with_eslyric=True):
             if dst.is_dir():
                 shutil.rmtree(dst)
             copy(safe_child(payload, source), dst)
-        select_interface(profile / "config.sqlite")
-        from profile_style import apply_profile
-        style_report = apply_profile(profile)
-        (backup / "appearance-migration.json").write_text(json.dumps(style_report, ensure_ascii=False, indent=2), encoding="utf-8")
+        (profile / "smartshuffle").mkdir(exist_ok=True)
+        (profile / "smartshuffle/installation.json").write_text(json.dumps({"edition": edition}), encoding="utf-8")
+        if edition == "full":
+            select_interface(profile / "config.sqlite")
+            from profile_style import apply_profile
+            style_report = apply_profile(profile)
+            (backup / "appearance-migration.json").write_text(json.dumps(style_report, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
         restore(backup)
         raise
@@ -128,8 +137,9 @@ if __name__ == "__main__":
     parser.add_argument("--target", type=Path)
     parser.add_argument("--restore", type=Path)
     parser.add_argument("--skip-eslyric", action="store_true")
+    parser.add_argument("--edition", choices=["full", "core"], default="full")
     args = parser.parse_args()
     if args.restore:
         print(restore(args.restore))
     else:
-        print(install(args.payload, args.target, not args.skip_eslyric))
+        print(install(args.payload, args.target, not args.skip_eslyric, args.edition))

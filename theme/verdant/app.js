@@ -251,6 +251,7 @@ function on_mouse_rbtn_up(x,y){
   var i;
   for(i=0;i<HB_TR.length;i++)if(inRect(x,y,HB_TR[i])){
     var row=HB_TR[i];
+    if(utils.IsKeyPressed(17))return ssToggleTrackSelection(row);
     return ssBatchTrackMenu(row,x,y);
   }
   for(i=0;i<HB_CARD.length;i++)if(HB_CARD[i].kind==='artist'&&inRect(x,y,HB_CARD[i])){ssArtistMenu(HB_CARD[i].id,x,y);return true;}
@@ -694,4 +695,4 @@ drpSync();         // make foo_verdant agree with the Discord property before an
 
 ssLoadArtists();ssStart();
 ssStartCovers();
-console.log('Smart Shuffle Chinese Verdant 1.0.4 ready');
+console.log('Smart Shuffle Chinese Verdant 1.0.5 ready');

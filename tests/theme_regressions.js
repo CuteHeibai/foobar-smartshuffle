@@ -183,11 +183,11 @@ test('partial scene copy is bounded to its dirty panel',()=>{
 
 
 
-test('text uses grayscale antialiasing on cached surfaces and keeps ellipsis alignment',()=>{
+test('text uses subpixel antialiasing on opaque surfaces and keeps ellipsis alignment',()=>{
  const h=harness(),c=h.c,draws=[],hints=[];c.gdi={Font:(n,s)=>({n,s})};h.load('core/tokens.js');
  const gr={CalcTextHeight:()=>22,SetTextRenderingHint:v=>hints.push(v),DrawString:(...v)=>draws.push(v),GdiDrawText(){throw Error('ClearType on a bitmap is unsupported');}};
  c.tL(gr,'中文 & 日本語',c.FONT.pl,1,1.2,2.5,100,20);c.tR(gr,'Right',c.FONT.pl,1,0,0,100,20);
- assert.deepEqual(hints,[3,3]);assert.equal(draws[0][0],'中文 & 日本語');assert.equal((draws[0][7]>>>20)&15,3);assert.equal((draws[1][7]>>>28)&15,2);
+ assert.deepEqual(hints,[5,5]);assert.equal(draws[0][0],'中文 & 日本語');assert.equal((draws[0][7]>>>20)&15,3);assert.equal((draws[1][7]>>>28)&15,2);
 });
 test('new playlist footer has separated measured lines at normal and enlarged density',()=>{
  const h=harness(),c=h.c,lines=[];h.load('views/nav.js');c.R.navLib={x:0,y:0,w:260,h:700};c.hv=()=>false;c.navDropHover=false;c.strokeRound=()=>{};c.lineH=(g,f)=>f==='primary'?25:22;c.FONT={pl:'primary',plSub:'sub'};c.tL=(g,t,f,col,x,y,w,h)=>lines.push({t,y,h});
@@ -273,7 +273,7 @@ test('sorted playlist drag submits native indices and duplicate occurrences stay
 test('multi-select context menu sends the full selected occurrence set to native Converter',()=>{
  const h=harness(),c=h.c;c.view='songs';c.R={main:{x:0,y:0,w:600,h:300}};c.utils.IsKeyPressed=k=>k===16;c.window.SetInterval=()=>1;c.ssState={playlists:[]};c.canEditPl=()=>false;c.isHiddenPl=()=>false;
  c.songsTracks=[0,1,2].map(i=>({h:{Path:'track'+i,SubSong:0}}));c.HB_TR=[0,1,2].map(i=>({songs:true,ti:i,x0:0,x1:600,y0:i*50,y1:(i+1)*50}));c.HB_PL=[];c.HB_Q=[];
- c.utils.IsKeyPressed=()=>false;c.ssSelectionDown(100,20);c.ssSelectionUp(100,20);c.utils.IsKeyPressed=k=>k===16;c.ssSelectionDown(100,120);c.ssSelectionUp(100,120);
+ c.utils.IsKeyPressed=()=>false;c.ssToggleTrackSelection(c.HB_TR[0]);c.ssToggleTrackSelection(c.HB_TR[1]);c.ssToggleTrackSelection(c.HB_TR[2]);
  let request;c.ssOpenNativeMenu=(kind,args,x,y,extra)=>request={kind,args,extra};c.ssBatchTrackMenu(c.HB_TR[1],100,60);
  assert.equal(request.args.tracks.length,3);assert.ok(request.extra.find(i=>i.label==='移动到歌单').disabled);assert.ok(request.extra.find(i=>i.label==='添加到歌单').children[0].run);
 });
@@ -284,7 +284,7 @@ test('a double click inserts and starts one song without creating a route playli
 });
 test('playback menu hides redundant native random modes and keeps four choices',()=>{
  const h=harness(),c=h.c;c.ssState={orders:[0,1,2,3,4,5,6].map(index=>({index,name:'order'+index}))};c.ssShowPlaybackModes(0,40);
- assert.deepEqual(Array.from(c.ssPopup.levels[0].items.slice(0,4),i=>i.label),['智能随机（每轮全覆盖）','顺序播放','列表循环','单曲循环']);assert.equal(c.ssPopup.levels[0].items.length,9);
+ assert.deepEqual(Array.from(c.ssPopup.levels[0].items.slice(0,4),i=>i.label),['智能随机（每轮全覆盖）','顺序播放','列表循环','单曲循环']);assert.equal(c.ssPopup.levels[0].items.length,10);
 });
 test('startup cover filter skips real artwork and groups missing tracks for one album lookup',()=>{
  const h=harness(),c=h.c;h.load('data/covers.js');c.artInFlight=0;c.ssSelectOwner=null;c.ssDragging=false;c.ssCoverRow=t=>({id:t.id,path:t.id,subsong:0,artist:'Artist',album:'Album',album_artist:'Artist'});

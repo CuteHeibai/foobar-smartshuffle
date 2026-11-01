@@ -18,6 +18,6 @@
 
 歌手页联网会向 [MusicBrainz](https://musicbrainz.org/doc/MusicBrainz_API) 发送歌手姓名、已有标识及用于辨别同名者的专辑名称；通过 [Wikidata](https://www.wikidata.org/wiki/Wikidata:Data_access) 的图像条目定位头像，从 [Wikimedia Commons](https://www.mediawiki.org/wiki/API:Imageinfo) 获取图片及署名/许可。不会上传音频、播放次数或歌词。服务不可用或资料缺失时不保证能取得头像。
 
-主题文字使用适用于缓存画面的 GDI+ 灰度抗锯齿，避免将 ClearType 字体直接画到离屏图像造成伪影；参见 [绘图接口说明](https://theqwertiest.github.io/foo_spider_monkey_panel/assets/generated_files/docs/html/GdiGraphics.html#GdiDrawText)。新建歌单的双行文字按实测字体高度及留白排布，空间不足时显示一行。
+主题文字在不透明缓存上使用 ClearType 抗锯齿，缓存恢复采用整像素对齐，减少滚动时的文字边缘重采样。中文明确选择微软雅黑 UI，日文假名使用 Yu Gothic UI，英文采用 Inter。新建歌单的双行文字按实测字体高度及留白排布，空间不足时显示一行。
 
 肖像缺失时，读取 MusicBrainz 所关联的 Spotify **歌手**页面，通过 [Spotify oEmbed](https://developer.spotify.com/documentation/embeds/reference/oembed) 获取该身份的独立头像，不读取歌曲或专辑缩略图。也可保留经核验的官方标识。Spotify 图片仅保存在用户本机缓存，不进入公开发行包；这不授予图片的开放再分发许可。

@@ -114,9 +114,9 @@ public:
             error_ = "歌词面板父窗口或子窗口已销毁";
         }
         const bool ready = healthy();
-        bool segoe=false,simsun=false;
-        if(ready)try{auto cfg=instance_->get_configuration();std::string data(static_cast<const char*>(cfg->get_data()),cfg->get_data_size());segoe=data.find("Segoe UI")!=std::string::npos;simsun=data.find("SimSun")!=std::string::npos;}catch(...){}
-        return {{"ready", ready}, {"visible", ready && visible_ && IsWindowVisible(window_) != FALSE}, {"error", error_},{"configuration_segoe_ui",segoe},{"configuration_simsun",simsun}};
+        bool segoe=false,simsun=false,inter=false,yahei=false;
+        if(ready)try{auto cfg=instance_->get_configuration();std::string data(static_cast<const char*>(cfg->get_data()),cfg->get_data_size());yahei=data.find("Microsoft YaHei UI")!=std::string::npos;inter=data.find("Inter")!=std::string::npos;segoe=data.find("Segoe UI")!=std::string::npos;simsun=data.find("SimSun")!=std::string::npos;}catch(...){}
+        return {{"ready", ready}, {"visible", ready && visible_ && IsWindowVisible(window_) != FALSE}, {"error", error_},{"configuration_yahei_ui",yahei},{"configuration_inter",inter},{"configuration_segoe_ui",segoe},{"configuration_simsun",simsun}};
     }
 
     bool query_color(const GUID& which, t_ui_color& result) override {
@@ -158,7 +158,7 @@ private:
         if (font_ && dpi_ == effective) return;
         const auto replacement = CreateFontW(-MulDiv(15, static_cast<int>(effective), 96), 0, 0, 0,
             FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-            CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+            CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei UI");
         if (!replacement) throw std::runtime_error("无法创建歌词面板字体");
         const auto old = font_;
         font_ = replacement;

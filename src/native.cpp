@@ -7,6 +7,9 @@
 #include "recycle.hpp"
 #include "metadata_worker.hpp"
 #include "hover_focus.hpp"
+#include "version.hpp"
+#include "updater.hpp"
+#include "native_dialogs.hpp"
 #include <fstream>
 #include <map>
 #include <set>
@@ -18,13 +21,14 @@
 #include <future>
 #include <shlobj.h>
 
-DECLARE_COMPONENT_VERSION("Smart Shuffle · 二维随机偏好","1.0.4","本地随机偏好：每轮全覆盖，听歌频率与音频风格二维调节。\n源码随本机安装包提供。")
+DECLARE_COMPONENT_VERSION("Smart Shuffle · 二维随机偏好",SS_VERSION,"本地随机偏好：每轮全覆盖，听歌频率与音频风格二维调节。\n源码随本机安装包提供。")
 VALIDATE_COMPONENT_FILENAME("foo_smartshuffle.dll")
 
 namespace {
 using json=nlohmann::json;
 namespace fs=std::filesystem;
 using Clock=std::chrono::steady_clock;
+unsigned privateFontCount=0;
 constexpr auto Managed="__smartshuffle__";
 std::wstring wide(const std::string& s){if(s.empty())return {};int n=MultiByteToWideChar(CP_UTF8,0,s.data(),int(s.size()),nullptr,0);std::wstring r(n,0);MultiByteToWideChar(CP_UTF8,0,s.data(),int(s.size()),r.data(),n);return r;}
 std::string narrow(const std::wstring& s){if(s.empty())return {};int n=WideCharToMultiByte(CP_UTF8,0,s.data(),int(s.size()),nullptr,0,nullptr,nullptr);std::string r(n,0);WideCharToMultiByte(CP_UTF8,0,s.data(),int(s.size()),r.data(),n,nullptr,nullptr);return r;}
@@ -34,6 +38,18 @@ fs::path local_path(const char* s){
     pfc::string8 out;fs::path path;if(filesystem::g_get_native_path(s,out))path=fs::path(wide(out.c_str()));else path=fs::path(wide(s));
     return path.is_relative()?(base/path).lexically_normal():path;
 }
+void load_private_fonts(){
+    try{
+    auto folder=local_path(core_api::get_profile_path())/L"smartshuffle"/L"fonts";
+    wchar_t module[32768]{};GetModuleFileNameW(core_api::get_my_instance(),module,32768);
+    auto component=fs::path(module).parent_path()/L"fonts";
+    for(auto name:{L"Inter-Regular.ttf",L"Inter-Medium.ttf",L"Inter-SemiBold.ttf"}){
+        auto path=folder/name;if(!fs::exists(path))path=component/name;
+        if(fs::exists(path))privateFontCount+=AddFontResourceExW(path.c_str(),FR_PRIVATE,nullptr);
+    }
+    }catch(...){/* Missing font resources use Windows font fallback. */}
+}
+FB2K_ON_INIT_STAGE(load_private_fonts,init_stages::before_config_read);
 std::string idof(const metadb_handle_ptr& h){return std::string(h->get_path())+"|"+std::to_string(h->get_subsong_index());}
 std::string guidstr(GUID g){wchar_t b[40]{};StringFromGUID2(g,b,40);return narrow(b);}
 GUID parseguid(const std::string& s){GUID g{};CLSIDFromString(wide(s).c_str(),&g);return g;}
@@ -85,6 +101,8 @@ public:
     std::unique_ptr<native_ss::MetadataWorker> metadata;json metadataState=json::object();
     std::unique_ptr<LocalLabels> localLabels;
     HoverFocus hoverFocus;
+    std::unique_ptr<native_ss::Updater> updater;
+    std::string edition="core";bool updateNotified=false;
     std::string themeVersion;
     uint64_t themeWindow=0;
     bool themeUIWizard=false,themeChromeReady=false;
@@ -111,7 +129,12 @@ public:
         try{auto j=readjson(root/L"features.json");if(j.is_object())cache=std::move(j);}catch(...){error="音频特征缓存无法读取，将重新分析";}
         lyrics=std::make_unique<native_ss::LyricsHost>();
         metadata=std::make_unique<native_ss::MetadataWorker>(root);
-        localLabels=std::make_unique<LocalLabels>(root.parent_path()/L"verdant"/L"locale"/L"zh-CN.json");
+        auto hasTheme=fs::exists(root.parent_path()/L"verdant"/L"main.js");
+        try{edition=native_ss::installation_edition(readjson(root/L"installation.json"),hasTheme);}catch(...){edition=hasTheme?"full":"core";}
+        if(edition!="full")edition="core";
+        if(edition=="full")localLabels=std::make_unique<LocalLabels>(root.parent_path()/L"verdant"/L"locale"/L"zh-CN.json");
+        updater=std::make_unique<native_ss::Updater>(root,SS_VERSION,edition);
+        native_ss::set_dialog_handlers([this](json req){dispatch(req);changed=true;publish();return response;},[this]{return dialog_state();});
         scanner=std::make_unique<native_ss::Scanner>(root);scanner->pause(scanPaused);
         if(index_of_source()==~size_t(0))source.clear();
         if(source.empty())select_source(playlist_manager::get()->get_active_playlist());else refresh();
@@ -121,7 +144,7 @@ public:
         native_ss::set_layout_reset_handler([this]{++uiLayoutReset;save();changed=true;publish();});
         publish();
     }
-    ~Engine(){quitting=true;native_ss::set_layout_reset_handler({});remove_owned_queue();lyrics.reset();metadata.reset();scanner.reset();save();}
+    ~Engine(){quitting=true;native_ss::close_native_dialogs();native_ss::set_dialog_handlers({},{});native_ss::set_layout_reset_handler({});remove_owned_queue();lyrics.reset();metadata.reset();scanner.reset();save();}
     size_t index_of_source(){if(source.empty())return ~size_t(0);return playlist_manager_v5::get()->find_playlist_by_guid(parseguid(source));}
     std::string source_name(){auto p=index_of_source();pfc::string8 s;if(p!=~size_t(0))playlist_manager::get()->playlist_get_name(p,s);return s.c_str();}
     bool internal(size_t p){pfc::string8 n;return p!=~size_t(0)&&playlist_manager::get()->playlist_get_name(p,n)&&n==Managed;}
@@ -148,8 +171,12 @@ public:
     json track_json(const std::string& id){auto it=std::find_if(tracks.begin(),tracks.end(),[&](const ss::Track& t){return t.id==id;});if(it!=tracks.end())return {{"id",id},{"title",it->title},{"artist",it->artist},{"duration",it->duration},{"analyzed",!it->features.empty()}};return {{"id",id},{"title",id},{"artist",""}};}
     json list_json(const std::vector<std::string>& ids,size_t limit=SIZE_MAX){json a=json::array();for(size_t i=0;i<ids.size()&&i<limit;++i)a.push_back(track_json(ids[i]));return a;}
     void save(){try{writejson(root/L"store.json",{{"version",1},{"enabled",enabled},{"source",source},{"rounds",rounds},{"temporary_sources",temporarySources},{"layout_reset",uiLayoutReset},{"recent",recent},{"lifetime",lifetime},{"round_audio",roundAudio},{"scanPaused",scanPaused}});}catch(const std::exception& e){error=e.what();}}
+    json dialog_state(){
+        json j={{"component",SS_VERSION},{"revision",revision},{"preview_pending",previewDirty||previewWork.valid()},{"point",source.empty()?ss::Point{}:round().preference},{"update",updater->status()}};
+        j["preview"]=preview?json{{"token",preview->token},{"revision",preview->revision},{"point",preview->point},{"tracks",list_json(preview->order,8)}}:json(nullptr);return j;
+    }
     json snapshot(){
-        json j={{"version",1},{"pid",GetCurrentProcessId()},{"component","1.0.4"},{"revision",revision},{"request_id",lastRequest},{"enabled",enabled},{"source",source},{"source_name",source_name()},{"ui_open",uiOpen},{"error",error},{"response",response},{"managed_playlist",Managed}};
+        json j={{"version",1},{"pid",GetCurrentProcessId()},{"component",SS_VERSION},{"revision",revision},{"request_id",lastRequest},{"enabled",enabled},{"source",source},{"source_name",source_name()},{"ui_open",uiOpen},{"error",error},{"response",response},{"managed_playlist",Managed}};
         if(!source.empty()){j["point"]=round().preference;j["round"]=round().number;j["remaining_count"]=round().remaining.size();j["remaining"]=list_json(round().remaining);}
         else{j["point"]={{"x",0},{"y",0}};j["round"]=1;j["remaining_count"]=0;j["remaining"]=json::array();}
         j["ui_layout_reset"]=uiLayoutReset;j["preview_pending"]=previewDirty||previewWork.valid();j["seek_pending"]=pendingSeek.has_value();j["now_id"]=nowId;j["queue"]=json::array();
@@ -170,6 +197,7 @@ public:
         j["native_order"]=pm->playback_order_get_active();j["order_name"]=pm->playback_order_get_name(pm->playback_order_get_active());j["orders"]=json::array();
         for(size_t i=0;i<pm->playback_order_get_count();++i)j["orders"].push_back({{"index",i},{"name",pm->playback_order_get_name(i)}});
         j["metadata"]=metadataState;
+        j["update"]=updater?updater->status():json::object();j["edition"]=edition;j["fonts"]={{"family","Inter"},{"private_resources",privateFontCount}};
         j["hover_focus"]={{"installed",hoverFocus.installed()},{"surface",hoverFocus.surface()},{"focused",hoverFocus.focused()},{"routed_wheel",hoverFocus.routed()}};
         j["lyrics_panel"]=lyrics?lyrics->status():json::object();
         if(preview)j["preview"]={{"token",preview->token},{"revision",preview->revision},{"point",preview->point},{"tracks",list_json(preview->order,8)},{"total",preview->order.size()}};
@@ -499,8 +527,16 @@ public:
         else if(op=="previous"){pendingSeek.reset();playback_control::get()->previous();}
         else if(op=="lyrics_panel"){response["lyrics_panel"]=lyrics->update(req);}
         else if(op=="reset_layout")native_ss::request_layout_reset();
+        else if(op=="native_preferences")native_ss::open_native_preference();
+        else if(op=="update_check"){updater->check();}
+        else if(op=="update_config")updater->automatic(req.at("automatic").get<bool>());
+        else if(op=="update_open"){updater->check();native_ss::open_updates();}
+        else if(op=="update_download"){
+            auto s=updater->status();if(!s.value("available",false))throw std::runtime_error("没有可下载的更新");
+            auto url=wide(s["release"].at("url").get<std::string>());if(reinterpret_cast<INT_PTR>(ShellExecuteW(core_api::get_main_window(),L"open",url.c_str(),nullptr,nullptr,SW_SHOWNORMAL))<=32)throw std::runtime_error("无法打开更新下载链接");
+        }
         else if(op=="settings")native_ss::open_settings();
-        else if(op=="localization"){response["localization"]=localLabels->status();if(req.contains("text"))response["text"]=narrow(localLabels->translate(wide(req.at("text").get<std::string>())));}
+        else if(op=="localization"){response["localization"]=localLabels?localLabels->status():json{{"entries",0},{"hook",false}};if(req.contains("text"))response["text"]=localLabels?narrow(localLabels->translate(wide(req.at("text").get<std::string>()))):req.at("text").get<std::string>();}
         else if(op=="recycle_prepare"){
             auto id=req.at("track_id").get<std::string>();auto cut=id.rfind('|');if(cut==std::string::npos)throw std::runtime_error("歌曲标识无效");
             auto uri=id.substr(0,cut);auto subsong=std::stoul(id.substr(cut+1));
@@ -599,6 +635,7 @@ public:
         for(auto it=tracks.rbegin();it!=tracks.rend();++it)enqueue(handles[it->id],true);metadb_handle_list library;library_manager::get()->get_all_items(library);for(auto& h:library)enqueue(h,false);
     }
     void tick(){
+        if(updater->poll()){changed=true;auto u=updater->status();if(!updateNotified&&u.value("automatic",true)&&u.value("available",false)){updateNotified=true;native_ss::open_updates();}}
         for(auto& result:metadata->results()){auto task=result.value("task",std::string{});if(metadataState[task].value("id",std::string{})==result.value("id",std::string{})){metadataState[task]=std::move(result);changed=true;}}
         if(quitting||inside)return;
         auto now=Clock::now();accrue();
@@ -657,19 +694,19 @@ class QueueObserver:public playback_queue_callback {void on_changed(t_change_ori
 service_factory_single_t<QueueObserver> queueObserver;
 void CALLBACK tick_proc(HWND,UINT,UINT_PTR,DWORD){try{if(engine)engine->tick();}catch(const std::exception& e){console::print((std::string("Smart Shuffle: ")+e.what()).c_str());}catch(...){console::print("Smart Shuffle: callback failed");}}
 class Lifecycle:public initquit {
-    void on_init()override{fb2k::inMainThread([]{try{engine=std::make_unique<Engine>();timer=SetTimer(nullptr,0,40,tick_proc);console::print("Smart Shuffle 1.0.4 loaded (bridge v1)");}catch(const std::exception& e){console::print((std::string("Smart Shuffle init: ")+e.what()).c_str());}});}
+    void on_init()override{fb2k::inMainThread([]{try{engine=std::make_unique<Engine>();timer=SetTimer(nullptr,0,40,tick_proc);console::print("Smart Shuffle " SS_VERSION " loaded (bridge v1)");}catch(const std::exception& e){console::print((std::string("Smart Shuffle init: ")+e.what()).c_str());}});}
     void on_quit()override{if(timer){KillTimer(nullptr,timer);timer=0;}engine.reset();}
 };
 initquit_factory_t<Lifecycle> lifecycle;
 const GUID menuGroup={0xe8b61f29,0x598c,0x4a63,{0xa5,0x4c,0xab,0x9f,0x60,0x28,0x82,0xea}};
 mainmenu_group_popup_factory group(menuGroup,mainmenu_groups::playback,mainmenu_commands::sort_priority_base,"随机偏好");
 class Menu:public mainmenu_commands {
-    t_uint32 get_command_count()override{return 6;}
+    t_uint32 get_command_count()override{return 7;}
     GUID get_command(t_uint32 i)override{GUID g={0x35f6ca00+i,0x949e,0x4405,{0xbc,0x90,0xc3,0x88,0x46,0x31,0xd2,0xa9}};return g;}
-    void get_name(t_uint32 i,pfc::string_base& out)override{const char* names[]={"调整随机偏好","智能均衡随机","常听优先","重新开始一轮","暂停或继续音频分析","启用或关闭智能调度"};out=names[i];}
+    void get_name(t_uint32 i,pfc::string_base& out)override{const char* names[]={"调整随机偏好","智能均衡随机","常听优先","重新开始一轮","暂停或继续音频分析","启用或关闭智能调度","检查更新…"};out=names[i];}
     bool get_description(t_uint32,pfc::string_base& out)override{out="每轮全覆盖，根据听歌频率和音频风格调整出场顺序";return true;}
     GUID get_parent()override{return menuGroup;}
-    void execute(t_uint32 i,ctx_t)override{if(!engine)return;try{if(i==0)engine->dispatch({{"version",1},{"op","open"}});else if(i==1||i==2){engine->dispatch({{"version",1},{"op","preset"},{"x",i==1?0:.75},{"y",0}});}else if(i==3)engine->dispatch({{"version",1},{"op","restart"}});else if(i==4)engine->dispatch({{"version",1},{"op","scan_pause"}});else engine->dispatch({{"version",1},{"op","enable"},{"enabled",!engine->enabled}});engine->publish();}catch(const std::exception& e){popup_message::g_show(e.what(),"随机偏好");}}
+    void execute(t_uint32 i,ctx_t)override{if(!engine)return;try{if(i==0){if(engine->themeVersion.empty())native_ss::open_native_preference();else engine->dispatch({{"version",1},{"op","open"}});}else if(i==1||i==2){engine->dispatch({{"version",1},{"op","preset"},{"x",i==1?0:.75},{"y",0}});}else if(i==3)engine->dispatch({{"version",1},{"op","restart"}});else if(i==4)engine->dispatch({{"version",1},{"op","scan_pause"}});else if(i==5)engine->dispatch({{"version",1},{"op","enable"},{"enabled",!engine->enabled}});else{engine->updater->check();native_ss::open_updates();}engine->publish();}catch(const std::exception& e){popup_message::g_show(e.what(),"随机偏好");}}
 };
 mainmenu_commands_factory_t<Menu> menus;
 }

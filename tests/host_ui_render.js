@@ -6,6 +6,10 @@
  function white(value){return ((value>>16)&255)>240&&((value>>8)&255)>240&&(value&255)>240;}
  try{
   var bitmap=gdi.CreateImage(500,240),g=bitmap.GetGraphics();
+  result.font_family=FONT.rowTitle.Name;check(FONT.rowTitle.Name==='Inter','Actual theme resolves the bundled Inter font family');
+  check(ssScriptFont('中文歌曲',FONT.rowTitle).Name==='Microsoft YaHei UI','Chinese resolves to an explicit sans serif family instead of a KaiTi fallback');
+  var aa=gdi.CreateImage(300,60),ag=aa.GetGraphics();ag.FillSolidRect(0,0,300,60,COL.base);tL(ag,'English antialias Aa',FONT.rowTitle,RGB(255,255,255),8,8,280,40);aa.ReleaseGraphics(ag);
+  check(aa.GetColourScheme(32).some(function(c){var v=c&255;return v>35&&v<220;}),'English glyph edges contain antialiasing coverage in the actual bitmap');
   for(var n=0;n<3;n++){
    UISCALE=[1,1.5,2][n];FONT=ssCreateFonts();
    var font=ssFitFont(g,FONT.title,24),height=lineH(g,font);check(height<=24,'Actual title font fits 24px at scale '+UISCALE);result.fonts.push({scale:UISCALE,height:height});
@@ -27,8 +31,15 @@
   check(SS_QUEUE_SB&&SS_QUEUE_SB.maxPx>0,'Actual queue renderer exposes its own scroll thumb');
   var rounded=gdi.CreateImage(200,120),rg=rounded.GetGraphics();rg.FillSolidRect(0,0,200,120,COL.base);roundBottom(rg,0,0,200,120);rounded.ReleaseGraphics(rg);
   check(colour(rounded,0,119,1,1)===0&&colour(rounded,199,119,1,1)===0,'Composed panel retains black rounded bottom corners');
-  result.ok=true;
- }catch(error){result.error=String(error);}
+  var oldR=R;R={main:{x:0,y:0,w:500,h:200},queue:{x:510,y:0,w:300,h:200}};HB_TR=[0,1,2].map(function(i){return {songs:true,ti:i,x0:0,y0:i*50,x1:500,y1:(i+1)*50};});HB_Q=[];ssMainSelect.cancel();ssMainSelect.setContext({kind:'track',key:'raster-hover',items:[],rows:[]});ssInteractionPainted=[];ssInteractionDamage=[];ssHoverPainted=null;
+  var clean=gdi.CreateImage(500,240),cl=clean.GetGraphics();cl.FillSolidRect(0,0,500,240,COL.base);for(n=0;n<3;n++)cl.FillSolidRect(150,n*50+20,80,8,RGB(250,250,250));clean.ReleaseGraphics(cl);ssSceneImage=clean;mx=200;my=10;
+  fg=frame.GetGraphics();fg.DrawImage(clean,0,0,500,240,0,0,500,240);ssPaintInteractions(fg);frame.ReleaseGraphics(fg);my=110;
+  fg=frame.GetGraphics();fg.FillSolidRect(0,0,500,150,COL.black);ssPaintInteractions(fg);frame.ReleaseGraphics(fg);check(white(colour(frame,160,70,50,8)),'Hover jump redraws skipped row pixels after a cleared damage band');
+  my=10;fg=frame.GetGraphics();ssPaintInteractions(fg);frame.ReleaseGraphics(fg);ssQueueInteractionDamage({x:0,y:100,w:500,h:50});fg=frame.GetGraphics();fg.FillSolidRect(0,0,500,150,COL.black);ssPaintInteractions(fg);frame.ReleaseGraphics(fg);check(white(colour(frame,160,120,50,8)),'Pointer reversal restores pixels from previously queued hover damage');
+  ssQueueInteractionDamage(R.main);fg=frame.GetGraphics();fg.FillSolidRect(0,0,500,200,COL.black);ssPaintInteractions(fg);frame.ReleaseGraphics(fg);check(white(colour(frame,160,70,50,8))&&white(colour(frame,160,120,50,8)),'Drag repaint retains every unrelated song row in the cleared panel');R=oldR;
+  for(var pi=0;pi<plman.PlaylistCount;pi++){if(isHiddenPl(plman.GetPlaylistName(pi)))continue;var handles=plman.GetPlaylistItems(pi);if(handles.Count>=2){result.context={playlist:pi,items:[0,1],tracks:[ssTrackID(handles[0]),ssTrackID(handles[1])],path:handles[0].Path,raw:handles[0].RawPath};break;}}
+  check(!!result.context,'Real JSplitter handles supply a native playlist context payload');result.ok=true;
+ }catch(error){if(typeof oldR!=="undefined")R=oldR;result.error=String(error);}
  FONT=saved.font;UISCALE=saved.scale;view=saved.view;songsTracks=saved.tracks;HB_TR=saved.hb;HB_Q=saved.qhb;ssSceneImage=saved.scene;ssMainRows=saved.rows;ssMainIndex=saved.index;ssArtists=saved.artists;mx=saved.point.x;my=saved.point.y;ssState=saved.state;pbShuffle=saved.shuffle;ssQueueScroll=saved.qscroll;ssQueueScrollT=saved.qtarget;ssInteractionPainted=[];ssHoverPainted=null;ssInvalidateSelections();repaintAll();
  utils.WriteTextFile(fb.ProfilePath+'smartshuffle\\ui-render-test-result.json',JSON.stringify(result),false);
 })();

@@ -2,13 +2,18 @@
    with no title-formatting, artwork lookups, or full-window bitmap transfers. */
 var ssQuietRows=false,ssHoverFrame=0,ssHoverDirty=false,ssHoverPainted=null;
 var ssInteractionPainted=[];
+var ssInteractionDamage=[];
+function ssPixelRect(r){var x=Math.floor(r.x),y=Math.floor(r.y);return {x:x,y:y,w:Math.ceil(r.x+r.w)-x,h:Math.ceil(r.y+r.h)-y};}
+function ssQueueInteractionDamage(rect){if(rect&&rect.w>0&&rect.h>0)ssInteractionDamage.push({x:rect.x,y:rect.y,w:rect.w,h:rect.h});}
 function ssPaintInteractions(gr){
   var hover=ssHoverRow(),current=typeof ssSelectionRects==='function'?ssSelectionRects():[];
   if(hover)current.push(hover);
-  var all=ssInteractionPainted.concat(current),rects=[];
+  var all=ssInteractionPainted.concat(current,ssInteractionDamage),rects=[];ssInteractionDamage=[];
   for(var i=0;i<all.length;i++){
-    var r=all[i];if(!r||r.w<=0||r.h<=0)continue;var merged=false;
-    for(var j=0;j<rects.length;j++){var p=rects[j];if(p.x===r.x&&p.w===r.w&&p.y<=r.y+r.h&&r.y<=p.y+p.h){var bottom=Math.max(p.y+p.h,r.y+r.h);p.y=Math.min(p.y,r.y);p.h=bottom-p.y;merged=true;break;}}
+    var r=all[i];if(!r||r.w<=0||r.h<=0)continue;r=ssPixelRect(r);var merged=false;
+    // The host can clear the bounding band between disjoint invalidations.
+    // Restore that band, including rows skipped by fast or reversed movement.
+    for(var j=0;j<rects.length;j++){var p=rects[j];if(p.x<r.x+r.w&&r.x<p.x+p.w){var bottom=Math.max(p.y+p.h,r.y+r.h),right=Math.max(p.x+p.w,r.x+r.w);p.y=Math.min(p.y,r.y);p.x=Math.min(p.x,r.x);p.h=bottom-p.y;p.w=right-p.x;merged=true;break;}}
     if(!merged)rects.push({x:r.x,y:r.y,w:r.w,h:r.h});
   }
   if(ssSceneImage)for(i=0;i<rects.length;i++){r=rects[i];gr.DrawImage(ssSceneImage,r.x,r.y,r.w,r.h,r.x,r.y,r.w,r.h);}
@@ -34,13 +39,13 @@ function ssRequestRowHover(){
   ssHoverFrame=window.SetTimeout(function(){
     ssHoverFrame=0;if(!ssSceneImage)return;
     ssHoverDirty=true;var rows=[ssHoverPainted,ssHoverRow()];
-    for(var i=0;i<rows.length;i++){var r=rows[i];if(r)window.RepaintRect(r.x,r.y,r.w,r.h);}
+    for(var i=0;i<rows.length;i++){var r=rows[i];if(r){r=ssPixelRect(r);ssQueueInteractionDamage(r);window.RepaintRect(r.x,r.y,r.w,r.h);}}
   },16);
 }
 function ssPaintRowHover(gr,restore){
   var row=ssHoverRow(),rows=restore?[ssHoverPainted,row]:[ssHoverPainted];
   if(ssSceneImage)for(var i=0;i<rows.length;i++){
-    var r=rows[i];if(r)gr.DrawImage(ssSceneImage,r.x,r.y,r.w,r.h,r.x,r.y,r.w,r.h);
+    var r=rows[i];if(r){r=ssPixelRect(r);gr.DrawImage(ssSceneImage,r.x,r.y,r.w,r.h,r.x,r.y,r.w,r.h);}
   }
   if(row){
     // The original number is hidden only when the complete glyph cell is visible.

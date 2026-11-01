@@ -2,6 +2,7 @@
 import hashlib
 from importlib import metadata
 import json
+import re
 from pathlib import Path
 import shutil
 import sys
@@ -9,7 +10,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "dist/public-release"
-VERSION = "1.0.4"
+VERSION = re.search(r'#define SS_VERSION "([0-9.]+)"', (ROOT / "src/version.hpp").read_text(encoding="utf-8")).group(1)
 
 
 def copy(source, destination):
@@ -27,15 +28,16 @@ def main():
     assert OUTPUT.resolve().is_relative_to((ROOT / "dist").resolve())
     if OUTPUT.exists():
         shutil.rmtree(OUTPUT)
-    bundle = OUTPUT / f"foobar-smartshuffle-{VERSION}"
+    bundle = OUTPUT / f"foobar-smartshuffle-full-{VERSION}"
     payload = bundle / "payload"
     copy(component, payload / "components/foo_smartshuffle/foo_smartshuffle.dll")
     copy(ROOT / "vendor/verdant-foobar2000-theme-master/components/foo_ui_wizard", payload / "components/foo_ui_wizard")
     copy(runtime, payload / "runtime/smartshuffle-analyzer")
+    copy(ROOT / "assets/fonts", payload / "fonts")
     copy(ROOT / "theme/verdant", payload / "theme/verdant")
     copy(ROOT / "theme/columns-ui-layout.cfg",
          payload / "config/foo_ui_columns.dll.cfg")
-    for name in ("README.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "licenses"):
+    for name in ("README.md", "AGENTS.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "licenses"):
         copy(ROOT / name, bundle / name)
     for name in ("install-public.ps1", "install.ps1", "install.py", "profile_style.py"):
         copy(ROOT / "scripts" / name, bundle / "scripts" / name)
@@ -63,20 +65,33 @@ def main():
                 copy(source, bundle / "licenses/analyzer" / relative)
     (bundle / "licenses/analyzer/dependencies.json").write_text(
         json.dumps(sorted(distributions, key=lambda d: d["name"].lower()), indent=2), encoding="utf-8")
-    asset = OUTPUT / f"foobar-smartshuffle-desktop-{VERSION}.zip"
-    with zipfile.ZipFile(asset, "w", zipfile.ZIP_DEFLATED) as archive:
-        for path in sorted(bundle.rglob("*")):
-            if path.is_file():
-                archive.write(path, path.relative_to(OUTPUT).as_posix())
+    (bundle / "edition.json").write_text(json.dumps({"edition": "full"}), encoding="utf-8")
+    core = OUTPUT / f"foobar-smartshuffle-core-{VERSION}"
+    for name in ("README.md", "AGENTS.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "licenses", "scripts", "docs"):
+        copy(bundle / name, core / name)
+    for name in ("components/foo_smartshuffle", "runtime", "fonts"):
+        copy(payload / name, core / "payload" / name)
+    (core / "edition.json").write_text(json.dumps({"edition": "core"}), encoding="utf-8")
+    assets = []
+    for edition, folder in (("full", bundle), ("core", core)):
+        asset = OUTPUT / f"foobar-smartshuffle-{edition}-{VERSION}.zip"
+        with zipfile.ZipFile(asset, "w", zipfile.ZIP_DEFLATED) as archive:
+            for path in sorted(folder.rglob("*")):
+                if path.is_file():
+                    archive.write(path, path.relative_to(OUTPUT).as_posix())
+        assets.append(asset)
     native = OUTPUT / "foo_smartshuffle.fb2k-component"
     with zipfile.ZipFile(native, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.write(component, "foo_smartshuffle.dll")
+        for path in sorted((ROOT / "assets/fonts").glob("*")):
+            if path.is_file():
+                archive.write(path, "fonts/" + path.name)
         for name in ("LICENSE", "THIRD-PARTY-NOTICES.md"):
             archive.write(ROOT / name, name)
         for path in sorted((ROOT / "licenses").rglob("*")):
             if path.is_file():
                 archive.write(path, path.relative_to(ROOT).as_posix())
-    assets = (asset, native)
+    assets.append(native)
     (OUTPUT / "SHA256SUMS.txt").write_text("".join(
         f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n" for path in assets), encoding="utf-8")
     print(json.dumps({"assets": [{"name": p.name, "bytes": p.stat().st_size} for p in assets],

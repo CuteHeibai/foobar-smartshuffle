@@ -72,4 +72,31 @@ test('main and queue restore bottom corner masks after composing content',()=>{
  c.drawMainCounted(graphics());assert.deepEqual(stamps,['main',[10,10,500,500]]);
  stamps=[];c.ssDrawQueueContent=()=>stamps.push('queue');c.drawQueue(graphics());assert.deepEqual(stamps,['queue',[520,10,300,500]]);
 });
+test('hover jumps restore the whole invalidated band including skipped rows',()=>{
+ const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[0,1,2].map(i=>({x0:0,y0:i*50,x1:500,y1:(i+1)*50}));c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=20;c.my=20;
+ c.ssPaintInteractions(graphics());c.my=120;let restored=[];const g=graphics();g.DrawImage=(im,x,y,w,ht)=>restored.push({y,ht});c.ssPaintInteractions(g);assert.ok(restored.some(r=>r.y<=50&&r.y+r.ht>=100),'the middle row must be restored after a jump');
+});
+test('queued hover damage survives a pointer reversal before the paint callback',()=>{
+ const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[0,1,2].map(i=>({x0:0,y0:i*50,x1:500,y1:(i+1)*50}));c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=20;c.my=20;c.ssPaintInteractions(graphics());
+ c.my=120;c.ssRequestRowHover();h.flush();c.my=20;let restored=[];const g=graphics();g.DrawImage=(im,x,y,w,ht)=>restored.push({y,ht});c.ssPaintInteractions(g);assert.ok(restored.some(r=>r.y<=100&&r.y+r.ht>=150),'previously invalidated rows still need pixels after the pointer moves back');
+});
+test('drag selection refresh restores its entire invalidated panel',()=>{
+ const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.ssSelectionZone=c.R.main;c.ssSelectionRepaint();h.flush();let restored=[];const g=graphics();g.DrawImage=(im,x,y,w,ht)=>restored.push({y,ht});c.ssPaintInteractions(g);assert.ok(restored.some(r=>r.y===0&&r.ht===200));
+});
+test('track identity uses RawPath so playlist context validation matches the SDK',()=>{
+ const {c}=context();assert.equal(c.ssTrackID({Path:'D:\\music\\song.flac',RawPath:'file://D:\\music\\song.flac',SubSong:2}),'file://D:\\music\\song.flac|2');
+});
+test('Ctrl right-click toggles individual songs without opening a menu; left drag reorders',()=>{
+ const h=context(),c=h.c;h.app();c.view='playlist';c.R={main:{x:0,y:0,w:500,h:200}};c.ssState={playlists:[{index:0,guid:'list',writable:true}]};c.plman.ActivePlaylist=0;c.getPlOrder=()=>[0,1,2];c.getItems=()=>[0,1,2].map(i=>({Path:'song'+i,RawPath:'file://song'+i,SubSong:0}));c.HB_TR=[0,1,2].map(i=>({pl:0,item:i,x0:0,y0:i*50,x1:500,y1:(i+1)*50}));c.HB_Q=c.HB_PL=[];c.utils.IsKeyPressed=k=>k===17;c.ssBatchTrackMenu=()=>{throw Error('Ctrl right click must not open menu');};
+ c.on_mouse_rbtn_up(20,20);c.on_mouse_rbtn_up(20,120);assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0,2]);c.on_mouse_rbtn_up(20,20);assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[2]);
+ c.utils.IsKeyPressed=k=>k===1;c.ssSelectionDown(20,20);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'reorder');assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0]);
+});
+test('Chinese text explicitly uses YaHei UI and English uses subpixel antialiasing',()=>{
+ const {c}=context(),g=graphics(),draws=[],hints=[];g.SetTextRenderingHint=v=>hints.push(v);g.DrawString=(s,f)=>draws.push({s,f});
+ c.tL(g,'歌曲列表',c.FONT.rowTitle,1,0,0,200,32);c.tL(g,'English song',c.FONT.rowTitle,1,0,40,200,32);
+ assert.equal(draws[0].f.Name,'Microsoft YaHei UI');assert.equal(draws[1].f.Name,'Inter');assert.deepEqual(hints,[5,5]);
+});
+test('scene restore copies align source and destination to whole pixels',()=>{
+ const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[{x0:10.2,y0:49.3,x1:480.8,y1:99.3}];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=40;c.my=70;let copies=[];const g=graphics();g.DrawImage=(im,...args)=>copies.push(args);c.ssPaintInteractions(g);assert.ok(copies.length);assert.ok(copies.every(args=>args.every(Number.isInteger)));
+});
 console.log(count+' passed, '+failed+' failed');if(failed)process.exitCode=1;

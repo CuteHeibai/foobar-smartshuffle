@@ -79,7 +79,7 @@ function ssPoll(){
 function ssStart(){
   if(ssStarted) return;
   ssStarted=true;ssStarting=true;ssPoll();ssStarting=false;
-  ssSend('state',{theme_version:'1.0.4',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard});
+  ssSend('state',{theme_version:'1.0.5',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard});
   if(typeof ssReportLayout==='function')ssReportLayout();
   if(typeof UIWizard!=='undefined'&&UIWizard)window.SetTimeout(function(){
     ssSend('state',{theme_chrome_ready:ssConfigureChrome()});
