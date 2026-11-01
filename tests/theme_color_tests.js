@@ -24,6 +24,9 @@ test('light palette keeps text, secondary labels and green controls legible on w
  for(const name of ['text','text2','text3','green'])assert.ok(contrast(c.COL[name],c.COL.base)>=4.5,name);
  assert.ok(contrast(c.COL.onAccent,c.COL.green)>=4.5);assert.ok(contrast(c.COL.onDanger,c.COL.danger)>=4.5);
 });
+test('light hairlines are opaque and visible on the white and elevated panels',()=>{
+ const {c}=harness('light');assert.equal(c.COL.line>>>24,255);assert.ok(contrast(c.COL.line,c.COL.base)>=1.5);assert.ok(contrast(c.COL.line,c.COL.elev)>=1.4);
+});
 test('changing appearance clears every colour-dependent bitmap while preserving music and geometry',()=>{
  const {c,props,calls}=harness();const art=c.artCache,state={source:'keep',remaining:['song']};c.ssState=state;
  c.ssApplyAppearance('light');assert.equal(props.get('SmartShuffle: appearance'),'light');assert.equal(c.UIWizard.DarkMode,false);

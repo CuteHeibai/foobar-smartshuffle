@@ -13,11 +13,12 @@ function ssGradientGrid(size){
   ssGridImage.ReleaseGraphics(g);return ssGridImage;
 }
 function ssDrawGlassBall(gr,gx,gy,size){
-  var now=Date.now();ssTrail=ssTrail.filter(function(p){return now-p.time<260;});
-  for(var i=0;i<ssTrail.length;i++){
-    var p=ssTrail[i],a=Math.max(0,1-(now-p.time)/260),r=4+9*a;
+  var now=Date.now(),samples=ssTrailSamples(now),previous=null;
+  for(var i=0;i<samples.length;i++){
+    var p=samples[i],a=p.fade,r=2+6*a;
     var tx=gx+(p.x+1)*size/2,ty=gy+(1-p.y)*size/2;
-    gr.FillEllipse(tx-r,ty-r,r*2,r*2,ssAccent(Math.round(44*a)));
+    if(previous)gr.DrawLine(previous.x,previous.y,tx,ty,r*2,ssAccent(Math.round(30*a)));
+    gr.FillEllipse(tx-r,ty-r,r*2,r*2,ssAccent(Math.round(34*a)));previous={x:tx,y:ty};
   }
   var bx=gx+(ssDraft.x+1)*size/2,by=gy+(1-ssDraft.y)*size/2;
   gr.FillEllipse(bx-24,by-24,48,48,RGBA(78,227,159,28));
@@ -62,10 +63,10 @@ function ssHideLyrics(){
   ssLyricVisible=false;
 }
 function ssButton(gr,x,y,w,h,label,act,enabled,primary){
-  var hot=hv(x,y,x+w,y+h), color=primary?(enabled?COL.green:COL.seekbg):(hot?COL.hover:COL.elev);
-  gr.FillRoundRect(x,y,w,h,6,6,color);
-  strokeRound(gr,x,y,w,h,6,1,enabled?COL.greenC:COL.line);
-  tC(gr,label,FONT.pl,primary&&enabled?COL.onAccent:(enabled?COL.text:COL.text3),x,y,w,h);
+  var hot=enabled&&hv(x,y,x+w,y+h),color=primary?(enabled?COL.text:COL.seekbg):(hot?COL.hover:COL.elev),radius=Math.min(18,h/2);
+  gr.FillRoundRect(x,y,w,h,radius,radius,color);
+  if(!primary)strokeRound(gr,x,y,w,h,radius,1,COL.line);
+  tC(gr,label,FONT.pl,primary&&enabled?COL.base:(enabled?COL.text:COL.text3),x,y,w,h);
   SS_HB.push({x0:x,y0:y,x1:x+w,y1:y+h,act:act,enabled:enabled});
 }
 function ssPreferenceLabel(){
@@ -79,13 +80,13 @@ function ssGeometry(w,h){
   return {x:x,y:y,w:mw,h:mh,left:left,top:top,areaH:areaH,rightX:rightX,rightW:rightW,labelW:labelW,
     grid:{x:Math.round(rightX+(rightW-size)/2),y:Math.round(top+32),size:Math.round(size)}};
 }
-function drawPreference(gr){
+function drawPreference(gr,staticOnly){
   if(!ssModal) return;
   SS_HB=[];
   var m=ssGeometry(W,H), x=m.x,y=m.y,w=m.w,h=m.h, gx=m.grid.x,gy=m.grid.y,size=m.grid.size;
   SS_GRID=m.grid;
   gr.FillRoundRect(x,y,w,h,12,12,COL.base);
-  strokeRound(gr,x,y,w,h,12,1,COL.greenC);
+  strokeRound(gr,x,y,w,h,12,1,COL.line);
   tL(gr,'随机偏好',FONT.sect2,COL.text,x+24,y+18,w-48,34);
   tL(gr,ssPreferenceLabel()+'  ·  拖动绿球或按方向键微调',FONT.meta,COL.text2,x+24,y+60,w-48,28);
   var px=x+24,pw=m.left-12, rowH=Math.floor((m.areaH-30)/8), tracks=(ssState&&ssState.preview&&ssState.preview.tracks)||[];
@@ -101,14 +102,14 @@ function drawPreference(gr){
   gr.DrawImage(ssGradientGrid(size),gx,gy,size,size,0,0,size,size);
   for(var j=0;j<=4;j++){
     var p=Math.round(j*size/4);
-    gr.DrawLine(gx+p,gy,gx+p,gy+size,j===2?1.5:1,ssInk(j===2?60:25));
-    gr.DrawLine(gx,gy+p,gx+size,gy+p,j===2?1.5:1,ssInk(j===2?60:25));
+    gr.DrawLine(gx+p+.5,gy,gx+p+.5,gy+size,j===2?1.5:1,j===2?COL.gridAxis:COL.gridLine);
+    gr.DrawLine(gx,gy+p+.5,gx+size,gy+p+.5,j===2?1.5:1,j===2?COL.gridAxis:COL.gridLine);
   }
-  strokeRound(gr,gx,gy,size,size,5,1,COL.greenC);
+  strokeRound(gr,gx,gy,size,size,5,1,COL.line);
   tC(gr,'极少听',FONT.pl,COL.text2,m.rightX,gy+size/2-18,m.labelW,36);
   tC(gr,'最常听',FONT.pl,COL.text2,gx+size+4,gy+size/2-18,m.labelW,36);
   tC(gr,'风格相似',FONT.pl,COL.text2,m.rightX,gy+size+5,m.rightW,26);
-  ssDrawGlassBall(gr,gx,gy,size);
+  if(!staticOnly)ssDrawGlassBall(gr,gx,gy,size);
   var fy=y+h-118, gap=10, btnW=Math.floor((w-48-gap*3)/4), bh=36;
   ssButton(gr,x+24,fy,btnW,bh,'均衡', 'balanced',!ssApplyId,false);
   ssButton(gr,x+24+btnW+gap,fy,btnW,bh,'常听优先','familiar',!ssApplyId,false);

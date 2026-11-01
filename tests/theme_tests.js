@@ -8,8 +8,8 @@ const root = path.join(__dirname, '../theme/verdant');
 let passed = 0;
 function test(name, fn) { fn(); console.log('PASS ' + name); passed++; }
 function harness() {
-  const writes = [], timers = new Map(); let next = 0;
-  const c = { console, Date, Math, JSON, isFinite, Number,
+  const writes = [], timers = new Map(); let next = 0,now=Date.now();
+  const c = { console, Date:{now:()=>now}, Math, JSON, isFinite, Number,
     fb: { ProfilePath: 'P:\\', IsPlaying: false },
     UISCALE:1,
     window: { Width:1100,Height:740, SetTimeout: fn => { timers.set(++next, fn); return next; }, ClearTimeout: id => timers.delete(id), SetInterval: () => 99, ClearInterval: () => {}, Repaint: () => {}, RepaintRect:()=>{} },
@@ -23,7 +23,7 @@ function harness() {
   function ack(extra = {}) {
     c.ssAcceptState(Object.assign({ version: 1, revision: 1, enabled: true, request_id: writes.at(-1)?.id || '', ui_open: 0, point: { x: 0, y: 0 }, preview: null, response: { ok: true } }, extra));
   }
-  return { c, writes, ack, tick() { const entries = [...timers]; timers.clear(); for (const [,fn] of entries) fn(); } };
+  return { c, writes, ack, tick() { now+=150;const entries = [...timers]; timers.clear(); for (const [,fn] of entries) fn(); } };
 }
 test('bridge exposes native request API', () => { assert.equal(typeof harness().c.ssSend, 'function'); });
 test('requests serialize until matching acknowledgement; queued previews coalesce', () => {
@@ -151,7 +151,7 @@ test('modal geometry fits 900 by 600 at 125 and 150 percent with eight visible r
 test('startup sends one theme readiness handshake with native panel window', () => {
   const h = harness(); h.c.window.ID = 12345; h.c.ssStart(); h.c.ssStart();
   assert.equal(h.writes.length,1); assert.equal(h.writes[0].op,'state');
-  assert.equal(h.writes[0].theme_version,'1.0.7'); assert.equal(h.writes[0].theme_window,12345);
+  assert.equal(h.writes[0].theme_version,'1.0.8'); assert.equal(h.writes[0].theme_window,12345);
 });
 test('missing named child requests native ESLyric host and waits for actual ready visibility', () => {
   const h = harness(), c = h.c; c.window.ID = 9876; c.R = { queue: { x:650,y:50,w:250,h:450 } }; c.rightTab='lyrics';

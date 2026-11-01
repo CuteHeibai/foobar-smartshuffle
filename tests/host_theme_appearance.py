@@ -19,7 +19,7 @@ checks=[]
 
 def start():
     p=subprocess.Popen([str(ROOT/'test-player/foobar2000.exe')],startupinfo=startup)
-    b.wait(lambda s:s.get('pid')==p.pid and s.get('component')=='1.0.7'
+    b.wait(lambda s:s.get('pid')==p.pid and s.get('component')=='1.0.8'
            and s.get('theme',{}).get('chrome_ready'),timeout=25)
     return p
 

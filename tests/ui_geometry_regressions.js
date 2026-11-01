@@ -13,7 +13,7 @@ function context(){
  function load(file){vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),c);}
  load('core/tokens.js');load('core/util.js');load('ui/motion.js');load('ui/hover.js');load('ui/viewport.js');load('ui/selection.js');load('data/selection_host.js');
  function app(){let text=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(text.slice(0,text.lastIndexOf('\nlayout();')),c);c.dupPrompt=c.rgPrompt=null;c.sgMenuOpen=c.plSortMenuOpen=c.vizMenuOpen=false;}
- return {c,load,app,tick(ms){now+=ms;c.scrollTick();},flush(){let jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
+ return {c,load,app,advance(ms){now+=ms;},tick(ms){now+=ms;c.scrollTick();},flush(){let jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
 }
 function graphics(){return {SetTextRenderingHint(){},SetSmoothingMode(){},SetInterpolationMode(){},CalcTextHeight:(s,f)=>f.Size*1.3,CalcTextWidth:(s,f)=>Array.from(String(s)).length*f.Size*.9,DrawString(){},DrawImage(){},FillSolidRect(){},FillRoundRect(){},FillEllipse(){},DrawLine(){},DrawRect(){}};}
 test('large fonts stay inside each supplied text box at 200 percent scale',()=>{
@@ -86,10 +86,12 @@ test('drag selection refresh restores its entire invalidated panel',()=>{
 test('track identity uses RawPath so playlist context validation matches the SDK',()=>{
  const {c}=context();assert.equal(c.ssTrackID({Path:'D:\\music\\song.flac',RawPath:'file://D:\\music\\song.flac',SubSong:2}),'file://D:\\music\\song.flac|2');
 });
-test('Ctrl right-click toggles individual songs without opening a menu; left drag reorders',()=>{
- const h=context(),c=h.c;h.app();c.view='playlist';c.R={main:{x:0,y:0,w:500,h:200}};c.ssState={playlists:[{index:0,guid:'list',writable:true}]};c.plman.ActivePlaylist=0;c.getPlOrder=()=>[0,1,2];c.getItems=()=>[0,1,2].map(i=>({Path:'song'+i,RawPath:'file://song'+i,SubSong:0}));c.HB_TR=[0,1,2].map(i=>({pl:0,item:i,x0:0,y0:i*50,x1:500,y1:(i+1)*50}));c.HB_Q=c.HB_PL=[];c.utils.IsKeyPressed=k=>k===17;c.ssBatchTrackMenu=()=>{throw Error('Ctrl right click must not open menu');};
- c.on_mouse_rbtn_up(20,20);c.on_mouse_rbtn_up(20,120);assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0,2]);c.on_mouse_rbtn_up(20,20);assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[2]);
- c.utils.IsKeyPressed=k=>k===1;c.ssSelectionDown(20,20);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'reorder');assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0]);
+test('Ctrl left-click toggles songs; right-click keeps its menu and holding left drag reorders',()=>{
+ const h=context(),c=h.c;h.app();c.view='playlist';c.R={main:{x:0,y:0,w:500,h:200}};c.ssState={playlists:[{index:0,guid:'list',writable:true}]};c.plman.ActivePlaylist=0;c.getPlOrder=()=>[0,1,2];c.getItems=()=>[0,1,2].map(i=>({Path:'song'+i,RawPath:'file://song'+i,SubSong:0}));c.HB_TR=[0,1,2].map(i=>({pl:0,item:i,x0:0,y0:i*50,x1:500,y1:(i+1)*50}));c.HB_Q=c.HB_PL=[];c.utils.IsKeyPressed=k=>k===17||k===1;let menus=0;c.ssBatchTrackMenu=()=>{menus++;return true;};
+ for(const y of [20,120]){c.ssSelectionDown(20,y);assert.equal(c.ssSelectionUp(20,y),true);}assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0,2]);
+ c.ssSelectionDown(20,20);c.ssSelectionUp(20,20);assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[2]);
+ c.on_mouse_rbtn_up(20,20);assert.equal(menus,1);
+ c.utils.IsKeyPressed=k=>k===1;c.ssSelectionDown(20,20);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'pending');h.advance(170);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'reorder');assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0]);
 });
 test('Chinese text explicitly uses YaHei UI and English uses subpixel antialiasing',()=>{
  const {c}=context(),g=graphics(),draws=[],hints=[];g.SetTextRenderingHint=v=>hints.push(v);g.DrawString=(s,f)=>draws.push({s,f});
@@ -98,5 +100,41 @@ test('Chinese text explicitly uses YaHei UI and English uses subpixel antialiasi
 });
 test('scene restore copies align source and destination to whole pixels',()=>{
  const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[{x0:10.2,y0:49.3,x1:480.8,y1:99.3}];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=40;c.my=70;let copies=[];const g=graphics();g.DrawImage=(im,...args)=>copies.push(args);c.ssPaintInteractions(g);assert.ok(copies.length);assert.ok(copies.every(args=>args.every(Number.isInteger)));
+});
+test('footer uses the whole-window center and shrinks the seek rail before moving transport',()=>{
+ const {c,load}=context();load('views/bar.js');
+ for(const [w,left,right] of [[1536,470,1200],[1180,510,920],[2560,400,2200]]){
+  const a=c.ssTransportLayout(w,left,right,1);assert.equal(a.center,Math.round(w/2));assert.ok(a.seekWidth<=2*Math.min(a.center-left,right-a.center)-110);
+ }
+ const pushed=c.ssTransportLayout(1180,560,960,1);assert.ok(pushed.center>590);assert.ok(pushed.center-560>=80);
+});
+test('all four splitters paint a permanent one-pixel line without hovering',()=>{
+ const {c,load}=context();load('ui/layout.js');c.W=1180;c.H=780;c.R={top:{y:40},main:{x:230,h:600},queue:{x:850},barY:680,barInfoW:300,barToolsW:300};c.fsMode=false;let lines=[];const g=graphics();g.DrawLine=(...a)=>lines.push(a);c.ssDrawResizers(g);assert.equal(lines.length,4);assert.ok(lines.every(a=>a[4]===1));
+});
+test('top menus open submenus by click and remain open when the pointer leaves',()=>{
+ const h=context(),c=h.c;h.load('ui/menus.js');c.TBH=32;c.ssPoll=()=>{};
+ c.ssShowPopup([{label:'A',children:[{label:'B'}]}],10,40);c.ssPopup.root='file';
+ c.SS_MENU_HB=[{x0:10,y0:40,x1:200,y1:80,depth:0,index:0,item:c.ssPopup.levels[0].items[0]}];
+ c.ssPopupMove(20,60);assert.equal(c.ssPopup.levels.length,1);c.ssPopupClick(20,60);assert.equal(c.ssPopup.levels.length,2);
+ c.ssPopupMove(1000,700);c.ssMenuLeave();h.flush();assert.ok(c.ssPopup);c.ssPopupClick(1000,700);assert.equal(c.ssPopup,null);
+});
+test('preference movement caches static controls instead of redrawing their text every frame',()=>{
+ const {c}=context();c.W=1180;c.H=780;c.ssModal=true;c.ssDraft={x:0,y:0};c.ssState={preview:null};c.ssApplyId=c.ssMessage=c.ssError='';c.ssReady=()=>false;c.ssPreferenceLabel=()=> '均衡';c.ssGeometry=()=>({x:100,y:80,w:940,h:600,grid:{x:600,y:200,size:240}});c.ssDrawBase=()=>{};c.ssDrawGlassBall=()=>{};let controls=0;c.drawPreference=()=>controls++;const g=graphics();for(let i=0;i<40;i++)c.ssPaintModal(g);assert.equal(controls,1);
+});
+test('raw pointer updates allocate one preview timer and one rendering frame',()=>{
+ const h=context(),c=h.c;h.load('data/smartshuffle.js');let allocations=0;const original=c.window.SetTimeout;c.window.SetTimeout=(...a)=>{allocations++;return original(...a);};c.ssModal=true;c.ssDragging=true;
+ for(let i=0;i<100;i++)c.ssSetDraft(i/100,0);assert.equal(c.ssDraft.x,.99);assert.ok(allocations<=2,'timer churn must not scale with mouse polling rate');
+});
+test('trail samples depend on elapsed time rather than mouse polling frequency',()=>{
+ function sample(step){const h=context(),c=h.c;c.ssDragging=true;for(let t=0;t<=120;t+=step){c.ssDraft={x:t/120,y:0};c.ssRecordTrail(c.ssDraft);h.advance(step);}return Array.from(c.ssTrailSamples(120),p=>p.x);}
+ const fast=sample(2),slow=sample(10);assert.equal(fast.length,slow.length);assert.ok(fast.length>2);for(let i=0;i<fast.length;i++)assert.ok(Math.abs(fast[i]-slow[i])<.001);
+});
+test('song drag overlay captures one whole row and tracks the actual pointer delta',()=>{
+ const h=context(),c=h.c;c.W=1000;c.H=700;c.TBH=32;let captures=0,copies=[];
+ c.ssSceneImage={Clone(x,y,w,h){captures++;return {Width:w,Height:h};}};
+ const p={mode:'reorder',indices:[1],origin:{index:1,x0:100,y0:100,x1:600,y1:150},grab:{x:120,y:120},pointer:{x:180,y:220}};
+ const g=graphics();g.DrawRoundRect=()=>{};g.DrawImage=(im,...args)=>copies.push(args);
+ c.ssDrawDragOverlay(g,p);p.pointer.y=250;c.ssDrawDragOverlay(g,p);
+ assert.equal(captures,1);assert.equal(copies[0][0],160);assert.equal(copies[0][1],200);assert.equal(copies[1][1],230);assert.equal(copies[0][2],500);assert.equal(copies[0][3],50);
 });
 console.log(count+' passed, '+failed+' failed');if(failed)process.exitCode=1;

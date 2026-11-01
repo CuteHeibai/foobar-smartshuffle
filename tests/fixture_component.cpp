@@ -37,6 +37,15 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         }
     }
     else if(op=="focus"){pm->playlist_set_focus_item(q.at("playlist").get<size_t>(),q.at("item").get<size_t>());}
+    else if(op=="integration_menu"){
+        const GUID command={0x35f6ca07,0x949e,0x4405,{0xbc,0x90,0xc3,0x88,0x46,0x31,0xd2,0xa9}};
+        service_enum_t<mainmenu_commands> commands;mainmenu_commands::ptr item;bool found=false;
+        while(commands.next(item))for(t_uint32 i=0;i<item->get_command_count();++i)if(item->get_command(i)==command){
+            pfc::string8 text;t_uint32 flags=0;item->get_display(i,text,flags);r["name"]=text.c_str();r["disabled"]=(flags&mainmenu_commands::flag_disabled)!=0;found=true;
+            if(q.value("execute",false)){fs::remove(root/L"fixture-request.json");item->execute(i,nullptr);}
+        }
+        r["found"]=found;
+    }
     else if(op=="settings"){
         service_enum_t<preferences_page> pages;preferences_page::ptr base;preferences_page_v3::ptr page;bool found=false;
         while(pages.next(base))if((page &= base)&&std::string(page->get_name())=="智能随机"){

@@ -89,4 +89,13 @@ test('drag release outside list cancels reorder and blank click clears selection
   const c=controller();click(c,1);c.start({index:1,x:10,y:30});c.move(10,95);assert.equal(c.end(200,95).type,'selection');
   c.start({index:-1,x:110,y:120});assert.equal(c.end(110,120).type,'selection');assert.deepEqual(list(c),[]);
 });
+test('long press lifts one row and a drop into its original position has no indicator',()=>{
+ let now=0;const c=context.ssCreateSelectionController({marquee:false,dragUnselected:true,holdDelay:160,now:()=>now});c.setContext(makeContext());
+ c.start({index:1,x:10,y:30});c.move(20,36);assert.equal(c.preview().mode,'pending');now=170;c.move(20,36);assert.equal(c.preview().mode,'reorder');assert.equal(c.preview().indicator,null);assert.ok(c.preview().origin);assert.equal(c.preview().pointer.x,20);assert.equal(c.end(20,36).changed,false);
+});
+test('movement before the hold deadline consumes release without a destination click',()=>{
+ let now=0;const c=context.ssCreateSelectionController({marquee:false,dragUnselected:true,holdDelay:160,now:()=>now});c.setContext(makeContext());
+ c.start({index:0,x:10,y:10});now=80;c.move(10,90);assert.equal(c.preview().mode,'pending');now=100;
+ const a=c.end(10,90);assert.equal(a.type,'selection');assert.equal(a.moved,true);
+});
 console.log(passed+' selection regressions passed');

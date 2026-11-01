@@ -42,6 +42,13 @@ def restore(backup):
     backup = Path(backup).resolve()
     manifest = json.loads((backup / "manifest.json").read_text(encoding="utf-8"))
     root = Path(manifest["target"]).resolve()
+    restore_mode = manifest.get('integration_restore_mode')
+    if restore_mode not in (None, 'original'):
+        raise ValueError('Invalid backed-up integration restore mode')
+    if restore_mode == 'original':
+        # Standalone backups carry this backend beside install.py. Import before
+        # modifying files so missing recovery dependencies fail without mutation.
+        from switch_mode import switch_mode
     for entry in reversed(manifest["entries"]):
         target = safe_child(root, entry["path"])
         if target.is_dir():
@@ -50,10 +57,14 @@ def restore(backup):
             target.unlink()
         if entry["existed"]:
             copy(safe_child(backup / "original", entry["path"]), target)
+    if restore_mode == 'original':
+        # The installer temporarily enabled the themed branch before taking this
+        # backup. Its saved original branch contains the actual pre-upgrade UI.
+        switch_mode(root, 'original')
     return root
 
 
-def install(payload, target, with_eslyric=True, edition="full"):
+def _install(payload, target, with_eslyric=True, edition="full", restore_mode=None):
     if edition not in {"full", "core"}:
         raise ValueError("Unknown edition")
     payload, target = Path(payload).resolve(), Path(target).resolve()
@@ -71,6 +82,8 @@ def install(payload, target, with_eslyric=True, edition="full"):
     if edition == "full":
         mapping += [("theme/verdant", "profile/verdant"),
                     ("config/foo_ui_columns.dll.cfg", "profile/configuration/foo_ui_columns.dll.cfg")]
+        if (payload / 'control').is_dir():
+            mapping.append(('control', 'profile/smartshuffle/control'))
         for component in ("foo_ui_columns", "foo_ui_wizard"):
             if not (profile / f"user-components-x64/{component}/{component}.dll").exists():
                 mapping.append((f"components/{component}", f"profile/user-components-x64/{component}"))
@@ -90,8 +103,17 @@ def install(payload, target, with_eslyric=True, edition="full"):
     backup.mkdir(parents=True)
     entries = [destination for _, destination in mapping] + ["profile/playlists-v2.0", "profile/smartshuffle/store.json", "profile/smartshuffle/features.json", "profile/smartshuffle/request.json", "profile/smartshuffle/state.json", "profile/smartshuffle/installation.json"]
     if edition == "full":
-        entries += ["profile/configuration/foo_uie_eslyric.dll.cfg", "profile/config.sqlite"]
+        entries += ["profile/configuration/foo_uie_eslyric.dll.cfg", "profile/config.sqlite",
+                    "profile/smartshuffle/integration", "profile/smartshuffle/integration-mode.json"]
+        # Existing themed components are intentionally omitted from install
+        # mappings, but restore must materialize their full appearance before
+        # switching back to original and saving the restored themed branch.
+        from switch_mode import APPEARANCE_PATHS
+        entries += ['profile/' + relative for relative in APPEARANCE_PATHS]
+    entries = list(dict.fromkeys(entries))
     manifest = {"version": 1, "target": str(target), "entries": []}
+    if restore_mode == 'original':
+        manifest['integration_restore_mode'] = 'original'
     for relative in entries:
         existing = safe_child(target, relative)
         manifest["entries"].append({"path": relative, "existed": existing.exists()})
@@ -101,6 +123,9 @@ def install(payload, target, with_eslyric=True, edition="full"):
     # A complete profile snapshot is retained separately for manual disaster recovery.
     shutil.copytree(profile, backup / "profile-snapshot", ignore=shutil.ignore_patterns("running", "nobadshutdown", "scan-sample.wav"))
     copy(Path(__file__), backup / "install.py")
+    if edition == 'full':
+        for filename in ('switch_mode.py', 'profile_style.py'):
+            copy(Path(__file__).with_name(filename), backup / filename)
     (backup / "restore.ps1").write_text(
         "$ErrorActionPreference='Stop'\n"
         "$m=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'manifest.json') -Raw | ConvertFrom-Json\n"
@@ -125,10 +150,29 @@ def install(payload, target, with_eslyric=True, edition="full"):
             from profile_style import apply_profile
             style_report = apply_profile(profile)
             (backup / "appearance-migration.json").write_text(json.dumps(style_report, ensure_ascii=False, indent=2), encoding="utf-8")
+            if (profile / 'smartshuffle/control/switch_mode.py').is_file():
+                from switch_mode import prepare
+                prepare(target)
     except Exception:
         restore(backup)
         raise
     return backup
+
+
+def install(payload, target, with_eslyric=True, edition="full"):
+    # Upgrade the saved themed branch, then return to an explicitly disabled UI.
+    target = Path(target).resolve()
+    flag = target / 'profile/smartshuffle/integration-mode.json'
+    restore_original = edition == 'full' and flag.is_file() and json.loads(flag.read_text(encoding='utf-8')).get('mode') == 'original'
+    if restore_original:
+        from switch_mode import switch_mode
+        switch_mode(target, 'themed')
+    try:
+        return _install(payload, target, with_eslyric, edition,
+                        restore_mode='original' if restore_original else None)
+    finally:
+        if restore_original:
+            switch_mode(target, 'original')
 
 
 if __name__ == "__main__":

@@ -44,8 +44,23 @@
   check(corner===canvas,'Light rounded corners match an actual opaque canvas sample ('+corner.toString(16)+' / '+canvas.toString(16)+')');
   var grid=ssGradientGrid(200);check((colour(grid,10,10,10,10)&255)>180,'Preference grid rebuilds with the light pastel gradient');
   var oldPopup=ssPopup;ssPopup={x:20,y:60,levels:[{items:[{label:'浅色菜单'}],scroll:0,selected:-1}]};lg=lightImage.GetGraphics();ssDrawPopup(lg);lightImage.ReleaseGraphics(lg);
-  check(colour(lightImage,35,65,4,4)===0xffffff,'Actual nested-menu renderer uses the light popup surface');ssPopup=oldPopup;ssApplyAppearance(oldAppearance);
+  check(colour(lightImage,35,65,4,4)===0xffffff,'Actual nested-menu renderer uses the light popup surface');ssPopup=oldPopup;
+  var splitImage=gdi.CreateImage(W,H),splitG=splitImage.GetGraphics(),oldModal=ssModal,oldFs=fsMode;
+  ssModal=false;fsMode=false;splitG.FillSolidRect(0,0,W,H,COL.base);ssDrawResizers(splitG);splitImage.ReleaseGraphics(splitG);
+  var sx=Math.round(R.main.x-M.gap/2),sy=Math.round(R.top.y+36);
+  check(colour(splitImage,sx,sy,1,5)!==0xffffff||colour(splitImage,sx+1,sy,1,5)!==0xffffff,'Light splitter remains visible without pointer hover');
+  check(Math.abs(ssTransportLayout(W,80,W-140,1).center-W/2)<=1,'Transport geometry stays at the whole-window midpoint with asymmetric side widths');
+  ssModal=oldModal;fsMode=oldFs;ssApplyAppearance(oldAppearance);
   check(COL.base===(oldAppearance==='light'?ssPalette('light'):ssPalette('dark')).base,'Returning to the previous appearance restores its palette');
+  var draftSaved=ssDraft,trailSaved=ssTrail,staticDraw=drawPreference,staticCount=0;
+  ssDraft={x:0,y:0};ssTrail=[];ssDropModalImage();drawPreference=function(gr,only){staticCount++;return staticDraw(gr,only);};
+  var modalImage=gdi.CreateImage(W,H),modalG=modalImage.GetGraphics();ssPaintModal(modalG,true);modalImage.ReleaseGraphics(modalG);
+  var stable=colour(modalImage,4,4,4,4),started=Date.now();
+  for(n=0;n<40;n++){ssDraft={x:(n%8)/100,y:0};ssPreferencePartial=true;ssPreferenceFrameAt=Date.now();modalG=modalImage.GetGraphics();ssPaintModal(modalG,false);modalImage.ReleaseGraphics(modalG);}
+  result.warm_modal_frame_ms=(Date.now()-started)/40;
+  check(staticCount===1,'Forty actual ball frames reuse the static panel typography and controls');
+  check(colour(modalImage,4,4,4,4)===stable,'Actual cached ball frames retain the dimmed background without opacity accumulation');
+  drawPreference=staticDraw;ssDropModalImage();ssDraft=draftSaved;ssTrail=trailSaved;
   for(var pi=0;pi<plman.PlaylistCount;pi++){if(isHiddenPl(plman.GetPlaylistName(pi)))continue;var handles=plman.GetPlaylistItems(pi);if(handles.Count>=2){result.context={playlist:pi,items:[0,1],tracks:[ssTrackID(handles[0]),ssTrackID(handles[1])],path:handles[0].Path,raw:handles[0].RawPath};break;}}
   check(!!result.context,'Real JSplitter handles supply a native playlist context payload');result.ok=true;
  }catch(error){if(typeof oldR!=="undefined")R=oldR;result.error=String(error);}

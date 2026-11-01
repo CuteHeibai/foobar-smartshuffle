@@ -3,7 +3,7 @@
    every module shares one global scope, so load order is set there. */
 
 function drawPlaylist(gr,r){
-  HB_TR=[]; HB_PLADD_FILES=null; HB_PLADD_FOLDER=null;
+  HB_TR=[]; HB_PLAYLIST_PLAY=null; HB_PLADD_FILES=null; HB_PLADD_FOLDER=null;
   var p=activePl();
   // the header reads meta too (track count, total duration), so the whole view waits on it, and
   // then on the artwork the reveal will actually show
@@ -15,6 +15,7 @@ function drawPlaylist(gr,r){
   gr.FillGradRect(r.x,r.y,r.w,M.headH,90,blend(artHue(plChoice(p.i).single,p.name),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
   var s=ssDensity,compact=r.w<800*s, ax=r.x+M.cpad, ay=r.y+(compact?22:44)*s, art=M.artSz;
   drawPlCover(gr,ax,ay,art,8,p.i,p.name);
+  if(p.count>0)HB_PLAYLIST_PLAY=drawPlaylistPlay(gr,ax+art-52*s,ay+art-52*s,44*s,p.i);
   var addW=Math.min(136*s,r.w-art-48*s),addX=r.x+r.w-M.cpad-addW,addY=r.y+10*s;
   if(canEditPl(p.i)&&addW>82*s){
     gr.FillRoundRect(addX,addY,addW,28*s,8,8,COL.elev);tC(gr,'＋ 添加文件夹',FONT.pl,COL.green,addX,addY,addW,28*s);

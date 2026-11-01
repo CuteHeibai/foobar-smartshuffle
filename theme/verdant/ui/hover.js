@@ -23,6 +23,7 @@ function ssPaintInteractions(gr){
 }
 function ssRowHover(x0,y0,x1,y1){return !ssQuietRows&&hv(x0,y0,x1,y1);}
 function ssHoverRow(){
+  if(typeof ssSelectOwner!=='undefined'&&ssSelectOwner&&ssSelectOwner.preview()&&ssSelectOwner.preview().mode==='reorder')return null;
   var lists=[HB_TR,HB_Q];
   for(var j=0;j<lists.length;j++)for(var i=0;i<lists[j].length;i++){
     var r=lists[j][i];if(mx>=r.x0&&mx<r.x1&&my>=r.y0&&my<r.y1){

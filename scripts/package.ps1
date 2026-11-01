@@ -11,7 +11,10 @@ if(Test-Path -LiteralPath $payload){
     if(-not $resolved.StartsWith([IO.Path]::GetFullPath($repo)+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Payload escaped project'}
     Remove-Item -LiteralPath $resolved -Recurse -Force
 }
-New-Item -ItemType Directory -Path (Join-Path $payload 'components\foo_smartshuffle'),(Join-Path $payload 'components\eslyric-warp'),(Join-Path $payload 'runtime'),(Join-Path $payload 'theme'),(Join-Path $payload 'config') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $payload 'components\foo_smartshuffle'),(Join-Path $payload 'components\eslyric-warp'),(Join-Path $payload 'runtime'),(Join-Path $payload 'theme'),(Join-Path $payload 'config'),(Join-Path $payload 'control') -Force | Out-Null
+foreach($name in @('switch-mode.ps1','switch_mode.py','profile_style.py')){
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $payload 'control')
+}
 Copy-Item -LiteralPath (Join-Path $repo 'build\foo_smartshuffle.dll') -Destination (Join-Path $payload 'components\foo_smartshuffle')
 Copy-Item -LiteralPath (Join-Path $repo 'build\eslyric\foo_uie_eslyric.dll') -Destination (Join-Path $payload 'components\eslyric-warp')
 Copy-Item -LiteralPath $analyzer -Destination (Join-Path $payload 'runtime') -Recurse

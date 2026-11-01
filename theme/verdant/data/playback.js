@@ -22,6 +22,21 @@ var ROUTE='__verdant_np__', SHUF='__smartshuffle__';
 function isHiddenPl(nm){ return nm===SHUF||nm===ROUTE; }
 function playlistOfName(nm){ for(var i=0;i<plman.PlaylistCount;i++) if(plman.GetPlaylistName(i)===nm) return i; return -1; }
 function sameHandle(a,b){ return !!(a&&b&&a.Path===b.Path&&a.SubSong===b.SubSong); }
+// A playlist action resumes its native saved round; row actions remain explicit track choices.
+function playPlaylist(pl){
+  if(pl<0||pl>=plman.PlaylistCount) return false;
+  var lists=ssState&&ssState.playlists||[],info=null;
+  for(var i=0;i<lists.length;i++)if(lists[i].index===pl){info=lists[i];break;}
+  // GUID identity prevents a pending click from starting another playlist after a reorder.
+  if(!info||!info.guid||isHiddenPl(info.name)||isHiddenPl(plman.GetPlaylistName(pl)))return false;
+  ssSend('play_playlist',{playlist_guid:info.guid});return true;
+}
+function drawPlaylistPlay(gr,x,y,size,pl){
+  var box={x0:x,y0:y,x1:x+size,y1:y+size,pl:pl,label:'播放歌单'};
+  gr.FillEllipse(x,y,size,size,hv(box.x0,box.y0,box.x1,box.y1)?COL.greenHover:COL.green);
+  drawIcon(gr,'play',COL.onAccent,x+1,y,size,size,Math.round(size*.43));
+  return box;
+}
 function playPlaylistItem(pl,item){
   if(pbShuffle) ssSend('play',{playlist:pl,item:item});
   else plman.ExecutePlaylistDefaultAction(pl,item);

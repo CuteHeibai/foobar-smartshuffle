@@ -35,11 +35,13 @@ def main():
     copy(runtime, payload / "runtime/smartshuffle-analyzer")
     copy(ROOT / "assets/fonts", payload / "fonts")
     copy(ROOT / "theme/verdant", payload / "theme/verdant")
+    for name in ('switch_mode.py','switch-mode.ps1','profile_style.py'):
+        copy(ROOT / 'scripts' / name,payload / 'control' / name)
     copy(ROOT / "theme/columns-ui-layout.cfg",
          payload / "config/foo_ui_columns.dll.cfg")
     for name in ("README.md", "AGENTS.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "licenses"):
         copy(ROOT / name, bundle / name)
-    for name in ("install-public.ps1", "install.ps1", "install.py", "profile_style.py"):
+    for name in ("install-public.ps1", "install.ps1", "install.py", "profile_style.py", "switch_mode.py", "switch-mode.ps1"):
         copy(ROOT / "scripts" / name, bundle / "scripts" / name)
     copy(ROOT / "docs", bundle / "docs")
     copy(Path(sys.base_prefix) / "LICENSE.txt", bundle / "licenses/analyzer/CPython-LICENSE.txt")

@@ -59,7 +59,8 @@ check(preferences['found'] and preferences['window'] and preferences['state'] & 
 check(preferences['draft_state'] & 1 and not preferences['applied_state'] & 1,
       'Settings Reset previews a change and Apply invokes the shared layout-restore action')
 reset = b.wait(lambda s: s.get('ui_layout_reset', 0) > before.get('ui_layout_reset', 0)
-               and s.get('theme', {}).get('layout', {}).get('reset') == s.get('ui_layout_reset'))
+               and s.get('theme', {}).get('layout', {}).get('reset') == s.get('ui_layout_reset')
+               and abs(s['theme']['layout']['width']*s['theme']['layout']['height']/(s['display']['work_width']*s['display']['work_height'])-.4)<.002)
 layout = reset['theme']['layout']
 display = reset['display']
 check(abs(layout['width'] * layout['height'] / (display['work_width'] * display['work_height']) - .4) < .002

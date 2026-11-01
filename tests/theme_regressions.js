@@ -3,8 +3,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const root=path.join(__dirname,'../theme/verdant');let passed=0;
 function test(name,fn){try{fn();console.log('PASS '+name);passed++;}catch(e){console.error('FAIL '+name);throw e;}}
 function harness(){
-  let paints=0,next=0;const timers=new Map(),writes=[];
-  const c={console,Date,Math,Number,JSON,isFinite,UISCALE:1,W:1100,H:740,TBH:32,CAPBW:46,
+  let paints=0,next=0,now=Date.now();const timers=new Map(),writes=[];
+  const c={console,Date:{now:()=>now},Math,Number,JSON,isFinite,UISCALE:1,W:1100,H:740,TBH:32,CAPBW:46,
     window:{Width:1100,Height:740,ID:123,Repaint(){paints++;},RepaintRect(){paints++;},SetTimeout(fn){timers.set(++next,fn);return next;},ClearTimeout(id){timers.delete(id);},SetInterval(){return 1;},ClearInterval(){}},
     fb:{ProfilePath:'P:\\',IsPlaying:false},plman:{ActivePlaylist:0},utils:{WriteTextFile(p,t){writes.push(JSON.parse(t));return true;}},
     repaintAll(){paints++;},applyKeyMode(){},pbShuffle:true,fsMode:false,ssLyricVisible:true,confirmDel:null,
@@ -17,7 +17,7 @@ function harness(){
   };vm.createContext(c);
   function load(file){const p=path.join(root,file);if(fs.existsSync(p))vm.runInContext(fs.readFileSync(p,'utf8'),c);}
   load('data/smartshuffle.js');load('ui/motion.js');load('ui/menus.js');load('ui/layout.js');load('ui/files.js');load('ui/hover.js');load('ui/selection.js');load('data/selection_host.js');
-  return {c,load,writes,paints:()=>paints,flush(){const jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
+  return {c,load,writes,paints:()=>paints,advance(ms){now+=ms;},flush(){now+=200;const jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
 }
 test('lyrics are the initial right pane and its first tab',()=>{
   const h=harness(),c=h.c;let app=fs.readFileSync(path.join(root,'app.js'),'utf8');
@@ -56,18 +56,18 @@ test('output picker uses themed rows and changes only explicit different devices
 });
 test('preference drag frames reuse one dimmed background instead of repainting the library',()=>{
   const h=harness(),c=h.c;let base=0,modal=0;
-  const graphics={FillSolidRect(){}};c.gdi={CreateImage(){return {GetGraphics:()=>graphics,ReleaseGraphics(){},Dispose(){}};}};
+  const graphics={FillSolidRect(){},DrawImage(){},SetSmoothingMode(){},SetInterpolationMode(){}};c.gdi={CreateImage(){return {GetGraphics:()=>graphics,ReleaseGraphics(){},Dispose(){}};}};
   c.ssDrawBase=()=>base++;c.drawPreference=()=>modal++;c.ssModal=true;
   const target={DrawImage(){}};for(let i=0;i<60;i++)c.ssPaintModal(target);
-  assert.equal(base,1);assert.equal(modal,60);c.W++;c.ssPaintModal(target);assert.equal(base,2);
+  assert.equal(base,1);assert.equal(modal,1);c.W++;c.ssPaintModal(target);assert.equal(base,2);
 });
 test('gradient is cached and the glass ball uses translucent trail layers',()=>{
   const h=harness(),c=h.c;let gradients=0;const alpha=[];
   c.gdi={CreateImage(){return {GetGraphics:()=>({FillGradRect(){gradients++;}}),ReleaseGraphics(){},Dispose(){}};}};
   h.load('views/preference.js');c.ssGradientGrid(200);const once=gradients;c.ssGradientGrid(200);assert.equal(gradients,once);assert.ok(once>1);
   c.ssDraft={x:.4,y:.2};c.ssTrail=[{x:0,y:0,time:Date.now()}];
-  c.ssDrawGlassBall({FillEllipse(x,y,w,h,col){alpha.push((col>>>24)&255);},DrawEllipse(){}},10,10,200);
-  assert.ok(alpha.length>=5);assert.ok(alpha.every(a=>a>0&&a<255));
+  c.ssDrawGlassBall({FillEllipse(x,y,w,h,col){alpha.push((col>>>24)&255);},DrawEllipse(){},DrawLine(){}},10,10,200);
+  assert.ok(alpha.length>=4);assert.ok(alpha.every(a=>a>0&&a<255));
 });
 test('native submenu response retains hierarchy, disabled state and exact command token',()=>{
   const h=harness(),c=h.c;c.ssOpenNativeMenu('main',{root:'file'},0,10);const request=h.writes.at(-1);
@@ -164,11 +164,11 @@ test('menu opening, nested hover and closing reuse the displayed scene without r
   for(let i=0;i<10;i++)c.ssPaintPopup({DrawImage(){}});
   assert.equal(base,0);assert.equal(draws,10);c.ssClosePopup();assert.equal(c.ssPopupRestore,true);assert.equal(disposed,0);
 });
-test('top menus close on pointer leave, allowing a brief crossing into the child menu',()=>{
+test('top menus remain open during pointer travel until explicitly dismissed',()=>{
   const h=harness(),c=h.c;c.ssShowPopup([{label:'A'}],10,40);c.ssPopup.root='file';
   c.ssPopup.levels[0].rect={x:10,y:40,w:230,h:100};c.ssPopup.levels.push({items:[],rect:{x:244,y:40,w:230,h:100}});
-  c.ssPopupMove(242,60);assert.ok(c.ssMenuLeaveTimer);c.ssPopupMove(250,60);assert.equal(c.ssMenuLeaveTimer,0);
-  h.flush();assert.ok(c.ssPopup);c.ssPopupMove(600,300);h.flush();assert.equal(c.ssPopup,null);
+  c.ssPopupMove(242,60);assert.equal(c.ssMenuLeaveTimer,0);c.ssPopupMove(250,60);
+  h.flush();assert.ok(c.ssPopup);c.ssPopupMove(600,300);h.flush();assert.ok(c.ssPopup);c.ssPopupKey(27);assert.equal(c.ssPopup,null);
 });
 test('window resizing scales real font sizes, row heights and covers while retaining custom widths',()=>{
   const {h,c}=layoutHarness();c.gdi={Font:(name,size,style)=>({name,size,style})};h.load('core/tokens.js');
@@ -297,7 +297,7 @@ test('sorted playlist drag submits native indices and duplicate occurrences stay
  const h=harness(),c=h.c;let sent;c.ssSend=(op,args)=>sent={op,args};c.view='playlist';c.R={main:{x:0,y:0,w:600,h:300}};c.window.SetInterval=()=>1;c.utils.IsKeyPressed=k=>k===1;
  c.ssState={playlists:[{index:0,guid:'guid',writable:true,name:'List'}]};c.plman.ActivePlaylist=0;c.getPlOrder=()=>[2,0,1];const hs=[{Path:'same',SubSong:0},{Path:'same',SubSong:0},{Path:'z',SubSong:0}];hs.Count=3;c.getItems=()=>hs;
  c.HB_TR=[2,0,1].map((item,i)=>({pl:0,item,x0:0,x1:600,y0:i*50,y1:(i+1)*50}));c.HB_PL=[];c.HB_Q=[];
- c.ssSelectionDown(100,20);c.ssSelectionUp(100,20);c.ssSelectionDown(100,20);c.ssSelectionMove(100,145);c.ssSelectionUp(100,145);
+ c.ssSelectionDown(100,20);c.ssSelectionUp(100,20);c.ssSelectionDown(100,20);h.advance(170);c.ssSelectionMove(100,145);c.ssSelectionUp(100,145);
  assert.equal(sent.op,'track_reorder');assert.deepEqual(Array.from(sent.args.order),[0,1,2]);assert.deepEqual(Array.from(sent.args.expected),['same|0','same|0','z|0']);assert.equal(c.plSort,'manual');
 });
 test('multi-select context menu sends the full selected occurrence set to native Converter',()=>{

@@ -24,7 +24,7 @@
 
 // the key is `features`, not `options` -- without features.drag_n_drop the panel is never
 // registered as an OLE drop target, so no on_drag_* fires
-window.DefineScript('Verdant 中文 · 智能随机', { author:'superziper / Smart Shuffle contributors', version:'1.0.7', features:{ drag_n_drop:true, grab_focus:true } });
+window.DefineScript('Verdant 中文 · 智能随机', { author:'superziper / Smart Shuffle contributors', version:'1.0.8', features:{ drag_n_drop:true, grab_focus:true } });
 var DLGC_WANTALLKEYS=0x0004;   // capture ALL keys; applied only in Search view (see applyKeyMode)
 var DLGC_WANTCHARS=0x0080;     // capture character keys only -- enough for Space = play/pause
 

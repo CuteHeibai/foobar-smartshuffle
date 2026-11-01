@@ -1,6 +1,7 @@
 #include <foobar2000/SDK/foobar2000.h>
 #include "settings.hpp"
 #include "native_dialogs.hpp"
+#include "integration_switch.hpp"
 
 namespace native_ss {
 namespace {
@@ -23,20 +24,23 @@ public:
     void apply()override{if(pending_){request_layout_reset();pending_=false;callback_->on_state_changed();}}
     void reset()override{if(themed_installation()){pending_=true;callback_->on_state_changed();}}
 private:
-    HWND window_=nullptr,description_=nullptr,button_=nullptr,status_=nullptr,update_=nullptr;HFONT font_=nullptr;HBRUSH brush_=nullptr;
+    HWND window_=nullptr,description_=nullptr,button_=nullptr,status_=nullptr,update_=nullptr,integration_=nullptr;HFONT font_=nullptr;HBRUSH brush_=nullptr;
     int dpi_=96;bool pending_=false;preferences_page_callback::ptr callback_;
     int px(int n){return MulDiv(n,dpi_,96);}
     void create_controls(HWND w){
         description_=CreateWindowW(L"STATIC",L"拖动页面栏间的分隔线，可调整音乐库、主内容、歌词栏，以及底部歌曲信息、播放和输出区域的宽度。调整后会自动保存。",WS_CHILD|WS_VISIBLE,0,0,0,0,w,nullptr,core_api::get_my_instance(),nullptr);
         button_=CreateWindowW(L"BUTTON",L"一键恢复默认布局",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,w,reinterpret_cast<HMENU>(1001),core_api::get_my_instance(),nullptr);
         update_=CreateWindowW(L"BUTTON",L"检查更新…",WS_CHILD|WS_VISIBLE|WS_TABSTOP,0,0,0,0,w,reinterpret_cast<HMENU>(1002),core_api::get_my_instance(),nullptr);
+        integration_=CreateWindowW(L"BUTTON",integration_original()?L"一键启用新版界面（重启）":L"一键停用改动，切换原版（重启）",WS_CHILD|WS_VISIBLE|WS_TABSTOP,0,0,0,0,w,reinterpret_cast<HMENU>(1003),core_api::get_my_instance(),nullptr);
+        EnableWindow(integration_,integration_available());
         status_=CreateWindowW(L"STATIC",L"恢复默认栏宽；窗口约占当前屏幕可用面积的五分之二，纵横比自动适配。歌单、听歌记录、随机偏好和音频输出会保留。",WS_CHILD|WS_VISIBLE,0,0,0,0,w,nullptr,core_api::get_my_instance(),nullptr);
-        for(auto child:{description_,button_,status_,update_})SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(font_),TRUE);
+        for(auto child:{description_,button_,status_,update_,integration_})SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(font_),TRUE);
         if(!themed_installation()){ShowWindow(button_,SW_HIDE);SetWindowTextW(description_,L"通过“播放 → 随机偏好 → 调整随机偏好”打开二维偏好窗口。独立插件版保留现有界面、字体及歌词设置。");SetWindowTextW(status_,L"更新窗口可检查新版本、下载独立插件包，并设置是否在启动时检查更新。");}
+        if(integration_original()){ShowWindow(button_,SW_HIDE);ShowWindow(update_,SW_HIDE);SetWindowTextW(description_,L"当前为原版界面。智能调度、分析、资料查询及主题已停用；点击下方按钮正常退出并重新启用新版。歌单、听歌记录和音频输出共享保留。");SetWindowTextW(status_,L"原版与新版的界面设置分别保存。切换不会恢复旧歌单或旧收听记录。");}
         resize(w);
     }
     void resize(HWND w){RECT r{};GetClientRect(w,&r);int width=std::max(px(40),int(r.right)-px(40));
-        MoveWindow(description_,px(20),px(20),width,px(92),TRUE);MoveWindow(button_,px(20),px(124),std::min(width,px(220)),px(42),TRUE);MoveWindow(update_,px(252),px(124),std::max(px(80),std::min(width-px(232),px(180))),px(42),TRUE);MoveWindow(status_,px(20),px(184),width,px(94),TRUE);}
+        MoveWindow(description_,px(20),px(16),width,px(82),TRUE);MoveWindow(button_,px(20),px(104),std::min(width,px(220)),px(38),TRUE);MoveWindow(update_,px(252),px(104),std::max(px(80),std::min(width-px(232),px(180))),px(38),TRUE);MoveWindow(integration_,px(20),px(152),std::min(width,px(410)),px(40),TRUE);MoveWindow(status_,px(20),px(206),width,px(86),TRUE);}
     static LRESULT CALLBACK proc(HWND w,UINT msg,WPARAM wp,LPARAM lp){
         auto self=reinterpret_cast<SettingsInstance*>(GetWindowLongPtrW(w,GWLP_USERDATA));
         if(msg==WM_NCCREATE){self=static_cast<SettingsInstance*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams);SetWindowLongPtrW(w,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(self));}
@@ -54,6 +58,7 @@ private:
             catch(...){SetWindowTextW(self->status_,L"恢复未完成，请关闭设置页后重试。");}return 0;
         }
         if(msg==WM_COMMAND&&LOWORD(wp)==1002&&HIWORD(wp)==BN_CLICKED){open_updates(true);return 0;}
+        if(msg==WM_COMMAND&&LOWORD(wp)==1003&&HIWORD(wp)==BN_CLICKED){try{integration_switch();SetWindowTextW(self->status_,L"正在正常退出并切换界面…");}catch(const std::exception& e){popup_message::g_show(e.what(),"界面切换");}return 0;}
         if(msg==WM_NCDESTROY){self->window_=nullptr;SetWindowLongPtrW(w,GWLP_USERDATA,0);}
         return DefWindowProcW(w,msg,wp,lp);
     }

@@ -1,8 +1,11 @@
 ﻿/* Selection is keyed by row occurrence, so duplicate files stay independent. */
-var ssMainSelect=ssCreateSelectionController({marquee:false,dragUnselected:true}),ssNavSelect=ssCreateSelectionController(),ssQueueSelect=ssCreateSelectionController();
+var ssMainSelect=ssCreateSelectionController({marquee:false,dragUnselected:true,holdDelay:160}),ssNavSelect=ssCreateSelectionController(),ssQueueSelect=ssCreateSelectionController({holdDelay:160});
 var ssSelectOwner=null,ssMainRows=[],ssMainIndex={},ssNavRows=[],ssQueueRows=[],ssSelectPaint=0,ssSelectionDirty=false,ssSelectionZone=null,ssSelectionContextKey='';
 var ssSelectContext=null,ssSelectScroll=0;
+var ssSelectHold=0,ssDragOverlay=null;
+function ssDropDragOverlay(){if(ssDragOverlay&&ssDragOverlay.image)try{ssDragOverlay.image.Dispose();}catch(e){}ssDragOverlay=null;}
 function ssInvalidateSelections(){
+  ssDropDragOverlay();if(ssSelectHold)window.ClearTimeout(ssSelectHold);ssSelectHold=0;
   if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectOwner=null;ssMainRows=[];ssSelectionContextKey='';
   ssMainSelect.setContext({kind:'track',key:'invalidated',items:[],rows:[]});
 }
@@ -44,6 +47,7 @@ function ssQueueSelectionContext(row){
   ssQueueRows=rows;ssSelectContext={kind:'queue',key:scope+':'+(scope==='remaining'?ssState.source:row.pl===undefined?'':row.pl),items:items,rows:geo,bounds:geo.length?{x0:R.queue.x,y0:geo[0].y0,x1:R.queue.x+R.queue.w,y1:geo[geo.length-1].y1}:null,writable:scope!=='native'||!!(info&&info.writable),multiple:false};ssQueueSelect.setContext(ssSelectContext);
 }
 function ssSelectionDown(x,y){
+  mx=x;my=y;
   var row=hit(HB_TR,x,y),nav=hit(HB_PL,x,y),queue=hit(HB_Q,x,y),ctrl=utils.IsKeyPressed(17),shift=utils.IsKeyPressed(16),index=-1;
   if(row){ssMainSelectionContext();ssSelectOwner=ssMainSelect;index=ssMainRowIndex(row);}
   else if(nav){ssNavSelectionContext();ssSelectOwner=ssNavSelect;index=ssNavRows.indexOf(nav.i);}
@@ -51,12 +55,15 @@ function ssSelectionDown(x,y){
   else if(HB_TR.length&&x>=R.main.x&&x<R.main.x+R.main.w&&y>=HB_TR[0].y0&&y<R.main.y+R.main.h){ssMainSelectionContext();ssSelectOwner=ssMainSelect;}
   else return false;
   ssSelectionZone=ssSelectOwner===ssMainSelect?R.main:ssSelectOwner===ssNavSelect?R.navLib:R.queue;
-  if(!ssSelectOwner.start({index:index,x:x,y:y,ctrl:false,shift:false})){ssSelectOwner=null;return false;}
+  if(!ssSelectOwner.start({index:index,x:x,y:y,ctrl:ctrl&&ssSelectOwner===ssMainSelect,shift:false})){ssSelectOwner=null;return false;}
+  if(ssSelectHold)window.ClearTimeout(ssSelectHold);
+  if(!ctrl)ssSelectHold=window.SetTimeout(function(){ssSelectHold=0;if(ssSelectOwner&&utils.IsKeyPressed(1)){ssSelectOwner.move(mx>=0?mx:x,my>=0?my:y);ssSelectionRepaint();}},160);
   if(!ssSelectScroll)ssSelectScroll=window.SetInterval(ssSelectionScroll,50);
   ssSelectionRepaint();return true;
 }
 function ssMoveOrder(count,chosen,target){var rest=[],moving={},i;for(i=0;i<chosen.length;i++)moving[chosen[i]]=true;for(i=0;i<count;i++)if(!moving[i])rest.push(i);return rest.slice(0,target).concat(chosen,rest.slice(target));}
 function ssSelectionUp(x,y){
+  if(ssSelectHold)window.ClearTimeout(ssSelectHold);ssSelectHold=0;ssDropDragOverlay();
   if(!ssSelectOwner)return false;if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;var owner=ssSelectOwner,action=owner.end(x,y);ssSelectOwner=null;if(!action)return false;
   if(action.type==='reorder'&&action.changed){
     if(owner===ssMainSelect){
@@ -76,7 +83,7 @@ function ssSelectionUp(x,y){
   }
   ssSelectionRepaint();return action.type!=='click';
 }
-function ssCancelSelectionGesture(){if(ssSelectOwner)ssSelectOwner.cancel();ssSelectOwner=null;if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectionRepaint();}
+function ssCancelSelectionGesture(){if(ssSelectHold)window.ClearTimeout(ssSelectHold);ssSelectHold=0;ssDropDragOverlay();if(ssSelectOwner)ssSelectOwner.cancel();ssSelectOwner=null;if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectionRepaint();}
 function ssSelectionMove(x,y,mask){
   if(!ssSelectOwner)return false;var held=mask!==undefined?!!(mask&1):typeof utils.IsKeyPressed==='function'?utils.IsKeyPressed(1):true;
   if(!held){ssCancelSelectionGesture();return false;}ssSelectOwner.move(x,y);ssSelectionRepaint();return true;
@@ -102,17 +109,32 @@ function ssSelectionRefreshGeometry(){
 function ssSelectionRects(){
   var rects=[];for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i];if(ssMainSelect.isSelected(ssMainRowIndex(h)))rects.push({x:h.x0,y:h.y0,w:h.x1-h.x0,h:h.y1-h.y0});}
   var p=ssSelectOwner&&ssSelectOwner.preview();if(p&&p.rect){var r=p.rect;rects.push({x:r.x0-2,y:r.y0-2,w:r.x1-r.x0+4,h:r.y1-r.y0+4});}
-  if(p&&p.indicator){var q=p.indicator;rects.push({x:q.x0-2,y:q.y-2,w:q.x1-q.x0+4,h:5});}return rects;
+  if(p&&p.indicator){var q=p.indicator;rects.push({x:q.x0-2,y:q.y-2,w:q.x1-q.x0+4,h:5});}
+  if(p&&p.mode==='reorder'&&p.origin){var ghost=ssDragRect(p),gx=Math.max(0,ghost.x-5),gy=Math.max(0,ghost.y-5);rects.push({x:gx,y:gy,w:Math.min(W-gx,ghost.w+10),h:Math.min(H-gy,ghost.h+12)});}
+  return rects;
+}
+function ssDragRect(p){return {x:Math.round(Math.max(4,Math.min(W-(p.origin.x1-p.origin.x0)-4,p.origin.x0+p.pointer.x-p.grab.x))),y:Math.round(Math.max(TBH,Math.min(H-(p.origin.y1-p.origin.y0)-4,p.origin.y0+p.pointer.y-p.grab.y))),w:Math.round(p.origin.x1-p.origin.x0),h:Math.round(p.origin.y1-p.origin.y0)};}
+function ssDrawDragOverlay(gr,p){
+  if(!p.origin||!ssSceneImage)return;
+  var source=p.origin,r=ssDragRect(p);
+  if(!ssDragOverlay){var sx=Math.max(0,Math.floor(source.x0)),sy=Math.max(0,Math.floor(source.y0));ssDragOverlay={image:ssSceneImage.Clone(sx,sy,Math.min(r.w,W-sx),Math.min(r.h,H-sy))};}
+  gr.FillRoundRect(r.x+2,r.y+4,r.w,r.h,6,6,COL.shadow);
+  gr.DrawImage(ssDragOverlay.image,r.x,r.y,r.w,r.h,0,0,r.w,r.h,0,248);
+  gr.DrawRoundRect(r.x+.5,r.y+.5,r.w-1,r.h-1,6,6,1,COL.line);
+  if(p.indices.length>1){gr.FillEllipse(r.x+r.w-30,r.y+7,24,24,COL.text);tC(gr,String(p.indices.length),FONT.pl,COL.base,r.x+r.w-30,r.y+7,24,24);}
 }
 function ssDrawSelection(gr){
   ssSelectionDirty=false;
   ssSelectionRefreshGeometry();
   var info=view==='playlist'?ssPlaylistInfo(plman.ActivePlaylist):null,key=view==='playlist'?'pl:'+(info?info.guid:plman.ActivePlaylist):view==='artist'?view+':'+viewArtist:view==='search'?view+':'+searchQuery:view;
   if(key!==ssSelectionContextKey){ssMainRows=[];ssMainSelect.setContext({kind:'track',key:key,items:[],rows:[]});}
-  for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i],at=ssMainRowIndex(h);if(ssMainSelect.isSelected(at))gr.FillRoundRect(h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,ssAccent(28));}
-  if(!ssSelectOwner)return;var p=ssSelectOwner.preview();if(!p)return;
+  var p=ssSelectOwner&&ssSelectOwner.preview(),lifting=p&&p.mode==='reorder';
+  for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i],at=ssMainRowIndex(h);if(ssMainSelect.isSelected(at))gr.FillRoundRect(h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,lifting&&ssSelectOwner===ssMainSelect?COL.elev:ssAccent(28));}
+  if(lifting&&ssSelectOwner!==ssMainSelect&&p.origin){var rows=ssSelectContext.rows;for(i=0;i<rows.length;i++)if(rows[i].index===p.origin.index){var slot=rows[i];gr.FillRoundRect(slot.x0,slot.y0,slot.x1-slot.x0,slot.y1-slot.y0,4,4,COL.elev);break;}}
+  if(!p)return;
   if(p.rect){var r=p.rect,w=r.x1-r.x0,h2=r.y1-r.y0;if(w>0&&h2>0){gr.FillSolidRect(r.x0,r.y0,w,h2,ssAccent(28));gr.DrawRect(r.x0,r.y0,w,h2,1,COL.green);}}
   if(p.indicator){var q=p.indicator;gr.DrawLine(q.x0,q.y,q.x1,q.y,2,COL.green);}
+  if(lifting)ssDrawDragOverlay(gr,p);
 }
 function ssSelectionPayload(row){
   ssMainSelectionContext();var index=ssMainRowIndex(row);

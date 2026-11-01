@@ -96,10 +96,12 @@ function ssResizeEnd(x,y){
 }
 function ssDrawResizers(gr){
   if(fsMode||ssModal||ssPopup)return;
-  var key=ssResizing?ssResizing.key:ssSplitHot;if(!key)return;
-  var x=key==='nav'?R.main.x-M.gap/2:key==='right'?R.queue.x-M.gap/2:key==='info'?R.barInfoW:W-R.barToolsW;
-  var bottom=key==='info'||key==='tools',y=bottom?R.barY+15:R.top.y+14,h=bottom?M.barH-30:R.main.h-28;
-  gr.FillRoundRect(Math.round(x-1),y,2,Math.max(4,h),1,1,ssResizing?COL.green:COL.text3);
+  var active=ssResizing?ssResizing.key:ssSplitHot,keys=['nav','right','info','tools'];
+  for(var i=0;i<keys.length;i++){
+    var key=keys[i],x=key==='nav'?R.main.x-M.gap/2:key==='right'?R.queue.x-M.gap/2:key==='info'?R.barInfoW:W-R.barToolsW;
+    var bottom=key==='info'||key==='tools',y=bottom?R.barY+15:R.top.y+14,h=bottom?M.barH-30:R.main.h-28;
+    gr.DrawLine(Math.round(x)+.5,Math.round(y),Math.round(x)+.5,Math.round(y+Math.max(4,h)),1,key===active?COL.text2:COL.line);
+  }
 }
 function ssResetLayout(){
   if(ssResizeTimer){window.ClearTimeout(ssResizeTimer);ssResizeTimer=0;}

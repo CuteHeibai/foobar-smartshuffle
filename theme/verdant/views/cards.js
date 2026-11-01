@@ -15,6 +15,9 @@ function drawPlaylistCard(gr,x,y,w,i,clipL,clipR){
   if(!im && clipped) im=renderPlCard(i,w,cardHov);   // hovered, or art still loading, at an edge
   if(im) gr.DrawImage(im,hx0,y,hx1-hx0,h,hx0-x,0,hx1-hx0,h);
   else paintPlCard(gr,x,y,w,i,cardHov);
+  // Draw over the cached card without mutating its cover bitmap. Fully clipped buttons have no target.
+  var playSize=Math.round(44*ssDensity),playX=x+w-12*ssDensity-playSize,playY=y+w-12*ssDensity-playSize;
+  if(playX>=hx0&&playX+playSize<=hx1)HB_PLPLAY.push(drawPlaylistPlay(gr,playX,playY,playSize,i));
   var dx=x+w-32;
   if(cardHov && dx>=hx0 && dx+32<=hx1) drawDots(gr,dx,y+(w-24)+16,i);
   HB_CARD.push({x0:hx0,y0:y,x1:hx1,y1:y+h,kind:'pl',id:i});

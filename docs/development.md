@@ -74,3 +74,12 @@ Windows x64，Visual Studio 2022 的 C++ v143 工具集，Windows SDK 10.0.22621
 版本号集中于 `src/version.hpp`；主题握手及测试期望需同步调整。包脚本读取原生版本，README 和发行说明写对应版本。发布使用草稿上传全部资源，确认两版上传完成后再公开，避免启动检查获取半成品。
 
 发行说明只保留用户能理解的改动。测试命令见 [测试说明](verification.md)；包含用户环境信息的执行报告留在本地 `build/`。
+
+
+## 交互绘制与界面切换
+
+指针移动只记录小球目标，约每 16ms 合并一次绘制；偏好预览仍独立延迟约 150ms。静态面板与文字缓存为位图，每帧恢复后绘制小球，拖尾按时间插值采样并在 120ms 内消散。帧合并参考 [Motion frame](https://motion.dev/docs/frame) 与 [batcher 源码](https://github.com/motiondivision/motion/blob/main/packages/motion-dom/src/frameloop/batcher.ts)。曲目拖动从静态场景克隆整行作为浮层，原位置保留占位；采用长按激活，超过移动阈值但未到长按时间的手势也会消费释放事件，防止误播放。浮层思路参考 [dnd-kit Drag Overlay](https://dndkit.com/legacy/api-documentation/draggable/drag-overlay/)，不引入这些库。
+
+`play_playlist` 接受歌单 GUID，由原生 Engine 验证非内部歌单及非空内容。智能模式继续剩余集合，手动插队保留；重复点击正在播放的来源不会重开轮次。主题不自行生成顺序。
+
+完整版的一键原版／新版切换由 `scripts/switch-mode.ps1` 正常退出目标实例，再由 `switch_mode.py` 在离线状态保存当前界面分支并应用另一分支，最后重启。原版基线只从同一目标最早的、安装前组件不存在的有效备份建立；升级不覆盖基线。界面文件与白名单 SQLite 行分支保存，歌单、统计、音频输出不进入分支。原版启动只保留切换入口，不创建 Engine、分析、联网任务或加载私有字体。不要把个人基线打进发行包。

@@ -11,7 +11,9 @@ node tests/theme_regressions.js
 node tests/theme_color_tests.js
 node tests/ui_geometry_regressions.js
 node tests/selection_regressions.js
+node tests/playlist_play_tests.js
 .\.venv\Scripts\python.exe -m unittest discover -s tests -p 'test*install.py' -v
+python -m unittest discover -s tests -p test_switch_mode.py
 ```
 
 原生测试覆盖轮次完整性、去重、偏好方向、持久化、焦点策略和更新包选择。主题测试覆盖坐标、草稿、布局、滚动、多选及菜单行为。安装测试检查界面保留、备份、回滚及路径范围。
@@ -31,6 +33,8 @@ node tests/selection_regressions.js
 `tests/host_theme_appearance.py` 自行启停测试副本，检查深浅切换、主题与歌词颜色确认、保存及重启恢复，并保留原有轮次和窗口尺寸；运行前先退出测试副本。浅色菜单、圆角和坐标系的实际位图包含在 `host_ui_render.py` 中。
 
 这些脚本只应针对项目的 `test-player/` 运行。完成后执行 `tests/host_cleanup.py` 并正常退出副本，不把测试组件带入日常安装。
+
+播放检查先将测试副本设为空输出，避免占用日常使用的音频设备。`host_playlist_play.py` 要求副本已经运行，使用生成的 WAV 检查整张歌单播放、暂停续播、重复点击、插队接回及原生模式。`host_integration_switch.py --original-backup <安装前备份目录>` 自行启停副本，经原生菜单执行两次切换，检查原版后台停用、新版布局恢复以及当前歌单、轮次、音频输出保留。它只读取输入备份，将必要界面内容复制到测试副本。
 
 ## 发布检查
 

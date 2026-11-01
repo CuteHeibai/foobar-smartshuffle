@@ -363,6 +363,7 @@ function drawFsBar(gr){
   HB_VOL=drawTrackBar(gr,volX,volY,volW,4,rail,clamp01(vol2pos(fb.Volume)));
 }
 function drawFullscreen(gr){
+  HB_PLPLAY=[];HB_PLAYLIST_PLAY=null;
   HB_CTRL=[]; HB_SEEK=null; HB_VOL=null; HB_FS=[]; SB=null; SBH=null; SBN=null;
   gr.FillSolidRect(0,0,W,H,COL.base);
   var bot=H-172;

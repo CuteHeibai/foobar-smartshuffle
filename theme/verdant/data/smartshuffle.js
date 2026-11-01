@@ -5,6 +5,7 @@ var ssSession=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2), s
 var ssModal=false, ssDraft={x:0,y:0}, ssDraftTimer=null, ssDragging=false, ssSeenOpen=0;
 var ssOwnOpen={}, ssApplyId='', ssMessage='', ssError='', ssLastJSON='', ssOpenDraftPending=false;
 var ssStarted=false,ssStarting=false;
+var ssDraftDue=0;
 function ssClamp(v){ v=Number(v); return isFinite(v)?Math.max(-1,Math.min(1,v)):0; }
 function ssPoint(p){ return {x:ssClamp(p&&p.x),y:ssClamp(p&&p.y)}; }
 function ssPointSame(a,b){ return !!a&&!!b&&Math.abs(a.x-b.x)<0.00001&&Math.abs(a.y-b.y)<0.00001; }
@@ -83,7 +84,7 @@ function ssPoll(){
 function ssStart(){
   if(ssStarted) return;
   ssStarted=true;ssStarting=true;ssPoll();ssStarting=false;
-  ssSend('state',{theme_version:'1.0.7',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard,theme_color:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'});
+  ssSend('state',{theme_version:'1.0.8',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard,theme_color:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'});
   if(typeof ssReportLayout==='function')ssReportLayout();
   if(typeof UIWizard!=='undefined'&&UIWizard)window.SetTimeout(function(){
     ssSend('state',{theme_chrome_ready:ssConfigureChrome()});
@@ -108,9 +109,14 @@ function ssSetDraft(x,y){
   if(!ssModal||ssApplyId) return;
   ssDraft={x:ssClamp(x),y:ssClamp(y)}; ssOpenDraftPending=false; ssMessage='';
   if(typeof ssRecordTrail==='function')ssRecordTrail(ssDraft);
-  if(ssDraftTimer) window.ClearTimeout(ssDraftTimer);
-  ssDraftTimer=window.SetTimeout(function(){ ssDraftTimer=null; if(ssModal) ssSend('preview',ssDraft); },150);
+  ssDraftDue=Date.now()+150;
+  if(!ssDraftTimer)ssDraftTimer=window.SetTimeout(ssCommitDraft,150);
   if(typeof ssRepaintPreference==='function')ssRepaintPreference();else repaintAll();
+}
+function ssCommitDraft(){
+  var remaining=ssDraftDue-Date.now();
+  if(remaining>0){ssDraftTimer=window.SetTimeout(ssCommitDraft,remaining);return;}
+  ssDraftTimer=null;if(ssModal)ssSend('preview',ssDraft);
 }
 function ssReady(){
   var p=ssState&&ssState.preview;

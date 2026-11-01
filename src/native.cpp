@@ -10,6 +10,7 @@
 #include "version.hpp"
 #include "updater.hpp"
 #include "native_dialogs.hpp"
+#include "integration_switch.hpp"
 #include <fstream>
 #include <map>
 #include <set>
@@ -40,6 +41,7 @@ fs::path local_path(const char* s){
 }
 void load_private_fonts(){
     try{
+    if(native_ss::integration_original())return;
     auto folder=local_path(core_api::get_profile_path())/L"smartshuffle"/L"fonts";
     wchar_t module[32768]{};GetModuleFileNameW(core_api::get_my_instance(),module,32768);
     auto component=fs::path(module).parent_path()/L"fonts";
@@ -510,6 +512,45 @@ public:
                 remove_owned_queue();pm->queue_flush();for(auto i:order){auto& v=user[i];if(v.m_playlist<pm->get_playlist_count()&&v.m_item<pm->playlist_get_item_count(v.m_playlist))pm->queue_add_item_playlist(v.m_playlist,v.m_item);else pm->queue_add_item(v.m_handle);}
             }else throw std::runtime_error("未知待播队列");
         }
+        else if(op=="play_playlist"){
+            auto pm=playlist_manager_v5::get();auto pc=playback_control::get();
+            size_t pi=req.contains("playlist_guid")?edit_playlist(req):req.at("playlist").get<size_t>();
+            if(pi>=pm->get_playlist_count()||internal(pi))throw std::runtime_error("歌单已变化，请重新选择");
+            pfc::string8 name;pm->playlist_get_name(pi,name);if(name=="__verdant_np__")throw std::runtime_error("内部歌单不能播放");
+            if(!pm->playlist_get_item_count(pi))throw std::runtime_error("歌单中没有可播放的歌曲");
+            auto chosen=guidstr(pm->playlist_get_guid(pi));
+            size_t playing=~size_t(0),at=~size_t(0);pm->get_playing_item_location(&playing,&at);
+            metadb_handle_ptr current;
+            // Clicking the current smart source is a resume, never a replay or new round.
+            if(enabled&&source==chosen&&pc->is_playing()&&(playing==pi||internal(playing))&&pc->get_now_playing(current)&&handles.count(idof(current))){
+                if(pc->is_paused())pc->pause(false);changed=true;return;
+            }
+            pendingSeek.reset();select_source(pi);remove_owned_queue();
+            // The host default action clears its playback queue. Preserve explicit
+            // user inserts around the requested playlist start, retaining FIFO order.
+            auto startPlaylist=[&](size_t target){
+                pfc::list_t<t_playback_queue_item> queue;pm->queue_get_contents(queue);
+                pm->playlist_execute_default_action(target,0);
+                if(queue.get_count()){
+                    pm->queue_flush();
+                    for(auto& item:queue){
+                        if(item.m_playlist<pm->get_playlist_count()&&item.m_item<pm->playlist_get_item_count(item.m_playlist)){
+                            metadb_handle_ptr at;pm->playlist_get_item_handle(at,item.m_playlist,item.m_item);
+                            if(at==item.m_handle){pm->queue_add_item_playlist(item.m_playlist,item.m_item);continue;}
+                        }
+                        pm->queue_add_item(item.m_handle);
+                    }
+                }
+            };
+            if(!enabled){invalidate();startPlaylist(pi);return;}
+            if(round().remaining.empty())next_round();
+            metadb_handle_list all;for(auto& id:round().remaining)if(handles.count(id))all.add_item(handles[id]);
+            if(!all.get_count())throw std::runtime_error("歌单中没有可播放的歌曲");
+            // Only the managed projection is replaced; user queue entries and saved seen/order survive.
+            auto owned=pm->find_or_create_playlist(Managed);pm->playlist_clear(owned);
+            pm->playlist_insert_items(owned,0,all,pfc::bit_array_false());pm->playback_order_set_active(0);
+            invalidate();managedRequested=true;startPlaylist(owned);
+        }
         else if(op=="play"){
             pendingSeek.reset();std::optional<double> seek;
             if(req.contains("seek_seconds")){seek=req.at("seek_seconds").get<double>();if(!std::isfinite(*seek)||*seek<0)throw std::runtime_error("歌词时间无效");}
@@ -713,19 +754,27 @@ class QueueObserver:public playback_queue_callback {void on_changed(t_change_ori
 service_factory_single_t<QueueObserver> queueObserver;
 void CALLBACK tick_proc(HWND,UINT,UINT_PTR,DWORD){try{if(engine)engine->tick();}catch(const std::exception& e){console::print((std::string("Smart Shuffle: ")+e.what()).c_str());}catch(...){console::print("Smart Shuffle: callback failed");}}
 class Lifecycle:public initquit {
-    void on_init()override{fb2k::inMainThread([]{try{engine=std::make_unique<Engine>();timer=SetTimer(nullptr,0,40,tick_proc);console::print("Smart Shuffle " SS_VERSION " loaded (bridge v1)");}catch(const std::exception& e){console::print((std::string("Smart Shuffle init: ")+e.what()).c_str());}});}
+    void on_init()override{fb2k::inMainThread([]{try{
+        if(native_ss::integration_original()){
+            auto root=local_path(core_api::get_profile_path())/L"smartshuffle";
+            writejson(root/L"state.json",{{"version",1},{"pid",GetCurrentProcessId()},{"component",SS_VERSION},{"integration_mode","original"},{"enabled",false},{"edition","full"},{"fonts",{{"private_resources",privateFontCount}}}});
+            console::print("Smart Shuffle: original interface mode; integration inactive");return;
+        }
+        engine=std::make_unique<Engine>();timer=SetTimer(nullptr,0,40,tick_proc);console::print("Smart Shuffle " SS_VERSION " loaded (bridge v1)");
+    }catch(const std::exception& e){console::print((std::string("Smart Shuffle init: ")+e.what()).c_str());}});}
     void on_quit()override{if(timer){KillTimer(nullptr,timer);timer=0;}engine.reset();}
 };
 initquit_factory_t<Lifecycle> lifecycle;
 const GUID menuGroup={0xe8b61f29,0x598c,0x4a63,{0xa5,0x4c,0xab,0x9f,0x60,0x28,0x82,0xea}};
 mainmenu_group_popup_factory group(menuGroup,mainmenu_groups::playback,mainmenu_commands::sort_priority_base,"随机偏好");
 class Menu:public mainmenu_commands {
-    t_uint32 get_command_count()override{return 7;}
+    t_uint32 get_command_count()override{return 8;}
     GUID get_command(t_uint32 i)override{GUID g={0x35f6ca00+i,0x949e,0x4405,{0xbc,0x90,0xc3,0x88,0x46,0x31,0xd2,0xa9}};return g;}
-    void get_name(t_uint32 i,pfc::string_base& out)override{const char* names[]={"调整随机偏好","智能均衡随机","常听优先","重新开始一轮","暂停或继续音频分析","启用或关闭智能调度","检查更新…"};out=names[i];}
+    void get_name(t_uint32 i,pfc::string_base& out)override{if(i==7){out=native_ss::integration_original()?"一键启用新版界面（重启）":"一键停用改动，切换原版（重启）";return;}const char* names[]={"调整随机偏好","智能均衡随机","常听优先","重新开始一轮","暂停或继续音频分析","启用或关闭智能调度","检查更新…"};out=names[i];}
+    bool get_display(t_uint32 i,pfc::string_base& text,t_uint32& flags)override{get_name(i,text);flags=(i==7?!native_ss::integration_available():!engine)?flag_disabled:0;return true;}
     bool get_description(t_uint32,pfc::string_base& out)override{out="每轮全覆盖，根据听歌频率和音频风格调整出场顺序";return true;}
     GUID get_parent()override{return menuGroup;}
-    void execute(t_uint32 i,ctx_t)override{if(!engine)return;try{if(i==0){if(engine->themeVersion.empty())native_ss::open_native_preference();else engine->dispatch({{"version",1},{"op","open"}});}else if(i==1||i==2){engine->dispatch({{"version",1},{"op","preset"},{"x",i==1?0:.75},{"y",0}});}else if(i==3)engine->dispatch({{"version",1},{"op","restart"}});else if(i==4)engine->dispatch({{"version",1},{"op","scan_pause"}});else if(i==5)engine->dispatch({{"version",1},{"op","enable"},{"enabled",!engine->enabled}});else{engine->updater->check();native_ss::open_updates();}engine->publish();}catch(const std::exception& e){popup_message::g_show(e.what(),"随机偏好");}}
+    void execute(t_uint32 i,ctx_t)override{try{if(i==7){native_ss::integration_switch();return;}if(!engine)return;if(i==0){if(engine->themeVersion.empty())native_ss::open_native_preference();else engine->dispatch({{"version",1},{"op","open"}});}else if(i==1||i==2){engine->dispatch({{"version",1},{"op","preset"},{"x",i==1?0:.75},{"y",0}});}else if(i==3)engine->dispatch({{"version",1},{"op","restart"}});else if(i==4)engine->dispatch({{"version",1},{"op","scan_pause"}});else if(i==5)engine->dispatch({{"version",1},{"op","enable"},{"enabled",!engine->enabled}});else{engine->updater->check();native_ss::open_updates();}engine->publish();}catch(const std::exception& e){popup_message::g_show(e.what(),"随机偏好");}}
 };
 mainmenu_commands_factory_t<Menu> menus;
 }
