@@ -28,7 +28,7 @@ private:
     int dpi_=96;bool pending_=false;preferences_page_callback::ptr callback_;
     int px(int n){return MulDiv(n,dpi_,96);}
     void create_controls(HWND w){
-        description_=CreateWindowW(L"STATIC",L"拖动页面栏间的分隔线，可调整音乐库、主内容、歌词栏，以及底部歌曲信息、播放和输出区域的宽度。调整后会自动保存。",WS_CHILD|WS_VISIBLE,0,0,0,0,w,nullptr,core_api::get_my_instance(),nullptr);
+        description_=CreateWindowW(L"STATIC",L"拖动页面栏间的分隔线，可调整音乐库、主内容和歌词栏的宽度。调整后会自动保存。底部播放栏随窗口大小自动适配。",WS_CHILD|WS_VISIBLE,0,0,0,0,w,nullptr,core_api::get_my_instance(),nullptr);
         button_=CreateWindowW(L"BUTTON",L"一键恢复默认布局",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,w,reinterpret_cast<HMENU>(1001),core_api::get_my_instance(),nullptr);
         update_=CreateWindowW(L"BUTTON",L"检查更新…",WS_CHILD|WS_VISIBLE|WS_TABSTOP,0,0,0,0,w,reinterpret_cast<HMENU>(1002),core_api::get_my_instance(),nullptr);
         integration_=CreateWindowW(L"BUTTON",integration_original()?L"一键启用新版界面（重启）":L"一键停用改动，切换原版（重启）",WS_CHILD|WS_VISIBLE|WS_TABSTOP,0,0,0,0,w,reinterpret_cast<HMENU>(1003),core_api::get_my_instance(),nullptr);

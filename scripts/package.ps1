@@ -15,6 +15,10 @@ New-Item -ItemType Directory -Path (Join-Path $payload 'components\foo_smartshuf
 foreach($name in @('switch-mode.ps1','switch_mode.py','profile_style.py')){
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $payload 'control')
 }
+New-Item -ItemType Directory -Path (Join-Path $payload 'update-helper') -Force | Out-Null
+foreach($name in @('update_apply.py','update-and-restart.ps1','install.py','switch_mode.py','profile_style.py')){
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $payload 'update-helper')
+}
 Copy-Item -LiteralPath (Join-Path $repo 'build\foo_smartshuffle.dll') -Destination (Join-Path $payload 'components\foo_smartshuffle')
 Copy-Item -LiteralPath (Join-Path $repo 'build\eslyric\foo_uie_eslyric.dll') -Destination (Join-Path $payload 'components\eslyric-warp')
 Copy-Item -LiteralPath $analyzer -Destination (Join-Path $payload 'runtime') -Recurse
@@ -25,7 +29,7 @@ Copy-Item -LiteralPath (Join-Path $repo 'vendor\verdant-foobar2000-theme-master\
 Copy-Item -LiteralPath (Join-Path $repo 'vendor\verdant-foobar2000-theme-master\dist-config\foo_ui_columns.dll.cfg') -Destination (Join-Path $payload 'config')
 $component=Join-Path $dist 'foo_smartshuffle.fb2k-component'
 if(Test-Path -LiteralPath $component){Remove-Item -LiteralPath $component -Force}
-Compress-Archive -LiteralPath (Join-Path $repo 'build\foo_smartshuffle.dll'),(Join-Path $repo 'assets\fonts') -DestinationPath (Join-Path $dist 'foo_smartshuffle.zip') -Force
+Compress-Archive -LiteralPath (Join-Path $repo 'build\foo_smartshuffle.dll'),(Join-Path $repo 'assets\fonts'),(Join-Path $payload 'update-helper') -DestinationPath (Join-Path $dist 'foo_smartshuffle.zip') -Force
 Move-Item -LiteralPath (Join-Path $dist 'foo_smartshuffle.zip') -Destination $component -Force
 # Include source and reproducible scripts, but never private listening data or the SDK archive.
 $delivery=Join-Path $dist 'foobar-smartshuffle-local'

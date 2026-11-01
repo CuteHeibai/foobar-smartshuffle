@@ -61,6 +61,7 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         EnumThreadWindows(GetCurrentThreadId(),[](HWND w,LPARAM p)->BOOL{auto f=reinterpret_cast<Find*>(p);wchar_t cls[128]{},title[256]{};GetClassNameW(w,cls,128);GetWindowTextW(w,title,256);if(std::wstring(cls)==L"SmartShufflePanel"&&std::wstring(title)==f->title){f->w=w;return FALSE;}return TRUE;},reinterpret_cast<LPARAM>(&found));
         r["exists"]=IsWindow(found.w)!=FALSE;
         if(found.w){ShowWindow(found.w,SW_HIDE);r["apply_enabled"]=IsWindowEnabled(GetDlgItem(found.w,IDOK))!=FALSE;r["automatic"]=SendMessageW(GetDlgItem(found.w,1103),BM_GETCHECK,0,0)==BST_CHECKED;
+            wchar_t label[128]{};GetWindowTextW(GetDlgItem(found.w,1102),label,128);pfc::stringcvt::string_utf8_from_wide text(label);r["update_label"]=text.get_ptr();r["update_enabled"]=IsWindowEnabled(GetDlgItem(found.w,1102))!=FALSE;
             RECT rect{};GetClientRect(found.w,&rect);r["width"]=rect.right;r["height"]=rect.bottom;
             if(q.value("render",false)){auto dc=GetDC(found.w),mem=CreateCompatibleDC(dc);auto bitmap=CreateCompatibleBitmap(dc,rect.right,rect.bottom);auto old=SelectObject(mem,bitmap);SendMessageW(found.w,WM_PRINTCLIENT,reinterpret_cast<WPARAM>(mem),PRF_CLIENT);r["rendered"]=GetPixel(mem,2,2)==RGB(18,18,18);SelectObject(mem,old);DeleteObject(bitmap);DeleteDC(mem);ReleaseDC(found.w,dc);}
             if(q.contains("command"))SendMessageW(found.w,WM_COMMAND,q.at("command").get<int>(),0);

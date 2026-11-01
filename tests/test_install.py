@@ -82,6 +82,20 @@ class FullInstallRestoreTests(unittest.TestCase):
         self.assertFalse((self.profile / 'user-components-x64/foo_smartshuffle').exists())
         self.assertEqual((self.profile / 'configuration/foo_ui_std.dll.cfg').read_bytes(), b'original layout')
 
+    def test_updater_helper_is_backed_up_and_download_cache_is_not_snapshotted(self):
+        helper = self.profile / 'smartshuffle/update-helper/update_apply.py'
+        write(helper, b'old helper')
+        write(self.payload / 'update-helper/update_apply.py', b'new helper')
+        cached = self.profile / 'smartshuffle/updates/job/package.zip'
+        write(cached, b'downloaded update')
+        backup = install(self.payload, self.root, with_eslyric=False)
+        self.assertEqual(helper.read_bytes(), b'new helper')
+        self.assertFalse((backup / 'profile-snapshot/smartshuffle/updates').exists())
+        self.assertEqual(cached.read_bytes(), b'downloaded update')
+        restore(backup)
+        self.assertEqual(helper.read_bytes(), b'old helper')
+        self.assertEqual(cached.read_bytes(), b'downloaded update')
+
     def test_original_mode_upgrade_standalone_restore_returns_original_ui_and_old_plugin(self):
         install(self.payload, self.root, with_eslyric=False)
         switch_mode.switch_mode(self.root, 'original')
@@ -193,7 +207,7 @@ class PublicInstallerTests(unittest.TestCase):
             write(repo / name / 'fixture.txt', b'fixture')
         for name in ['AGENTS.md', 'foo_smartshuffle.vcxproj', 'fixture.vcxproj', 'README.md', '.gitignore']:
             write(repo / name, b'fixture')
-        for name in ['package.ps1', 'switch-mode.ps1', 'switch_mode.py', 'profile_style.py']:
+        for name in ['package.ps1', 'switch-mode.ps1', 'switch_mode.py', 'profile_style.py', 'install.py', 'update_apply.py', 'update-and-restart.ps1']:
             shutil.copy2(source / 'scripts' / name, repo / 'scripts' / name)
         for name in ['build/foo_smartshuffle.dll', 'build/eslyric/foo_uie_eslyric.dll', 'build/analyzer/smartshuffle-analyzer/smartshuffle-analyzer.exe', 'vendor/verdant-foobar2000-theme-master/components/foo_ui_columns/foo_ui_columns.dll', 'vendor/verdant-foobar2000-theme-master/components/foo_ui_wizard/foo_ui_wizard.dll', 'vendor/verdant-foobar2000-theme-master/dist-config/foo_ui_columns.dll.cfg']:
             write(repo / name, b'never execute fixture')

@@ -14,6 +14,7 @@ node tests/selection_regressions.js
 node tests/playlist_play_tests.js
 .\.venv\Scripts\python.exe -m unittest discover -s tests -p 'test*install.py' -v
 python -m unittest discover -s tests -p test_switch_mode.py
+python -m unittest discover -s tests -p test_update_apply.py
 ```
 
 原生测试覆盖轮次完整性、去重、偏好方向、持久化、焦点策略和更新包选择。主题测试覆盖坐标、草稿、布局、滚动、多选及菜单行为。安装测试检查界面保留、备份、回滚及路径范围。
@@ -33,6 +34,8 @@ python -m unittest discover -s tests -p test_switch_mode.py
 `tests/host_theme_appearance.py` 自行启停测试副本，检查深浅切换、主题与歌词颜色确认、保存及重启恢复，并保留原有轮次和窗口尺寸；运行前先退出测试副本。浅色菜单、圆角和坐标系的实际位图包含在 `host_ui_render.py` 中。
 
 这些脚本只应针对项目的 `test-player/` 运行。完成后执行 `tests/host_cleanup.py` 并正常退出副本，不把测试组件带入日常安装。
+
+`host_update_bootstrap.py` 要求先在测试副本放入基于旧版源码的更新补丁、旧版主题和本地助手，检查只新增内置更新入口、下载进度与取消退出。`host_in_app_update.py --target-version <已发布版本>` 会实际从 GitHub 下载、正常退出、备份、安装并重新打开测试副本，再核对播放状态和输出。两者都会自行启停副本，运行前先退出副本并选择空输出；不针对日常播放器运行。
 
 播放检查先将测试副本设为空输出，避免占用日常使用的音频设备。`host_playlist_play.py` 要求副本已经运行，使用生成的 WAV 检查整张歌单播放、暂停续播、重复点击、插队接回及原生模式。`host_integration_switch.py --original-backup <安装前备份目录>` 自行启停副本，经原生菜单执行两次切换，检查原版后台停用、新版布局恢复以及当前歌单、轮次、音频输出保留。它只读取输入备份，将必要界面内容复制到测试副本。
 

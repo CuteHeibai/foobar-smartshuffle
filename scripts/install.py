@@ -79,6 +79,8 @@ def _install(payload, target, with_eslyric=True, edition="full", restore_mode=No
     ]
     if (payload / "fonts").is_dir():
         mapping.append(("fonts", "profile/smartshuffle/fonts"))
+    if (payload / 'update-helper').is_dir():
+        mapping.append(('update-helper', 'profile/smartshuffle/update-helper'))
     if edition == "full":
         mapping += [("theme/verdant", "profile/verdant"),
                     ("config/foo_ui_columns.dll.cfg", "profile/configuration/foo_ui_columns.dll.cfg")]
@@ -121,7 +123,12 @@ def _install(payload, target, with_eslyric=True, edition="full", restore_mode=No
             copy(existing, safe_child(backup / "original", relative))
     (backup / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     # A complete profile snapshot is retained separately for manual disaster recovery.
-    shutil.copytree(profile, backup / "profile-snapshot", ignore=shutil.ignore_patterns("running", "nobadshutdown", "scan-sample.wav"))
+    def snapshot_ignore(directory, names):
+        excluded = {name for name in names if name in ('running', 'nobadshutdown', 'scan-sample.wav')}
+        if Path(directory) == profile / 'smartshuffle':
+            excluded.add('updates')
+        return excluded
+    shutil.copytree(profile, backup / "profile-snapshot", ignore=snapshot_ignore)
     copy(Path(__file__), backup / "install.py")
     if edition == 'full':
         for filename in ('switch_mode.py', 'profile_style.py'):

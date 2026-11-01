@@ -35,13 +35,16 @@ def main():
     copy(runtime, payload / "runtime/smartshuffle-analyzer")
     copy(ROOT / "assets/fonts", payload / "fonts")
     copy(ROOT / "theme/verdant", payload / "theme/verdant")
+    helper_files=('update_apply.py','update-and-restart.ps1','install.py','switch_mode.py','profile_style.py')
+    for name in helper_files:
+        copy(ROOT / 'scripts' / name,payload / 'update-helper' / name)
     for name in ('switch_mode.py','switch-mode.ps1','profile_style.py'):
         copy(ROOT / 'scripts' / name,payload / 'control' / name)
     copy(ROOT / "theme/columns-ui-layout.cfg",
          payload / "config/foo_ui_columns.dll.cfg")
     for name in ("README.md", "AGENTS.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "licenses"):
         copy(ROOT / name, bundle / name)
-    for name in ("install-public.ps1", "install.ps1", "install.py", "profile_style.py", "switch_mode.py", "switch-mode.ps1"):
+    for name in ("install-public.ps1", "install.ps1", "install.py", "profile_style.py", "switch_mode.py", "switch-mode.ps1", "update_apply.py", "update-and-restart.ps1"):
         copy(ROOT / "scripts" / name, bundle / "scripts" / name)
     copy(ROOT / "docs", bundle / "docs")
     copy(Path(sys.base_prefix) / "LICENSE.txt", bundle / "licenses/analyzer/CPython-LICENSE.txt")
@@ -71,7 +74,7 @@ def main():
     core = OUTPUT / f"foobar-smartshuffle-core-{VERSION}"
     for name in ("README.md", "AGENTS.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "licenses", "scripts", "docs"):
         copy(bundle / name, core / name)
-    for name in ("components/foo_smartshuffle", "runtime", "fonts"):
+    for name in ("components/foo_smartshuffle", "runtime", "fonts", "update-helper"):
         copy(payload / name, core / "payload" / name)
     (core / "edition.json").write_text(json.dumps({"edition": "core"}), encoding="utf-8")
     assets = []
@@ -85,6 +88,8 @@ def main():
     native = OUTPUT / "foo_smartshuffle.fb2k-component"
     with zipfile.ZipFile(native, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.write(component, "foo_smartshuffle.dll")
+        for name in helper_files:
+            archive.write(ROOT / 'scripts' / name, 'update-helper/' + name)
         for path in sorted((ROOT / "assets/fonts").glob("*")):
             if path.is_file():
                 archive.write(path, "fonts/" + path.name)

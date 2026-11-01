@@ -139,7 +139,8 @@ public:
         if(edition!="full")edition="core";
         lyrics->set_light(themeAppearance=="light");
         if(edition=="full")localLabels=std::make_unique<LocalLabels>(root.parent_path()/L"verdant"/L"locale"/L"zh-CN.json");
-        updater=std::make_unique<native_ss::Updater>(root,SS_VERSION,edition);
+        wchar_t componentFile[32768]{};GetModuleFileNameW(core_api::get_my_instance(),componentFile,32768);
+        updater=std::make_unique<native_ss::Updater>(root,SS_VERSION,edition,fs::path(componentFile).parent_path()/L"update-helper");
         native_ss::set_dialog_handlers([this](json req){dispatch(req);changed=true;publish();return response;},[this]{return dialog_state();});
         scanner=std::make_unique<native_ss::Scanner>(root);scanner->pause(scanPaused);
         if(index_of_source()==~size_t(0))source.clear();
@@ -591,6 +592,7 @@ public:
         else if(op=="update_check"){updater->check();}
         else if(op=="update_config")updater->automatic(req.at("automatic").get<bool>());
         else if(op=="update_open"){updater->check();native_ss::open_updates();}
+        else if(op=="update_install")updater->begin_update();
         else if(op=="update_download"){
             auto s=updater->status();if(!s.value("available",false))throw std::runtime_error("没有可下载的更新");
             auto url=wide(s["release"].at("url").get<std::string>());if(reinterpret_cast<INT_PTR>(ShellExecuteW(core_api::get_main_window(),L"open",url.c_str(),nullptr,nullptr,SW_SHOWNORMAL))<=32)throw std::runtime_error("无法打开更新下载链接");

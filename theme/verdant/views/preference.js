@@ -145,7 +145,7 @@ function ssPointerUp(x,y){
 function ssDrawNativeQueue(gr,r,x,qy,bottom){
   if(!ssState) return false;
   var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rows=priority.concat(list), rh=Math.max(42,Math.round(35*UISCALE));
-  tL(gr,pbShuffle?'接下来 · 第 '+(ssState.round||0)+' 轮':'接下来',FONT.pl,COL.text,x,qy,r.w-36,28); qy+=29;
+  tL(gr,'接下来',FONT.pl,COL.text,x,qy,r.w-36,28); qy+=29;
   tL(gr,pbShuffle?'本轮剩余 '+(ssState.remaining_count||0)+' 首':ssState.source_name||'顺序播放',FONT.qArtist,COL.green,x,qy,r.w-36,24); qy+=30;
   var viewport=Math.max(0,bottom-qy);SS_QUEUE_MAX=Math.max(0,rows.length*rh-viewport);ssQueueScroll=clampPx(ssQueueScroll,SS_QUEUE_MAX);ssQueueScrollT=clampPx(ssQueueScrollT,SS_QUEUE_MAX);
   if(viewport<1)return true;

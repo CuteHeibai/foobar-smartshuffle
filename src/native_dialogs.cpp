@@ -24,7 +24,7 @@ public:
  ~Panel(){if(font)DeleteObject(font);if(background)DeleteObject(background);if(gdip)Gdiplus::GdiplusShutdown(gdip);}
  int px(int n)const{return MulDiv(n,dpi,96);}
  void create(HWND w){window=w;dpi=window_dpi(w);font=CreateFontW(-px(15),0,0,0,FW_NORMAL,0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");background=CreateSolidBrush(RGB(18,18,18));
-  if(update){button(L"立即检查",1101);button(L"下载更新",1102);button(L"关闭",IDCANCEL);automatic=CreateWindowW(L"BUTTON",L"启动时检查 GitHub 更新",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTOCHECKBOX,0,0,0,0,w,reinterpret_cast<HMENU>(1103),core_api::get_my_instance(),nullptr);SendMessageW(automatic,WM_SETFONT,reinterpret_cast<WPARAM>(font),0);}
+  if(update){button(L"立即检查",1101);button(L"更新并重启",1102);button(L"关闭",IDCANCEL);automatic=CreateWindowW(L"BUTTON",L"启动时检查 GitHub 更新",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTOCHECKBOX,0,0,0,0,w,reinterpret_cast<HMENU>(1103),core_api::get_my_instance(),nullptr);SendMessageW(automatic,WM_SETFONT,reinterpret_cast<WPARAM>(font),0);}
   else{button(L"均衡",1201);button(L"常听优先",1202);button(L"少听探索",1203);button(L"取消",IDCANCEL);apply=button(L"应用",IDOK);EnableWindow(apply,FALSE);}
   refresh();if(!update&&state.contains("point")){x=state["point"].value("x",0.0);y=state["point"].value("y",0.0);}layout();SetTimer(w,1,160,nullptr);modeless_dialog_manager::g_add(w);registered=true;
  }
@@ -37,21 +37,27 @@ public:
   InvalidateRect(window,nullptr,FALSE);
  }
  bool ready()const{if(waiting||drag||!state.contains("preview")||state["preview"].is_null()||state.value("preview_pending",true))return false;auto& p=state["preview"];return !p.value("token",std::string{}).empty()&&p.value("revision",uint64_t(0))==state.value("revision",uint64_t(0))&&std::abs(p["point"].value("x",2.0)-x)<.00001&&std::abs(p["point"].value("y",2.0)-y)<.00001;}
- void refresh(){if(!readState)return;auto next=readState();if(next!=state){state=std::move(next);InvalidateRect(window,nullptr,FALSE);}if(update){auto s=state.value("update",json::object());SendMessageW(automatic,BM_SETCHECK,s.value("automatic",true)?BST_CHECKED:BST_UNCHECKED,0);EnableWindow(buttons[0],!s.value("checking",false));EnableWindow(buttons[1],s.value("available",false));}else EnableWindow(apply,ready());}
+ void refresh(){if(!readState)return;auto next=readState();if(next!=state){state=std::move(next);InvalidateRect(window,nullptr,FALSE);}if(update){auto s=state.value("update",json::object());auto phase=s.value("phase",std::string{});bool busy=phase=="downloading"||phase=="installing";SendMessageW(automatic,BM_SETCHECK,s.value("automatic",true)?BST_CHECKED:BST_UNCHECKED,0);EnableWindow(buttons[0],!busy&&!s.value("checking",false));EnableWindow(buttons[1],!busy&&!s.value("checking",false)&&s.value("available",false));SetWindowTextW(buttons[1],busy?L"正在更新…":L"更新并重启");}else EnableWindow(apply,ready());}
  void draft(double a,double b){x=std::clamp(a,-1.0,1.0);y=std::clamp(b,-1.0,1.0);token.clear();waiting=true;EnableWindow(apply,FALSE);SetTimer(window,2,150,nullptr);InvalidateRect(window,nullptr,FALSE);}
  void point(LPARAM lp){int gx=GET_X_LPARAM(lp),gy=GET_Y_LPARAM(lp);trail.push_back({std::clamp(LONG(gx),grid.left,grid.right),std::clamp(LONG(gy),grid.top,grid.bottom)});if(trail.size()>7)trail.erase(trail.begin());draft(2.0*(gx-grid.left)/std::max(1L,grid.right-grid.left)-1,1-2.0*(gy-grid.top)/std::max(1L,grid.bottom-grid.top));}
  void cancel(){if(!update&&!closed)send({{"op","cancel"}});closed=true;DestroyWindow(window);}
  void command(int id){
   if(id==IDCANCEL){cancel();return;}
-  if(update){if(id==1101)send({{"op","update_check"}});else if(id==1102)send({{"op","update_download"}});else if(id==1103)send({{"op","update_config"},{"automatic",SendMessageW(automatic,BM_GETCHECK,0,0)==BST_CHECKED}});refresh();return;}
+  if(update){if(id==1101)send({{"op","update_check"}});else if(id==1102)send({{"op","update_install"}});else if(id==1103)send({{"op","update_config"},{"automatic",SendMessageW(automatic,BM_GETCHECK,0,0)==BST_CHECKED}});refresh();return;}
   if(id>=1201&&id<=1203){draft(id==1201?0:id==1202?.75:-.75,0);return;}
   if(id==IDOK&&ready()){auto response=send({{"op","apply"},{"token",state["preview"]["token"]}});if(response.value("ok",false)){closed=true;DestroyWindow(window);}else refresh();}
  }
  void text(HDC dc,std::wstring s,RECT r,COLORREF color=RGB(235,235,235),UINT align=DT_LEFT){SetTextColor(dc,color);DrawTextW(dc,s.c_str(),int(s.size()),&r,align|DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS|DT_NOPREFIX);}
  void paint(HDC dc,int w,int h){auto mem=CreateCompatibleDC(dc);auto image=CreateCompatibleBitmap(dc,w,h);auto old=SelectObject(mem,image);RECT all{0,0,w,h};FillRect(mem,&all,background);auto oldFont=SelectObject(mem,font);SetBkMode(mem,TRANSPARENT);int p=px(24);
   if(update){auto s=state.value("update",json::object());std::string label=s.value("checking",false)?"正在检查更新…":s.value("available",false)?"发现新版本 "+s["release"].value("version",std::string{}):!s.value("error",std::string{}).empty()?s["error"].get<std::string>():s.contains("checked_at")?"当前已是最新版本":"从 GitHub 获取更新信息";
+   auto phase=s.value("phase",std::string{});double fraction=std::clamp(double(s.value("downloaded",uint64_t(0)))/std::max(1.0,double(s.value("total",uint64_t(0)))),0.0,1.0);
+   if(phase=="downloading")label="正在下载更新 · "+std::to_string(int(fraction*100))+"%";
+   else if(phase=="installing")label="正在校验和安装，完成后重新打开…";
+   else if(!s.value("error",std::string{}).empty())label=s["error"].get<std::string>();
    text(mem,wide(label),{p,px(24),w-p,px(64)});text(mem,wide("当前版本 "+s.value("current",std::string{})+" · "+(s.value("edition",std::string{})=="core"?"独立插件版":"完整版")),{p,px(76),w-p,px(108)},RGB(160,160,160));
-   text(mem,L"下载后运行安装脚本，升级时自动备份。",{p,px(118),w-p,px(148)},RGB(160,160,160));
+   auto previous=s.value("last_result",json::object());auto previousError=previous.is_object()&&previous.contains("error")&&previous["error"].is_string()?previous["error"].get<std::string>():std::string{};
+   text(mem,previousError.empty()?L"点击后自动下载、校验、备份并安装，再重新打开。":wide("上次更新失败："+previousError),{p,px(118),w-p,px(148)},RGB(160,160,160));
+   if(phase=="downloading"){RECT rail{p,px(156),w-p,px(160)};auto bg=CreateSolidBrush(RGB(60,60,60));FillRect(mem,&rail,bg);DeleteObject(bg);rail.right=rail.left+int((rail.right-rail.left)*fraction);auto fill=CreateSolidBrush(RGB(30,215,96));FillRect(mem,&rail,fill);DeleteObject(fill);}
   }else{
    auto name=std::abs(x)<.05&&std::abs(y)<.05?L"智能均衡随机":L"随机偏好";text(mem,name,{p,px(14),w-p,px(44)},RGB(30,215,96));
    text(mem,L"待播预览 · 应用后按此顺序播放",{p,px(47),w-p,px(74)},RGB(160,160,160));auto preview=state.value("preview",json(nullptr));auto rows=preview.is_object()?preview.value("tracks",json::array()):json::array();

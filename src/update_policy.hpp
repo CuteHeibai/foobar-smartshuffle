@@ -21,7 +21,9 @@ inline nlohmann::json select_release(const nlohmann::json& releases,const std::s
         auto version=tag.starts_with('v')?tag.substr(1):tag;auto asset="foobar-smartshuffle-"+edition+"-"+version+".zip";
         if(r.at("html_url")!=base+"tag/"+tag)continue;
         for(auto& a:r.at("assets"))if(a.at("name")==asset&&a.value("state",std::string{})=="uploaded"&&a.value("size",int64_t(0))>0&&a.at("browser_download_url")==base+"download/"+tag+"/"+asset){
-            best={{"version",version},{"tag",tag},{"asset",asset},{"url",a.at("browser_download_url")},{"page",r.at("html_url")},{"prerelease",r.value("prerelease",false)}};break;}
+            auto digest=a.value("digest",nlohmann::json{});std::string hash;
+            if(digest.is_string()){auto text=digest.get<std::string>();if(text.starts_with("sha256:")&&text.size()==71&&text.substr(7).find_first_not_of("0123456789abcdef")==std::string::npos)hash=text.substr(7);}
+            best={{"version",version},{"tag",tag},{"asset",asset},{"url",a.at("browser_download_url")},{"page",r.at("html_url")},{"prerelease",r.value("prerelease",false)},{"size",a.at("size")},{"sha256",hash}};break;}
     }catch(const std::exception&){/* Ignore malformed or incomplete release entries. */}
     return best;
 }

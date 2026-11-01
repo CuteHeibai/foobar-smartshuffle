@@ -36,6 +36,12 @@ test('queue keeps partial rows at both viewport edges during fractional scrollin
  c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
  assert.equal(c.HB_Q[0].track_id,'t0','partially visible first item must remain');assert.ok(c.HB_Q[0].y0>=209);assert.equal(c.HB_Q.at(-1).y1,580,'last partial row stays clipped and hittable');
 });
+
+test('queue header hides the round counter and retains the remaining track count',()=>{
+ const {c,load}=context();load('views/preference.js');c.pbShuffle=true;c.ssState={round:42,remaining_count:17,remaining:[],queue:[]};c.ssQueueScroll=c.ssQueueScrollT=0;c.HB_Q=[];c.hv=()=>false;c.drag=null;c.drawSBV=()=>null;c.SB_QUEUE={};const words=[];c.tL=(g,s)=>words.push(s);
+ c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
+ assert.ok(words.includes('接下来'));assert.ok(words.includes('本轮剩余 17 首'));assert.ok(!words.some(s=>/第\s*42\s*轮/.test(s)));
+});
 test('all-songs header cover is never erased by a row crop mask and has no scan caption',()=>{
  const {c,load}=context();load('views/songs.js');c.ROW_GATE_MS=0;c.ssDensity=1.25;c.M.cpad=24;c.M.artSz=200;c.SHEAD=320;c.SG_CROP=120;
  c.ensureBuilt=c.gateReady=()=>true;c.songsReady=c.songsSteps=c.rowHandlesSongs=()=>[];c.libChoice=()=>({single:null});c.artHue=()=>1;c.songsGroup='none';c.songsScroll=c.songsScrollT=0;c.songsContentH=70;c.songsTotalSec=1000;c.songsFirstAt=()=>0;c.NP=null;
@@ -108,8 +114,19 @@ test('footer uses the whole-window center and shrinks the seek rail before movin
  }
  const pushed=c.ssTransportLayout(1180,560,960,1);assert.ok(pushed.center>590);assert.ok(pushed.center-560>=80);
 });
-test('all four splitters paint a permanent one-pixel line without hovering',()=>{
- const {c,load}=context();load('ui/layout.js');c.W=1180;c.H=780;c.R={top:{y:40},main:{x:230,h:600},queue:{x:850},barY:680,barInfoW:300,barToolsW:300};c.fsMode=false;let lines=[];const g=graphics();g.DrawLine=(...a)=>lines.push(a);c.ssDrawResizers(g);assert.equal(lines.length,4);assert.ok(lines.every(a=>a[4]===1));
+
+test('responsive playback bar keeps long track labels clear of transport and output controls',()=>{
+ const {c,load}=context();load('ui/layout.js');load('views/bar.js');c.NP=null;c.npTitleStr='A long song title '.repeat(12);c.npArtistStr='An artist '.repeat(10);c.drag=null;c.pbShuffle=true;c.ssState={};c.hv=()=>false;
+ const g=graphics(),labels=[];c.tL=c.tR=c.tC=(gr,text,font,color,x,y,w,h)=>labels.push({text,x,y,w,h});
+ for(const [width,density] of [[800,.85],[1180,1],[1800,1.25],[2560,1.25]]){
+  c.W=width;c.ssDensity=density;c.M.barH=Math.round(96*density);const widths=c.ssLayoutWidths(width);c.R={barY:680,barInfoW:widths.info,barToolsW:widths.tools};labels.length=0;c.drawBar(g);
+  const title=labels.find(r=>r.text===c.npTitleStr),prev=c.HB_CTRL.find(h=>h.act==='prev'),next=c.HB_CTRL.find(h=>h.act==='next'),mode=c.HB_CTRL.find(h=>h.act==='playback_mode');
+  assert.ok(title.x+title.w<=prev.x0,'track text must end before previous control');assert.ok(next.x1<=mode.x0,'next control must end before playback-mode menu');assert.ok(c.HB_SEEK.x>=title.x+title.w,'seek rail must clear long track text');
+  if(width>=1180)assert.equal(c.R.transport.center,Math.round(width/2));
+ }
+});
+test('only upper pane splitters paint permanent lines and footer stays clear',()=>{
+ const {c,load}=context();load('ui/layout.js');c.W=1180;c.H=780;c.R={top:{y:40},main:{x:230,h:600},queue:{x:850},barY:680,barInfoW:300,barToolsW:300};c.fsMode=false;let lines=[];const g=graphics();g.DrawLine=(...a)=>lines.push(a);c.ssDrawResizers(g);assert.equal(lines.length,2);assert.ok(lines.every(a=>a[4]===1&&a[1]<680&&a[3]<680));
 });
 test('top menus open submenus by click and remain open when the pointer leaves',()=>{
  const h=context(),c=h.c;h.load('ui/menus.js');c.TBH=32;c.ssPoll=()=>{};

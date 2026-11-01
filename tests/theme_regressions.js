@@ -122,6 +122,28 @@ test('all three columns and footer regions keep content space at different windo
   const {c}=layoutHarness();c.ssWidths={nav:470,right:520,info:430,tools:450};
   for(const w of [800,1180,1800]){c.W=w;c.layout();assert.ok(c.R.main.w>=Math.min(330,w*.36)-2);assert.ok(c.R.navW>0&&c.R.queueW>0);assert.ok(w-c.R.barInfoW-c.R.barToolsW>=Math.min(310,w*.34)-2);}
 });
+
+test('legacy footer widths cannot override the responsive footer layout',()=>{
+  const {h,c}=layoutHarness();
+  for(const width of [800,1180,1800]){
+    c.W=width;c.ssWidths={nav:210,right:350};c.layout();
+    const expected=[c.R.barInfoW,c.R.barToolsW];
+    c.window.GetProperty=(key,dflt)=>key==='SmartShuffle: track info width'?640:key==='SmartShuffle: output controls width'?620:dflt;
+    h.load('ui/layout.js');c.layout();
+    assert.deepEqual([c.R.barInfoW,c.R.barToolsW],expected,'saved footer widths must no longer change playback-bar geometry');
+  }
+});
+
+test('footer divider positions no longer capture drags while both upper dividers do',()=>{
+  const {c,props}=layoutHarness();
+  assert.equal(c.ssSplitAt(c.R.main.x-c.M.gap/2,c.R.top.y+30),'nav');
+  assert.equal(c.ssSplitAt(c.R.queue.x-c.M.gap/2,c.R.top.y+30),'right');
+  for(const x of [c.R.barInfoW,c.W-c.R.barToolsW]){
+    assert.equal(c.ssSplitAt(x,c.R.barY+30),'');
+    assert.equal(c.ssResizeBegin(x,c.R.barY+30),false);
+  }
+  assert.equal(c.ssResizing,null);assert.equal(props.size,0);
+});
 test('splitter drags coalesce geometry updates and save the constrained width',()=>{
   const {h,c,props}=layoutHarness();let hidden=0;c.ssHideLyrics=()=>hidden++;
   assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),true);

@@ -1,5 +1,5 @@
 ﻿/* User-sized columns. Requested widths survive small-window clamping and restarts. */
-var SS_WIDTH_KEYS={nav:'SmartShuffle: library width',right:'SmartShuffle: lyrics width',info:'SmartShuffle: track info width',tools:'SmartShuffle: output controls width'};
+var SS_WIDTH_KEYS={nav:'SmartShuffle: library width',right:'SmartShuffle: lyrics width'};
 var ssWidths={},ssResizing=null,ssResizeTimer=0,ssSplitHot='',ssLayoutReportTimer=0;
 // Work-area proportions, not a fixed requested pixel size. Native code supplies
 // the monitor containing the player, so taskbars and secondary screens are respected.
@@ -55,7 +55,7 @@ function ssFitWidths(left,right,budget,minLeft,minRight){
 function ssLayoutWidths(w){
   var mainMin=Math.min(330,Math.round(w*.36)),navMin=Math.min(156,Math.round(w*.18)),rightMin=Math.min(220,Math.round(w*.24));
   var panes=ssFitWidths(ssWidths.nav||Math.min(M.navW,w*.19),ssWidths.right||Math.min(M.queueW,w*.27),w-M.gap*4-mainMin,navMin,rightMin);
-  var bar=ssFitWidths(ssWidths.info||Math.min(310,w*.26),ssWidths.tools||Math.min(300,w*.27),w-Math.min(310,w*.34),Math.min(180,w*.2),Math.min(260,w*.28));
+  var bar=ssFitWidths(Math.min(310,w*.26),Math.min(300,w*.27),w-Math.min(310,w*.34),Math.min(180,w*.2),Math.min(260,w*.28));
   return {nav:panes.left,right:panes.right,info:bar.left,tools:bar.right};
 }
 function ssSplitAt(x,y){
@@ -63,9 +63,6 @@ function ssSplitAt(x,y){
   if(y>=R.top.y&&y<R.barY-M.gap){
     if(Math.abs(x-(R.main.x-M.gap/2))<=M.gap/2+1)return 'nav';
     if(Math.abs(x-(R.queue.x-M.gap/2))<=M.gap/2+1)return 'right';
-  }else if(y>=R.barY+8&&y<H-8){
-    if(Math.abs(x-R.barInfoW)<=4)return 'info';
-    if(Math.abs(x-(W-R.barToolsW))<=4)return 'tools';
   }
   return '';
 }
@@ -83,7 +80,7 @@ function ssResizeMove(x,y){
 function ssResizeApply(){
   if(!ssResizing)return;
   var key=ssResizing.key,x=ssResizing.x;
-  ssWidths[key]=Math.max(1,key==='nav'?x-M.gap*1.5:key==='right'?W-x-M.gap*1.5:key==='info'?x:W-x);
+  ssWidths[key]=Math.max(1,key==='nav'?x-M.gap*1.5:W-x-M.gap*1.5);
   layout();ssDropModalImage();ssDropPopupImage();repaintAll();
 }
 function ssResizeEnd(x,y){
@@ -91,15 +88,15 @@ function ssResizeEnd(x,y){
   ssResizing.x=x;if(ssResizeTimer){window.ClearTimeout(ssResizeTimer);ssResizeTimer=0;}
   ssResizeApply();var key=ssResizing.key;
   // Save the visible, constrained width rather than an out-of-window pointer position.
-  ssWidths[key]=key==='nav'?R.navW:key==='right'?R.queueW:key==='info'?R.barInfoW:R.barToolsW;
+  ssWidths[key]=key==='nav'?R.navW:R.queueW;
   window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);ssResizing=null;ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();return true;
 }
 function ssDrawResizers(gr){
   if(fsMode||ssModal||ssPopup)return;
-  var active=ssResizing?ssResizing.key:ssSplitHot,keys=['nav','right','info','tools'];
+  var active=ssResizing?ssResizing.key:ssSplitHot,keys=['nav','right'];
   for(var i=0;i<keys.length;i++){
-    var key=keys[i],x=key==='nav'?R.main.x-M.gap/2:key==='right'?R.queue.x-M.gap/2:key==='info'?R.barInfoW:W-R.barToolsW;
-    var bottom=key==='info'||key==='tools',y=bottom?R.barY+15:R.top.y+14,h=bottom?M.barH-30:R.main.h-28;
+    var key=keys[i],x=key==='nav'?R.main.x-M.gap/2:R.queue.x-M.gap/2;
+    var y=R.top.y+14,h=R.main.h-28;
     gr.DrawLine(Math.round(x)+.5,Math.round(y),Math.round(x)+.5,Math.round(y+Math.max(4,h)),1,key===active?COL.text2:COL.line);
   }
 }
