@@ -60,13 +60,23 @@ check(preferences['draft_state'] & 1 and not preferences['applied_state'] & 1,
       'Settings Reset previews a change and Apply invokes the shared layout-restore action')
 reset = b.wait(lambda s: s.get('ui_layout_reset', 0) > before.get('ui_layout_reset', 0)
                and s.get('theme', {}).get('layout', {}).get('reset') == s.get('ui_layout_reset'))
-check(reset['theme']['layout']['width'] == 1180 and reset['theme']['layout']['height'] == 780
+layout = reset['theme']['layout']
+display = reset['display']
+check(abs(layout['width'] * layout['height'] / (display['work_width'] * display['work_height']) - .4) < .002
       and all(reset[k] == before[k] for k in ['source', 'round', 'point', 'remaining', 'enabled']),
-      'Actual theme consumes settings reset once, restores 1180x780, and preserves scheduling state')
+      'Actual theme reset occupies forty percent of the monitor work area and preserves scheduling state')
 
 original = fixture('window')
 fixture('window', action='unmax')
 normal = fixture('window')
+check(normal['work_width'] == display['work_width'] and normal['work_height'] == display['work_height']
+      and normal['work_left'] == display['work_left'] and normal['work_top'] == display['work_top'],
+      'Native display state matches an independent query of the host monitor work area')
+check(normal['w'] <= display['work_width'] and normal['h'] <= display['work_height']
+      and normal['x'] >= display['work_left'] and normal['y'] >= display['work_top']
+      and normal['x'] + normal['w'] <= display['work_left'] + display['work_width']
+      and normal['y'] + normal['h'] <= display['work_top'] + display['work_height'],
+      'Restored proportional window fits entirely inside its monitor work area')
 try:
     fixture('window', action='resize', w=850, h=600)
     small = b.wait(lambda s: s['theme']['layout'].get('width') == 850)['theme']['layout']

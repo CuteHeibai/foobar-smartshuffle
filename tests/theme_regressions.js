@@ -75,14 +75,35 @@ test('native submenu response retains hierarchy, disabled state and exact comman
   c.ssPopupKey(40);c.ssPopupKey(39);c.ssPopupKey(40);c.ssPopupKey(13);
   assert.equal(h.writes.at(-1).op,'menu_execute');assert.equal(h.writes.at(-1).token,'native-7');assert.equal(h.writes.at(-1).command,42);
 });
-test('initial compact window is applied once and later manual sizes are retained',()=>{
+test('default geometry occupies forty percent on laptop, desktop, ultrawide and portrait monitors',()=>{
+  const {c}=harness();
+  for(const [width,height] of [[1280,680],[1920,1040],[2560,1400],[3840,2080],[5120,1400],[1080,1880]]){
+    c.ssState={display:{work_width:width,work_height:height}};
+    const size=c.ssDefaultWindowSize();
+    assert.ok(Math.abs(size.width*size.height/(width*height)-.4)<.002);
+    assert.ok(size.width<=width*.94+1&&size.height<=height*.94+1);
+    if(width>height)assert.ok(size.width/size.height>=1.45&&size.width/size.height<=1.86);
+  }
+  c.ssState=null;assert.equal(c.ssDefaultWindowSize(),null);
+  for(const width of [0,-1,NaN,Infinity]){c.ssState={display:{work_width:width,work_height:1040}};assert.equal(c.ssDefaultWindowSize(),null);}
+});
+test('initial proportional window waits for monitor data and later manual sizes are retained',()=>{
   const h=harness(),c=h.c,props=new Map(),sizes=[];let restores=0;
   c.window.GetProperty=(key,dflt)=>props.has(key)?props.get(key):dflt;
   c.window.SetProperty=(key,value)=>props.set(key,value);
   const wizard={FrameStyle:0,SetCaptionAreaSize(){},ExitMaximize(){restores++;},SetWindowSize(w,h){sizes.push([w,h]);}};
   c.ActiveXObject=function(){return wizard;};h.load('ui/chrome.js');
-  assert.equal(c.ssConfigureChrome(),true);assert.deepEqual(sizes,[[1180,780]]);
+  assert.equal(c.ssConfigureChrome(),true);assert.deepEqual(sizes,[]);
+  c.ssAcceptState({version:1,display:{work_width:2560,work_height:1400}});
+  const size=c.ssDefaultWindowSize();assert.deepEqual(sizes,[[size.width,size.height]]);
   c.ssConfigureChrome();assert.equal(sizes.length,1);assert.equal(restores,1);
+});
+test('proportional restore centers on a secondary monitor with negative coordinates',()=>{
+  const {c}=layoutHarness(),moves=[];
+  c.UIWizard={ExitMaximize(){},SetWindowSize(){},SetWindowPosition(x,y){moves.push([x,y]);}};
+  c.ssState={display:{work_left:-2560,work_top:-100,work_width:2560,work_height:1400}};
+  c.ssApplyDefaultWindow(true);const size=c.ssDefaultWindowSize();
+  assert.deepEqual(moves,[[Math.round(-2560+(2560-size.width)/2),Math.round(-100+(1400-size.height)/2)]]);
 });
 test('stale open counter at theme startup does not cover the default lyrics',()=>{
   const h=harness(),c=h.c;c.utils.ReadTextFile=()=>JSON.stringify({version:1,pid:1,ui_open:9});
@@ -111,10 +132,18 @@ test('splitter drags coalesce geometry updates and save the constrained width',(
 test('settings reset clears every width and restores the window without changing playback state',()=>{
   const {c,props}=layoutHarness(),sizes=[];c.ssWidths={nav:300,right:400,info:280,tools:360};
   c.UIWizard={ExitMaximize(){},SetWindowSize(w,h){sizes.push([w,h]);},SetCaptionAreaSize(){}};
-  c.ssState={now_id:'song',point:{x:.6,y:-.5},remaining:[{id:'next'}],enabled:true};const before=JSON.stringify(c.ssState);
+  c.ssState={display:{work_width:1920,work_height:1040},now_id:'song',point:{x:.6,y:-.5},remaining:[{id:'next'}],enabled:true};const before=JSON.stringify(c.ssState);
   c.rightTab='queue';
   c.ssResetLayout();for(const key of Object.keys(c.SS_WIDTH_KEYS)){assert.equal(c.ssWidths[key],0);assert.equal(props.get(c.SS_WIDTH_KEYS[key]),0);}
-  assert.deepEqual(sizes,[[1180,780]]);assert.equal(c.rightTab,'lyrics');assert.equal(JSON.stringify(c.ssState),before);
+  const size=c.ssDefaultWindowSize();assert.deepEqual(sizes,[[size.width,size.height]]);assert.equal(c.rightTab,'lyrics');assert.equal(JSON.stringify(c.ssState),before);
+});
+test('reset uses the current monitor while repeated state updates preserve a manual resize',()=>{
+  const {c}=layoutHarness(),sizes=[];
+  c.UIWizard={ExitMaximize(){},SetWindowSize(w,h){sizes.push([w,h]);},SetCaptionAreaSize(){}};
+  c.ssAcceptState({version:1,display:{work_width:1920,work_height:1040}});
+  c.ssAcceptState({version:1,display:{work_width:1080,work_height:1880}});
+  assert.equal(sizes.length,1);c.ssResetLayout();assert.equal(sizes.length,2);
+  assert.ok(Math.abs(sizes[1][0]*sizes[1][1]/(1080*1880)-.4)<.002);
 });
 test('persisted native layout reset is consumed once across state refreshes',()=>{
   const {c}=layoutHarness();let resets=0;c.ssResetLayout=()=>resets++;

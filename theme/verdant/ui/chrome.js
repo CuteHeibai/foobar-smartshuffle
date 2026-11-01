@@ -13,10 +13,7 @@ function ssConfigureChrome(){
   try{
     if(UIWizard.FrameStyle!==3)UIWizard.FrameStyle=3;
     UIWizard.MoveStyle=0;UIWizard.DisableWindowSizing=false;UIWizard.DisableWindowMaximizing=false;UIWizard.DarkMode=true;
-    if(!window.GetProperty('SmartShuffle: comfortable window initialized',false)){
-      UIWizard.ExitMaximize();UIWizard.SetWindowSize(1180,780);
-      window.SetProperty('SmartShuffle: comfortable window initialized',true);
-    }
+    ssApplyDefaultWindow(false);
     capW=-1;applyCaption();
     return UIWizard.FrameStyle===3&&!UIWizard.DisableWindowSizing&&!UIWizard.DisableWindowMaximizing&&capW===W;
   }catch(e){return false;}

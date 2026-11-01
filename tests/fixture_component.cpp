@@ -79,6 +79,11 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         }
         auto hwnd=core_api::get_main_window();RECT bounds{};GetWindowRect(hwnd,&bounds);
         r["maximized"]=IsZoomed(hwnd)!=FALSE;r["minimized"]=IsIconic(hwnd)!=FALSE;r["x"]=bounds.left;r["y"]=bounds.top;r["w"]=bounds.right-bounds.left;r["h"]=bounds.bottom-bounds.top;
+        MONITORINFO monitor{sizeof(monitor)};
+        if(GetMonitorInfoW(MonitorFromWindow(hwnd,MONITOR_DEFAULTTONEAREST),&monitor)){
+            r["work_left"]=monitor.rcWork.left;r["work_top"]=monitor.rcWork.top;
+            r["work_width"]=monitor.rcWork.right-monitor.rcWork.left;r["work_height"]=monitor.rcWork.bottom-monitor.rcWork.top;
+        }
     }
     else if(op=="cue"){
         auto path=q.at("path").get<std::string>();service_ptr_t<input_decoder> d;input_entry::g_open_for_decoding(d,{},path.c_str(),fb2k::noAbort);

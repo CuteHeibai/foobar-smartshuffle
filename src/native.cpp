@@ -194,6 +194,11 @@ public:
         size_t completed=0,failed=0;for(auto& t:tracks){auto fp=fingerprint(handles[t.id]);if(cache.contains(fp)){if(cache[fp].contains("features"))++completed;else ++failed;}}
         j["scan"]={{"paused",scanPaused},{"completed",completed},{"failed",failed},{"total",tracks.size()},{"pending",scanner?scanner->pending():0},{"revision",scanRevision}};
         j["theme"]={{"version",themeVersion},{"window",themeWindow},{"ui_wizard",themeUIWizard},{"chrome_ready",themeChromeReady},{"layout",themeLayout}};
+        MONITORINFO display{sizeof(display)};
+        if(GetMonitorInfoW(MonitorFromWindow(core_api::get_main_window(),MONITOR_DEFAULTTONEAREST),&display)){
+            auto work=display.rcWork;
+            j["display"]={{"work_left",work.left},{"work_top",work.top},{"work_width",work.right-work.left},{"work_height",work.bottom-work.top}};
+        }
         j["native_order"]=pm->playback_order_get_active();j["order_name"]=pm->playback_order_get_name(pm->playback_order_get_active());j["orders"]=json::array();
         for(size_t i=0;i<pm->playback_order_get_count();++i)j["orders"].push_back({{"index",i},{"name",pm->playback_order_get_name(i)}});
         j["metadata"]=metadataState;

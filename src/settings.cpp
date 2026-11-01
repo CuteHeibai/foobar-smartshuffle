@@ -30,7 +30,7 @@ private:
         description_=CreateWindowW(L"STATIC",L"拖动页面栏间的分隔线，可调整音乐库、主内容、歌词栏，以及底部歌曲信息、播放和输出区域的宽度。调整后会自动保存。",WS_CHILD|WS_VISIBLE,0,0,0,0,w,nullptr,core_api::get_my_instance(),nullptr);
         button_=CreateWindowW(L"BUTTON",L"一键恢复默认布局",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,w,reinterpret_cast<HMENU>(1001),core_api::get_my_instance(),nullptr);
         update_=CreateWindowW(L"BUTTON",L"检查更新…",WS_CHILD|WS_VISIBLE|WS_TABSTOP,0,0,0,0,w,reinterpret_cast<HMENU>(1002),core_api::get_my_instance(),nullptr);
-        status_=CreateWindowW(L"STATIC",L"恢复默认宽度和 1180×780 窗口大小。歌单、听歌记录、随机偏好和音频输出会保留。",WS_CHILD|WS_VISIBLE,0,0,0,0,w,nullptr,core_api::get_my_instance(),nullptr);
+        status_=CreateWindowW(L"STATIC",L"恢复默认栏宽；窗口约占当前屏幕可用面积的五分之二，纵横比自动适配。歌单、听歌记录、随机偏好和音频输出会保留。",WS_CHILD|WS_VISIBLE,0,0,0,0,w,nullptr,core_api::get_my_instance(),nullptr);
         for(auto child:{description_,button_,status_,update_})SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(font_),TRUE);
         if(!themed_installation()){ShowWindow(button_,SW_HIDE);SetWindowTextW(description_,L"通过“播放 → 随机偏好 → 调整随机偏好”打开二维偏好窗口。独立插件版保留现有界面、字体及歌词设置。");SetWindowTextW(status_,L"更新窗口可检查新版本、下载独立插件包，并设置是否在启动时检查更新。");}
         resize(w);

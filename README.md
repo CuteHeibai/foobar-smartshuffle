@@ -6,7 +6,7 @@
 
 两个方向可以组合，中心为均衡随机。偏好只改变先后顺序，每轮仍会覆盖歌单中的全部歌曲，不自动重复已经尝试过的曲目。
 
-[下载 v1.0.5](https://github.com/CuteHeibai/foobar-smartshuffle/releases/tag/v1.0.5) · [反馈问题](https://github.com/CuteHeibai/foobar-smartshuffle/issues) · [开发说明](docs/development.md)
+[下载 v1.0.6](https://github.com/CuteHeibai/foobar-smartshuffle/releases/tag/v1.0.6) · [反馈问题](https://github.com/CuteHeibai/foobar-smartshuffle/issues) · [开发说明](docs/development.md)
 
 ## 选哪个版本
 
@@ -21,8 +21,8 @@
 | 主题字体、菜单汉化和列表交互调整 | ✓ | 保留已有设置 |
 | Columns UI、JSplitter 依赖 | 需要 | 不需要 |
 
-- `foobar-smartshuffle-full-1.0.5.zip`：完整功能包，包含主题、原生插件、音频分析运行时和安装／恢复脚本。
-- `foobar-smartshuffle-core-1.0.5.zip`：独立插件包，包含原生偏好窗口、调度核心、音频分析运行时和安装／恢复脚本。不会切换界面或改动字体、歌词插件。
+- `foobar-smartshuffle-full-1.0.6.zip`：完整功能包，包含主题、原生插件、音频分析运行时和安装／恢复脚本。
+- `foobar-smartshuffle-core-1.0.6.zip`：独立插件包，包含原生偏好窗口、调度核心、音频分析运行时和安装／恢复脚本。不会切换界面或改动字体、歌词插件。
 - `foo_smartshuffle.fb2k-component`：单独的原生组件，带偏好窗口与更新检查；不包含分析运行时。需要声学风格分析时，请下载上述 ZIP 包。
 - `SHA256SUMS.txt`：下载文件的 SHA-256 校验值。
 
@@ -43,6 +43,8 @@
 独立插件版不需要这些界面组件。完整版用户若要恢复之前的界面，请先运行原完整版备份的恢复脚本，再安装独立版；独立版安装器不会删除已有主题。
 
 备份位于 `smartshuffle-backups/<时间>/`。运行其中的 `restore.ps1` 可恢复安装前的配置、歌单和受影响组件。
+
+完整版首次打开时，窗口约占当前显示器可用面积的 **40%**，纵横比按屏幕形状适配三栏布局。手动调整后的尺寸会保留；插件设置里的“一键恢复默认布局”会重新按当前显示器计算大小。本次升级会应用一次新的默认尺寸。
 
 ## 使用
 

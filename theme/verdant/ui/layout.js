@@ -1,6 +1,29 @@
 ﻿/* User-sized columns. Requested widths survive small-window clamping and restarts. */
 var SS_WIDTH_KEYS={nav:'SmartShuffle: library width',right:'SmartShuffle: lyrics width',info:'SmartShuffle: track info width',tools:'SmartShuffle: output controls width'};
 var ssWidths={},ssResizing=null,ssResizeTimer=0,ssSplitHot='',ssLayoutReportTimer=0;
+// Work-area proportions, not a fixed requested pixel size. Native code supplies
+// the monitor containing the player, so taskbars and secondary screens are respected.
+function ssDefaultWindowSize(){
+  var display=ssState&&ssState.display;
+  if(!display)return null;
+  var w=Number(display.work_width),h=Number(display.work_height);
+  if(!isFinite(w)||!isFinite(h)||w<=0||h<=0)return null;
+  var area=w*h*.4,ratio=Math.max(1.45,Math.min(1.85,w/h*.9));
+  var width=Math.sqrt(area*ratio),height=area/width;
+  if(width>w*.94){width=w*.94;height=area/width;}
+  if(height>h*.94){height=h*.94;width=area/height;}
+  return {width:Math.round(width),height:Math.round(height)};
+}
+function ssApplyDefaultWindow(force){
+  if(typeof UIWizard==='undefined'||!UIWizard)return false;
+  var key='SmartShuffle: proportional window initialized';
+  if(!force&&window.GetProperty(key,false))return false;
+  var size=ssDefaultWindowSize();if(!size)return false;
+  UIWizard.ExitMaximize();UIWizard.SetWindowSize(size.width,size.height);
+  var display=ssState.display;
+  try{UIWizard.SetWindowPosition(Math.round(Number(display.work_left||0)+(display.work_width-size.width)/2),Math.round(Number(display.work_top||0)+(display.work_height-size.height)/2));}catch(e){}
+  window.SetProperty(key,true);return true;
+}
 for(var ssWidthKey in SS_WIDTH_KEYS){
   var ssWidthValue=0;try{ssWidthValue=Number(window.GetProperty(SS_WIDTH_KEYS[ssWidthKey],0));}catch(e){}
   ssWidths[ssWidthKey]=isFinite(ssWidthValue)&&ssWidthValue>0?ssWidthValue:0;
@@ -84,7 +107,7 @@ function ssResetLayout(){
   if(fsMode&&typeof exitFullscreen==='function')exitFullscreen();
   if(typeof rightTab!=='undefined')rightTab='lyrics';
   for(var key in SS_WIDTH_KEYS){ssWidths[key]=0;window.SetProperty(SS_WIDTH_KEYS[key],0);}
-  if(UIWizard){UIWizard.ExitMaximize();UIWizard.SetWindowSize(1180,780);window.SetProperty('SmartShuffle: comfortable window initialized',true);}
+  ssApplyDefaultWindow(true);
   layout();ssDropModalImage();ssDropPopupImage();ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();
 }
 function ssLayoutStatus(){return {width:W,height:H,nav:R.navW,right:R.queueW,info:R.barInfoW,tools:R.barToolsW,density:ssDensity,row_height:M.rowH,cover_size:M.artSz,reset:Number(window.GetProperty('SmartShuffle: layout reset applied',0))};}
