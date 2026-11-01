@@ -310,7 +310,7 @@ function plCoverReady(pi){
   h=c.single; return !h || artLoaded(albKey(h));
 }
 function paintPlCard(gr,x,y,w,pi,hov){
-  gr.FillRoundRect(x,y,w,w+M.cardTextH,8,8,hov?RGB(40,40,40):COL.elev);
+  gr.FillRoundRect(x,y,w,w+M.cardTextH,8,8,hov?COL.cardHover:COL.elev);
   var cs=w-24;
   drawPlCover(gr,x+12,y+12,cs,6,pi,plName(pi));
   tL(gr,plName(pi),FONT.card,COL.text,x+12,y+cs+18,w-24-(hov?26:0),20);

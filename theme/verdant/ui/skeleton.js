@@ -28,8 +28,8 @@ function shimmer(gr,x,y,w,h){
   // re-derive the stops for the clamped slice so the highlight doesn't jump as it enters or leaves
   var p0=(cx0-bx)/bandW, p1=(cx1-bx)/bandW, mid=(0.5-p0)/Math.max(0.001,p1-p0);
   var stops=(mid<=0||mid>=1)
-    ? [0.0,RGBA(255,255,255,0),1.0,RGBA(255,255,255,0)]
-    : [0.0,RGBA(255,255,255,0),mid,RGBA(255,255,255,22),1.0,RGBA(255,255,255,0)];
+    ? [0.0,ssInk(0),1.0,ssInk(0)]
+    : [0.0,ssInk(0),mid,ssInk(22),1.0,ssInk(0)];
   try{ gr.FillGradRectV2(cx0,y,cx1-cx0,h,0,stops); }catch(e){}
 }
 /* Reveal gate. A section holds its skeleton until every handle it needs has resolved artwork,
@@ -149,7 +149,7 @@ function skelCards(gr,x,y,w,h,cardW,gap){
     for(cx=x; cx+cardW<=x+w; cx+=cardW+gap){
       var ch=Math.min(cardH,y+h-cy); if(ch<24) break;
       gr.FillRoundRect(cx,cy,cardW,ch,8,8,COL.elev);
-      if(ch>cs+12) gr.FillRoundRect(cx+12,cy+12,cs,cs,6,6,RGB(34,34,34));
+      if(ch>cs+12) gr.FillRoundRect(cx+12,cy+12,cs,cs,6,6,COL.banner);
     }
   }
 }
@@ -158,7 +158,7 @@ function skelRows(gr,x,y,w,h,rowH){
     var rh=Math.min(rowH-8,y+h-ry); if(rh<14) break;
     gr.FillRoundRect(x,ry,40,Math.min(40,rh),4,4,COL.elev);
     gr.FillRoundRect(x+56,ry+4,Math.round(w*0.30),13,4,4,COL.elev);
-    gr.FillRoundRect(x+56,ry+23,Math.round(w*0.19),11,4,4,RGB(30,30,30));
+    gr.FillRoundRect(x+56,ry+23,Math.round(w*0.19),11,4,4,COL.skeleton);
   }
 }
 // header block (cover + title/meta bars) shared by the playlist and All Songs skeletons
@@ -167,7 +167,7 @@ function drawViewSkeleton(gr,r){
   gr.FillRoundRect(lx,ay,art,art,8,8,COL.elev);
   var tx=lx+art+24, tw=Math.max(120,w-art-24);
   gr.FillRoundRect(tx,ay+34,Math.min(tw,420),44,6,6,COL.elev);
-  gr.FillRoundRect(tx,ay+94,Math.min(tw,260),18,4,4,RGB(30,30,30));
+  gr.FillRoundRect(tx,ay+94,Math.min(tw,260),18,4,4,COL.skeleton);
   var rowsTop=r.y+M.headH, cropY=r.y+r.h;
   if(cropY>rowsTop) skelRows(gr,lx,rowsTop,w,cropY-rowsTop,M.rowH);
   shimmer(gr,lx,ay,w,cropY-ay);   // one sweep for the whole view keeps header and rows in phase

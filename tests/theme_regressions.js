@@ -9,6 +9,7 @@ function harness(){
     fb:{ProfilePath:'P:\\',IsPlaying:false},plman:{ActivePlaylist:0},utils:{WriteTextFile(p,t){writes.push(JSON.parse(t));return true;}},
     repaintAll(){paints++;},applyKeyMode(){},pbShuffle:true,fsMode:false,ssLyricVisible:true,confirmDel:null,
     RGB:(r,g,b)=>(0xff000000|(r<<16)|(g<<8)|b),RGBA:(r,g,b,a)=>((a<<24)|(r<<16)|(g<<8)|b),
+    ssInk:a=>((a<<24)|0xffffff),ssAccent:a=>((a<<24)|0x1ed760),ssAlpha:(c,a)=>((a<<24)|(c&0xffffff)),
     COL:{base:1,black:2,text:3,text2:4,green:5,line:6},FONT:{},M:{radius:10,barH:96},R:{queue:{x:800,y:40,w:290,h:600}},
     panelBg(){},roundBottom(){},tL(){},tC(){},repaintBar(){},repaintQueue(){},ssHideLyrics(){},ssSyncLyricPanel(){},
     drawIcon(){},drawCover(){},vol2pos(){return 0;},clamp01:x=>x,fmtTime(){return '';},tR(){},

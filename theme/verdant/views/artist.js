@@ -5,7 +5,7 @@
 function drawArtist(gr,r){
   HB_TR=[];
   var pad=M.cpad, x0=r.x+pad, w=r.w-pad*2, bottom=r.y+r.h-12, i;
-  gr.FillGradRect(r.x,r.y,r.w,220,90,blend(coverCol(viewArtist),COL.base,0.44),COL.base,1.0);
+  gr.FillGradRect(r.x,r.y,r.w,220,90,blend(coverCol(viewArtist),COL.base,SS_APPEARANCE==='light'?0.89:0.44),COL.base,1.0);
   var art=r.w<600?96:150, ay=r.y+34;
   ssDrawArtistAvatar(gr,x0,ay,art,viewArtist);
   var tx=x0+art+24, tw=w-art-24, songs=0;

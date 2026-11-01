@@ -83,12 +83,12 @@ function drawAddPlaylist(gr,footTop,footH){
   var bx=R.navLib.x+12, bw=R.navLib.w-24, by=footTop+6, bh=footH-16;
   var hot=hv(bx,by,bx+bw,by+bh), drop=navDropHover;
   var rad=Math.min(10,bw/2,bh/2);
-  if(drop)      gr.FillRoundRect(bx,by,bw,bh,rad,rad,RGBA(30,215,96,26));
+  if(drop)      gr.FillRoundRect(bx,by,bw,bh,rad,rad,ssAccent(26));
   else if(hot)  gr.FillRoundRect(bx,by,bw,bh,rad,rad,COL.rowHover);
   strokeRound(gr,bx,by,bw,bh,rad,drop?2:1,drop?COL.green:(hot?COL.text3:COL.line));
   // circular badge, echoing the empty-playlist state in the main panel
   var bs=30, ax=bx+13, ay=by+Math.round((bh-bs)/2);
-  gr.FillEllipse(ax,ay,bs,bs,drop?RGBA(30,215,96,46):RGBA(255,255,255,hot?26:16));
+  gr.FillEllipse(ax,ay,bs,bs,drop?ssAccent(46):ssInk(hot?26:16));
   drawIcon(gr,'add',drop?COL.green:(hot?COL.text:COL.text2),ax,ay,bs,bs,18);
   var tx=ax+bs+12, tw=bx+bw-12-tx;
   if(drop){ tL(gr,'拖入以导入',FONT.pl,COL.green,tx,by+Math.round((bh-20)/2),tw,20); }

@@ -8,7 +8,7 @@ function searchBoxRect(){ var r=R.main, boxW=Math.min(520,r.w-M.cpad*2); return 
 function drawSearchBox(gr,r){
   var x0=r.x+M.cpad, boxH=SBOX_H, boxY=r.y+SBOX_TOP, boxW=Math.min(520,r.w-M.cpad*2);
   gr.FillSolidRect(x0-2,boxY-4,boxW+8,boxH+8,COL.base);   // clean bg for partial repaints
-  gr.FillRoundRect(x0,boxY,boxW,boxH,boxH/2,boxH/2,RGB(42,42,42));
+  gr.FillRoundRect(x0,boxY,boxW,boxH,boxH/2,boxH/2,COL.hover);
   var txtX=x0+48, txtW=boxW-(txtX-x0)-18;
   drawIcon(gr,'search',COL.text2,x0+16,boxY,22,boxH,18);
   var empty=!searchQuery.length, caretH=20, caretY=boxY+(boxH-caretH)/2, caretX;

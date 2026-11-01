@@ -59,6 +59,11 @@ UINT window_dpi(HWND window) {
 class LyricsHost::Impl : public ui_element_instance_callback_receiver {
 public:
     ~Impl() { release(); }
+    void set_light(bool light) {
+        if(light_==light)return;
+        light_=light;
+        if(healthy())instance_->notify(ui_element_notify_colors_changed,0,nullptr,0);
+    }
 
     nlohmann::json update(const nlohmann::json& request) {
         if (!core_api::is_main_thread())
@@ -116,15 +121,15 @@ public:
         const bool ready = healthy();
         bool segoe=false,simsun=false,inter=false,yahei=false;
         if(ready)try{auto cfg=instance_->get_configuration();std::string data(static_cast<const char*>(cfg->get_data()),cfg->get_data_size());yahei=data.find("Microsoft YaHei UI")!=std::string::npos;inter=data.find("Inter")!=std::string::npos;segoe=data.find("Segoe UI")!=std::string::npos;simsun=data.find("SimSun")!=std::string::npos;}catch(...){}
-        return {{"ready", ready}, {"visible", ready && visible_ && IsWindowVisible(window_) != FALSE}, {"error", error_},{"configuration_yahei_ui",yahei},{"configuration_inter",inter},{"configuration_segoe_ui",segoe},{"configuration_simsun",simsun}};
+        return {{"ready", ready}, {"visible", ready && visible_ && IsWindowVisible(window_) != FALSE}, {"error", error_},{"appearance",light_?"light":"dark"},{"configuration_yahei_ui",yahei},{"configuration_inter",inter},{"configuration_segoe_ui",segoe},{"configuration_simsun",simsun}};
     }
 
     bool query_color(const GUID& which, t_ui_color& result) override {
-        if (which == ui_color_background) result = RGB(18, 18, 18);
-        else if (which == ui_color_text) result = RGB(225, 225, 225);
-        else if (which == ui_color_highlight) result = RGB(30, 215, 96);
-        else if (which == ui_color_selection) result = RGB(60, 60, 60);
-        else if (which == ui_color_darkmode) result = 0;
+        if (which == ui_color_background) result = light_?RGB(255,255,255):RGB(18,18,18);
+        else if (which == ui_color_text) result = light_?RGB(28,39,33):RGB(225,225,225);
+        else if (which == ui_color_highlight) result = light_?RGB(8,127,73):RGB(30,215,96);
+        else if (which == ui_color_selection) result = light_?RGB(220,231,224):RGB(60,60,60);
+        else if (which == ui_color_darkmode) result = light_?RGB(255,255,255):0;
         else return false;
         return true;
     }
@@ -144,6 +149,7 @@ private:
     HFONT font_ = nullptr;
     UINT dpi_ = 0;
     bool visible_ = false;
+    bool light_ = false;
     std::string error_;
     std::string lastConfiguration_;
     ui_element::ptr element_;
@@ -234,4 +240,5 @@ LyricsHost::LyricsHost() : impl_(std::make_unique<Impl>()) {}
 LyricsHost::~LyricsHost() = default;
 nlohmann::json LyricsHost::update(const nlohmann::json& request) { return impl_->update(request); }
 nlohmann::json LyricsHost::status() const { return impl_->status(); }
+void LyricsHost::set_light(bool light) { impl_->set_light(light); }
 }

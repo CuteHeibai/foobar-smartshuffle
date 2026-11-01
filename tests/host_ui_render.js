@@ -37,6 +37,15 @@
   fg=frame.GetGraphics();fg.FillSolidRect(0,0,500,150,COL.black);ssPaintInteractions(fg);frame.ReleaseGraphics(fg);check(white(colour(frame,160,70,50,8)),'Hover jump redraws skipped row pixels after a cleared damage band');
   my=10;fg=frame.GetGraphics();ssPaintInteractions(fg);frame.ReleaseGraphics(fg);ssQueueInteractionDamage({x:0,y:100,w:500,h:50});fg=frame.GetGraphics();fg.FillSolidRect(0,0,500,150,COL.black);ssPaintInteractions(fg);frame.ReleaseGraphics(fg);check(white(colour(frame,160,120,50,8)),'Pointer reversal restores pixels from previously queued hover damage');
   ssQueueInteractionDamage(R.main);fg=frame.GetGraphics();fg.FillSolidRect(0,0,500,200,COL.black);ssPaintInteractions(fg);frame.ReleaseGraphics(fg);check(white(colour(frame,160,70,50,8))&&white(colour(frame,160,120,50,8)),'Drag repaint retains every unrelated song row in the cleared panel');R=oldR;
+  var oldAppearance=SS_APPEARANCE;ssApplyAppearance('light');
+  var lightImage=gdi.CreateImage(500,300),lg=lightImage.GetGraphics();lg.FillSolidRect(0,0,500,300,COL.black);panelBg(lg,{x:10,y:10,w:470,h:270},COL.base);lightImage.ReleaseGraphics(lg);
+  check(colour(lightImage,50,50,30,30)===0xffffff,'Actual light panel uses an opaque white surface');
+  var corner=colour(lightImage,10,10,1,1),canvas=colour(lightImage,0,0,1,1);
+  check(corner===canvas,'Light rounded corners match an actual opaque canvas sample ('+corner.toString(16)+' / '+canvas.toString(16)+')');
+  var grid=ssGradientGrid(200);check((colour(grid,10,10,10,10)&255)>180,'Preference grid rebuilds with the light pastel gradient');
+  var oldPopup=ssPopup;ssPopup={x:20,y:60,levels:[{items:[{label:'浅色菜单'}],scroll:0,selected:-1}]};lg=lightImage.GetGraphics();ssDrawPopup(lg);lightImage.ReleaseGraphics(lg);
+  check(colour(lightImage,35,65,4,4)===0xffffff,'Actual nested-menu renderer uses the light popup surface');ssPopup=oldPopup;ssApplyAppearance(oldAppearance);
+  check(COL.base===(oldAppearance==='light'?ssPalette('light'):ssPalette('dark')).base,'Returning to the previous appearance restores its palette');
   for(var pi=0;pi<plman.PlaylistCount;pi++){if(isHiddenPl(plman.GetPlaylistName(pi)))continue;var handles=plman.GetPlaylistItems(pi);if(handles.Count>=2){result.context={playlist:pi,items:[0,1],tracks:[ssTrackID(handles[0]),ssTrackID(handles[1])],path:handles[0].Path,raw:handles[0].RawPath};break;}}
   check(!!result.context,'Real JSplitter handles supply a native playlist context payload');result.ok=true;
  }catch(error){if(typeof oldR!=="undefined")R=oldR;result.error=String(error);}

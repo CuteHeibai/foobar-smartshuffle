@@ -104,6 +104,8 @@ public:
     std::unique_ptr<native_ss::Updater> updater;
     std::string edition="core";bool updateNotified=false;
     std::string themeVersion;
+    std::string themeAppearance="dark";
+    std::string themeRenderedAppearance;
     uint64_t themeWindow=0;
     bool themeUIWizard=false,themeChromeReady=false;
     json themeLayout=json::object();
@@ -128,10 +130,12 @@ public:
         try{auto j=readjson(root/L"store.json");if(j.value("version",1)==1){temporarySources=j.value("temporary_sources",decltype(temporarySources){});lifetime=j.value("lifetime",decltype(lifetime){});roundAudio=j.value("round_audio",decltype(roundAudio){});enabled=j.value("enabled",true);source=j.value("source",std::string{});rounds=j.value("rounds",decltype(rounds){});recent=j.value("recent",decltype(recent){});scanPaused=j.value("scanPaused",false);}}catch(const std::exception& e){error=std::string("恢复轮次失败，已保留原文件：")+e.what();}
         try{auto j=readjson(root/L"features.json");if(j.is_object())cache=std::move(j);}catch(...){error="音频特征缓存无法读取，将重新分析";}
         lyrics=std::make_unique<native_ss::LyricsHost>();
+        try{if(readjson(root/L"store.json").value("appearance",std::string("dark"))=="light")themeAppearance="light";}catch(...){}
         metadata=std::make_unique<native_ss::MetadataWorker>(root);
         auto hasTheme=fs::exists(root.parent_path()/L"verdant"/L"main.js");
         try{edition=native_ss::installation_edition(readjson(root/L"installation.json"),hasTheme);}catch(...){edition=hasTheme?"full":"core";}
         if(edition!="full")edition="core";
+        lyrics->set_light(themeAppearance=="light");
         if(edition=="full")localLabels=std::make_unique<LocalLabels>(root.parent_path()/L"verdant"/L"locale"/L"zh-CN.json");
         updater=std::make_unique<native_ss::Updater>(root,SS_VERSION,edition);
         native_ss::set_dialog_handlers([this](json req){dispatch(req);changed=true;publish();return response;},[this]{return dialog_state();});
@@ -170,7 +174,7 @@ public:
     std::vector<ss::Track> remaining_tracks(){std::set<std::string> ids(round().remaining.begin(),round().remaining.end());std::vector<ss::Track> ret;for(auto& t:tracks)if(ids.count(t.id))ret.push_back(t);return ret;}
     json track_json(const std::string& id){auto it=std::find_if(tracks.begin(),tracks.end(),[&](const ss::Track& t){return t.id==id;});if(it!=tracks.end())return {{"id",id},{"title",it->title},{"artist",it->artist},{"duration",it->duration},{"analyzed",!it->features.empty()}};return {{"id",id},{"title",id},{"artist",""}};}
     json list_json(const std::vector<std::string>& ids,size_t limit=SIZE_MAX){json a=json::array();for(size_t i=0;i<ids.size()&&i<limit;++i)a.push_back(track_json(ids[i]));return a;}
-    void save(){try{writejson(root/L"store.json",{{"version",1},{"enabled",enabled},{"source",source},{"rounds",rounds},{"temporary_sources",temporarySources},{"layout_reset",uiLayoutReset},{"recent",recent},{"lifetime",lifetime},{"round_audio",roundAudio},{"scanPaused",scanPaused}});}catch(const std::exception& e){error=e.what();}}
+    void save(){try{writejson(root/L"store.json",{{"version",1},{"enabled",enabled},{"source",source},{"rounds",rounds},{"temporary_sources",temporarySources},{"layout_reset",uiLayoutReset},{"recent",recent},{"lifetime",lifetime},{"round_audio",roundAudio},{"scanPaused",scanPaused},{"appearance",themeAppearance}});}catch(const std::exception& e){error=e.what();}}
     json dialog_state(){
         json j={{"component",SS_VERSION},{"revision",revision},{"preview_pending",previewDirty||previewWork.valid()},{"point",source.empty()?ss::Point{}:round().preference},{"update",updater->status()}};
         j["preview"]=preview?json{{"token",preview->token},{"revision",preview->revision},{"point",preview->point},{"tracks",list_json(preview->order,8)}}:json(nullptr);return j;
@@ -193,7 +197,7 @@ public:
         }
         size_t completed=0,failed=0;for(auto& t:tracks){auto fp=fingerprint(handles[t.id]);if(cache.contains(fp)){if(cache[fp].contains("features"))++completed;else ++failed;}}
         j["scan"]={{"paused",scanPaused},{"completed",completed},{"failed",failed},{"total",tracks.size()},{"pending",scanner?scanner->pending():0},{"revision",scanRevision}};
-        j["theme"]={{"version",themeVersion},{"window",themeWindow},{"ui_wizard",themeUIWizard},{"chrome_ready",themeChromeReady},{"layout",themeLayout}};
+        j["theme"]={{"version",themeVersion},{"window",themeWindow},{"ui_wizard",themeUIWizard},{"chrome_ready",themeChromeReady},{"appearance",themeAppearance},{"rendered_appearance",themeRenderedAppearance},{"layout",themeLayout}};
         MONITORINFO display{sizeof(display)};
         if(GetMonitorInfoW(MonitorFromWindow(core_api::get_main_window(),MONITOR_DEFAULTTONEAREST),&display)){
             auto work=display.rcWork;
@@ -393,7 +397,7 @@ public:
         }
         if(auto module=LoadLibraryW(L"dwmapi.dll")){
             using SetAttribute=HRESULT(WINAPI*)(HWND,DWORD,LPCVOID,DWORD);
-            if(auto set=reinterpret_cast<SetAttribute>(GetProcAddress(module,"DwmSetWindowAttribute"))){BOOL dark=TRUE;COLORREF color=RGB(0,0,0);set(rootWindow,20,&dark,sizeof(dark));set(rootWindow,34,&color,sizeof(color));}
+            if(auto set=reinterpret_cast<SetAttribute>(GetProcAddress(module,"DwmSetWindowAttribute"))){BOOL dark=themeAppearance!="light";COLORREF color=dark?RGB(0,0,0):RGB(238,242,240);set(rootWindow,20,&dark,sizeof(dark));set(rootWindow,34,&color,sizeof(color));}
             FreeLibrary(module);
         }
     }
@@ -430,8 +434,18 @@ public:
         if(req.value("version",0)!=1)throw std::runtime_error("不支持的接口版本");
         if(req.contains("theme_version")){themeVersion=req.at("theme_version").get<std::string>();themeWindow=req.value("theme_window",uint64_t(0));themeUIWizard=req.value("ui_wizard",false);hoverFocus.set_surface(reinterpret_cast<HWND>(static_cast<uintptr_t>(themeWindow)));darken_frame();}
         if(req.contains("theme_chrome_ready")){themeChromeReady=req.at("theme_chrome_ready").get<bool>();darken_frame();}
+        if(req.contains("theme_color")){
+            auto mode=req.at("theme_color").get<std::string>();
+            if(mode=="light"||mode=="dark")themeRenderedAppearance=mode;
+        }
         if(req.contains("theme_layout")){auto input=req.at("theme_layout");for(auto key:{"width","height","nav","right","info","tools","density","row_height","cover_size","reset"})if(input.contains(key)&&input[key].is_number())themeLayout[key]=input[key];}
-        if(op=="open"){++uiOpen;make_preview(req,true);}
+        if(op=="theme_appearance"){
+            if(edition!="full")throw std::runtime_error("外观切换仅适用于完整主题版");
+            auto mode=req.at("appearance").get<std::string>();
+            if(mode!="light"&&mode!="dark")throw std::runtime_error("不支持的主题外观");
+            themeAppearance=mode;lyrics->set_light(mode=="light");darken_frame();save();response["appearance"]=mode;
+        }
+        else if(op=="open"){++uiOpen;make_preview(req,true);}
         else if(op=="metadata"){
             auto task=req.value("task",std::string{});if(task!="search"&&task!="artist_lookup"&&task!="artist_confirm"&&task!="artist_auto"&&task!="covers")throw std::runtime_error("未知信息任务");
             metadataState[task]={{"pending",true},{"id",req.value("id",std::string{})}};metadata->enqueue(req);

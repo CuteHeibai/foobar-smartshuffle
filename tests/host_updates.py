@@ -25,10 +25,14 @@ def wait_apply():
  while not fixture('panel')['apply_enabled']:
   assert time.monotonic()<until,'Native window did not display its completed preview'
   time.sleep(.05)
-s=b.wait(lambda s:s.get('component')=='1.0.6' and s.get('edition')=='core' and
+s=b.wait(lambda s:s.get('component')=='1.0.7' and s.get('edition')=='core' and
          (not os.environ.get('SS_TEST_PID') or s.get('pid')==int(os.environ['SS_TEST_PID'])))
 check(s['fonts']['private_resources']>=3,'Standalone privately loads the bundled Inter fonts')
 check(not s['theme']['version'],'Standalone loads without a project theme')
+unchanged=s['theme']['appearance']
+rejected=b.request('theme_appearance',appearance='light')
+check(not rejected['response']['ok'] and rejected['theme']['appearance']==unchanged,
+      'Standalone rejects theme changes and preserves existing appearance preferences')
 components=b.request('outputs')['response']['components']
 check(not any(c['file'] in {'foo_ui_columns','foo_uie_jsplitter','foo_uie_eslyric','foo_ui_wizard'} for c in components),'Standalone requires no optional UI components')
 s=b.wait(lambda s:s['update'].get('checked_at'),timeout=35)

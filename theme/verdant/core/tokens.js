@@ -9,13 +9,37 @@ function RGBA(r,g,b,a){ return ((a<<24)|(r<<16)|(g<<8)|b); }
 /* ------------------------- tokens -------------------------
    The two knobs worth touching are UISCALE (a panel property now -- see core/props.js) and
    M.navW / M.queueW (sidebar and queue-pane widths). Everything else is derived layout. */
-var COL = {
+var SS_APPEARANCE='dark';try{if(window.GetProperty('SmartShuffle: appearance','dark')==='light')SS_APPEARANCE='light';}catch(e){}
+function ssAlpha(c,a){return ((a<<24)|(c&0xffffff));}
+function ssInk(a){return ssAlpha(COL.text,a);}
+function ssAccent(a){return ssAlpha(COL.green,a);}
+function ssPalette(mode){
+  if(mode==='light')return {
+    black:RGB(238,242,240),base:RGB(255,255,255),elev:RGB(246,249,247),hover:RGB(229,236,232),
+    text:RGB(28,39,33),text2:RGB(79,96,86),text3:RGB(98,114,104),
+    green:RGB(8,127,73),greenC:RGB(7,118,68),greenHover:RGB(6,105,60),
+    rowHover:RGBA(28,39,33,14),rowActive:RGBA(8,127,73,28),line:RGBA(28,39,33,28),seekbg:RGB(201,213,206),
+    popup:RGB(255,255,255),popupAlt:RGB(255,255,255),button:RGB(234,240,236),buttonHover:RGB(220,231,224),
+    input:RGB(239,244,241),banner:RGB(242,246,244),cardHover:RGB(232,240,235),skeleton:RGB(227,234,230),
+    pill:RGB(237,243,239),accentMuted:RGB(215,232,222),onAccent:RGB(255,255,255),onDanger:RGB(255,255,255),
+    danger:RGB(181,46,55),dangerHover:RGB(159,33,43),error:RGB(173,52,52),
+    shadow:RGBA(24,45,33,28),scrim:RGBA(23,39,30,62),modalScrim:RGBA(23,39,30,72),
+    play:RGB(8,127,73),onPlay:RGB(255,255,255)
+  };
+  return {
   black:RGB(0,0,0), base:RGB(18,18,18), elev:RGB(24,24,24), hover:RGB(42,42,42),
   text:RGB(255,255,255), text2:RGB(179,179,179), text3:RGB(106,106,106),
   green:RGB(30,215,96), greenC:RGB(29,185,84),
   rowHover:RGBA(255,255,255,18), rowActive:RGBA(255,255,255,38),
-  line:RGBA(255,255,255,28), seekbg:RGB(77,77,77)
-};
+  line:RGBA(255,255,255,28), seekbg:RGB(77,77,77),greenHover:RGB(45,215,110),
+  popup:RGB(35,35,35),popupAlt:RGB(43,43,43),button:RGB(52,52,52),buttonHover:RGB(66,66,66),
+  input:RGB(62,62,62),banner:RGB(34,34,34),cardHover:RGB(40,40,40),skeleton:RGB(30,30,30),
+  pill:RGBA(0,0,0,90),accentMuted:RGB(60,92,74),onAccent:RGB(0,0,0),onDanger:RGB(255,255,255),
+  danger:RGB(224,72,72),dangerHover:RGB(240,96,96),error:RGB(245,150,130),
+  shadow:RGBA(0,0,0,110),scrim:RGBA(0,0,0,150),modalScrim:RGBA(0,0,0,188),
+  play:RGB(255,255,255),onPlay:RGB(0,0,0)
+};}
+var COL=ssPalette(SS_APPEARANCE);
 var M = { pad:8, gap:8, navW:210, queueW:350, barH:96, navTopH:84, rowH:56, cardTextH:56, radius:10, cpad:24, headH:280, artSz:200 };
 var PALETTE=[RGB(83,62,140),RGB(30,120,110),RGB(150,64,92),RGB(43,92,160),RGB(120,92,44),RGB(58,120,64),RGB(140,80,120),RGB(52,100,150),RGB(96,72,52),RGB(70,70,96)];
 

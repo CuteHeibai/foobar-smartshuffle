@@ -85,8 +85,8 @@ function drawRgPrompt(gr){
    applying them), so it can never claim to be on while doing nothing. */
 function drawNormalizePill(gr,x,y,w,h){
   var on=rgActive(), hot=hv(x,y,x+w,y+h);
-  gr.FillRoundRect(x,y,w,h,h/2,h/2,on?(hot?RGB(45,215,110):COL.green):(hot?RGB(58,58,58):RGBA(0,0,0,90)));
-  var col=on?COL.black:COL.text;
+  gr.FillRoundRect(x,y,w,h,h/2,h/2,on?(hot?COL.greenHover:COL.green):(hot?COL.buttonHover:COL.pill));
+  var col=on?COL.onAccent:COL.text;
   drawIcon(gr,'equalizer',col,x+14,y+(h-20)/2,20,20,18);
   tL(gr,'音量均衡',FONT.pl,col,x+42,y,w-56,h);
   return {x0:x,y0:y,x1:x+w,y1:y+h};

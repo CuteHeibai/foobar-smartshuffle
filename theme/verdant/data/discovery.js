@@ -24,7 +24,7 @@ function ssDrawArtistAvatar(gr,x,y,size,name){
   if(img)gr.DrawImage(img,x,y,size,size,0,0,size,size);
   else{
     gr.FillEllipse(x,y,size,size,coverCol(name));var letters=Array.from(String(ssArtistName(name))).slice(0,2).join(''),pad=Math.ceil(size*.2),box=size-pad*2;
-    var font=ssFitFont(gr,ssScriptFont(letters,FONT.title),box,letters,box);tC(gr,letters,font,COL.text,x+pad,y+pad,box,box);
+    var font=ssFitFont(gr,ssScriptFont(letters,FONT.title),box,letters,box);tC(gr,letters,font,RGB(255,255,255),x+pad,y+pad,box,box);
   }
 }
 var ssArtistAutoRequest='',ssArtistAutoName='',ssArtistAutoStatus={};

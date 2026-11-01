@@ -12,7 +12,7 @@ function drawPlaylist(gr,r){
     if(metaOk || skelVisible('meta'+p.i)) drawViewSkeleton(gr,r);
     return;
   }
-  gr.FillGradRect(r.x,r.y,r.w,M.headH,90,blend(artHue(plChoice(p.i).single,p.name),COL.base,0.42),COL.base,1.0);
+  gr.FillGradRect(r.x,r.y,r.w,M.headH,90,blend(artHue(plChoice(p.i).single,p.name),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
   var s=ssDensity,compact=r.w<800*s, ax=r.x+M.cpad, ay=r.y+(compact?22:44)*s, art=M.artSz;
   drawPlCover(gr,ax,ay,art,8,p.i,p.name);
   var addW=Math.min(136*s,r.w-art-48*s),addX=r.x+r.w-M.cpad-addW,addY=r.y+10*s;
@@ -82,7 +82,7 @@ function drawPlaylist(gr,r){
   // the empty-state zone isn't on screen here, so outline the list itself as the target
   if(plDropHover){
     var iy=rowsTop-rh, ih=cropY-iy, ix=lx-12, iw=rx-lx+24, ir=Math.min(12,iw/2,ih/2);
-    gr.FillRoundRect(ix,iy,iw,ih,ir,ir,RGBA(30,215,96,20));
+    gr.FillRoundRect(ix,iy,iw,ih,ir,ir,ssAccent(20));
     strokeRound(gr,ix,iy,iw,ih,ir,2,COL.green);
     var lh=34, ly=iy+ih-lh-18, lw=Math.min(iw-32,pillW(gr,'拖入以添加到此歌单'));
     if(lw>=lh && ih>lh+36){                                  // radius is lh/2, so lw must clear it
@@ -105,7 +105,7 @@ function drawPlEmpty(gr,r,top,bottom){
   var y=top+Math.round((availH-blockH)/2);
   if(badge){
     var bs=64, bx=cx-bs/2;
-    gr.FillEllipse(bx,y,bs,bs,RGBA(255,255,255,16));
+    gr.FillEllipse(bx,y,bs,bs,ssInk(16));
     drawIcon(gr,'add',COL.text2,bx,y,bs,bs,26);
     y+=86;
   }
@@ -122,7 +122,7 @@ function drawPlEmpty(gr,r,top,bottom){
 function drawDropZone(gr,cx,top,availW,availH){
   var bw=Math.min(560,availW), bh=Math.min(260,availH-24);
   var bx=cx-Math.round(bw/2), by=top+Math.round((availH-bh)/2), rad=Math.min(14,bw/2,bh/2);
-  gr.FillRoundRect(bx,by,bw,bh,rad,rad,RGBA(30,215,96,26));
+  gr.FillRoundRect(bx,by,bw,bh,rad,rad,ssAccent(26));
   strokeRound(gr,bx,by,bw,bh,rad,2,COL.green);
   var iy=by+Math.round(bh/2)-40;
   drawIcon(gr,'add',COL.green,bx,iy,bw,34,34);

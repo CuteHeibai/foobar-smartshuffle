@@ -15,6 +15,8 @@ function ssShowPopup(items,x,y,token,nativeMenu){
 function ssStopMenuPoll(){if(ssMenuPollTimer)window.ClearInterval(ssMenuPollTimer);ssMenuPollTimer=0;}
 function ssClosePopup(){ssMenuKeepOpen();ssStopMenuPoll();ssPopup=null;SS_MENU_HB=[];ssPopupRestore=!!ssSceneImage;if(typeof ssDropPopupImage==='function')ssDropPopupImage();applyKeyMode();repaintAll();}
 function ssOpenNativeMenu(kind,args,x,y,extra){
+  if(kind==='main'&&args.root==='view'&&typeof ssAppearanceMenuItems==='function')
+    extra=[{label:'外观',children:ssAppearanceMenuItems()},{separator:true}].concat(extra||[]);
   ssShowPopup([{label:'正在读取菜单…',disabled:true}],x,y,'',true);
   ssPopup.root=kind==='main'?args.root:'';
   ssPopup.extra=extra||[];
@@ -48,15 +50,15 @@ function ssDrawPopup(gr){
     if(x+width>W-8)x=d?Math.max(8,previous.x-width-4):W-width-8;
     x=Math.max(8,x);y=Math.max(TBH+4,Math.min(y,H-height-8));
     level.max=Math.max(0,total-height);level.scroll=Math.max(0,Math.min(level.scroll,level.max));level.rect={x:x,y:y,w:width,h:height};
-    gr.FillRoundRect(x+3,y+4,width,height,7,7,RGBA(0,0,0,110));
-    gr.FillRoundRect(x,y,width,height,7,7,RGB(35,35,35));strokeRound(gr,x,y,width,height,7,1,RGBA(255,255,255,18));
+    gr.FillRoundRect(x+3,y+4,width,height,7,7,COL.shadow);
+    gr.FillRoundRect(x,y,width,height,7,7,COL.popup);strokeRound(gr,x,y,width,height,7,1,ssInk(18));
     var rowY=y+pad-level.scroll,anchor=y;
     for(i=0;i<items.length;i++){
       var it=items[i],ih=it.separator?9:rh;
       if(rowY>=y+pad&&rowY+ih<=y+height-pad){
-        if(it.separator)gr.FillSolidRect(x+10,rowY+4,width-20,1,RGBA(255,255,255,22));
+        if(it.separator)gr.FillSolidRect(x+10,rowY+4,width-20,1,ssInk(22));
         else{
-          if(level.selected===i)gr.FillRoundRect(x+4,rowY,width-8,ih,4,4,RGB(58,58,58));
+          if(level.selected===i)gr.FillRoundRect(x+4,rowY,width-8,ih,4,4,COL.buttonHover);
           if(it.checked)tC(gr,'✓',FONT.pl,COL.green,x+6,rowY,24,ih);
           tL(gr,ssMenuLabel(it.label),FONT.pl,it.disabled?COL.text3:COL.text,x+32,rowY,width-62,ih);
           if(it.children)tC(gr,'›',FONT.pl,COL.text2,x+width-27,rowY,20,ih);

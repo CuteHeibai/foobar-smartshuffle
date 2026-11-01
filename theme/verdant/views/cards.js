@@ -20,7 +20,7 @@ function drawPlaylistCard(gr,x,y,w,i,clipL,clipR){
   HB_CARD.push({x0:hx0,y0:y,x1:hx1,y1:y+h,kind:'pl',id:i});
 }
 function paintArtistCard(gr,x,y,w,a,hov){
-  gr.FillRoundRect(x,y,w,w+M.cardTextH,8,8,hov?RGB(40,40,40):COL.elev);
+  gr.FillRoundRect(x,y,w,w+M.cardTextH,8,8,hov?COL.cardHover:COL.elev);
   var cs=w-24;
   ssDrawArtistAvatar(gr,x+12,y+12,cs,a.name);
   tC(gr,ssArtistName(a.name),FONT.card,COL.text,x+12,y+cs+18,w-24,20);

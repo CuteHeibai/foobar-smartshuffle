@@ -237,7 +237,7 @@ var VIZ_SPOKE=0.645;               // spoke width as a share of its slot, so the
    shows. VIZ_N stays a multiple of this. */
 var VIZ_RN=36;
 var VIZ_WAVE_AMP=0.42;             // waveform: share of the half-height at full scale
-var VIZ_AXIS=RGBA(255,255,255,14); // the hairline the mirrored halves meet on
+var VIZ_AXIS=ssInk(14); // the hairline the mirrored halves meet on
 
 // ---- style 1: mirrored pill bars, Verdant green (the original, on the rebuilt analysis) ----
 function drawVizBars(gr,top,bot){
@@ -342,15 +342,15 @@ function drawFsBar(gr){
   var playing=fb.IsPlaying&&!fb.IsPaused, by=H-150;
   var sbX=72, sbW=W-144, sbY=by+30;
   var len=fb.PlaybackLength, pos=(drag==='seek')?dragFrac:(len>0?fb.PlaybackTime/len:0);
-  var rail=RGBA(255,255,255,55);
+  var rail=ssInk(55);
   HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,4,rail,pos);
   tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text2,sbX-54,sbY-6,46,16);
   tL(gr,fmtTime(len),FONT.time,COL.text2,sbX+sbW+8,sbY-6,46,16);
   var cxC=Math.round(W/2), cy=by+86, pb=56, pbx=cxC-pb/2, pby=cy-pb/2;
   ctrlBtn(gr,'shuffle',cxC-150,cy,pbShuffle,'shuffle');
   ctrlBtn(gr,'prev',cxC-84,cy,false,'prev');
-  gr.FillEllipse(pbx,pby,pb,pb,COL.text);
-  drawIcon(gr,playing?'pause':'play',COL.black,pbx,pby,pb,pb,Math.round(pb*0.5));
+  gr.FillEllipse(pbx,pby,pb,pb,COL.play);
+  drawIcon(gr,playing?'pause':'play',COL.onPlay,pbx,pby,pb,pb,Math.round(pb*0.5));
   HB_CTRL.push({x0:pbx,y0:pby,x1:pbx+pb,y1:pby+pb,act:'play'});
   ctrlBtn(gr,'next',cxC+84,cy,false,'next');
   ctrlBtn(gr,pbRepeat===2?'repeat1':'repeat',cxC+150,cy,pbRepeat>0,'repeat');

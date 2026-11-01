@@ -10,6 +10,7 @@ public:
     ~LyricsHost();
     nlohmann::json update(const nlohmann::json& request);
     nlohmann::json status() const;
+    void set_light(bool light);
     LyricsHost(const LyricsHost&) = delete;
     LyricsHost& operator=(const LyricsHost&) = delete;
 private:

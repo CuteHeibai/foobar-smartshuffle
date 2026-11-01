@@ -8,7 +8,8 @@ function ssGradientGrid(size){
   if(ssGridImage)try{ssGridImage.Dispose();}catch(e){}
   ssGridSize=size;ssGridImage=gdi.CreateImage(size,size);var g=ssGridImage.GetGraphics();
   function mix(a,b,t){return RGB(Math.round(a[0]+(b[0]-a[0])*t),Math.round(a[1]+(b[1]-a[1])*t),Math.round(a[2]+(b[2]-a[2])*t));}
-  for(var y=0;y<size;y+=4){var t=y/Math.max(1,size-1);g.FillGradRect(0,y,size,Math.min(4,size-y),0,mix([72,52,103],[26,93,99],t),mix([117,65,105],[32,106,71],t));}
+  var light=typeof SS_APPEARANCE!=='undefined'&&SS_APPEARANCE==='light';
+  for(var y=0;y<size;y+=4){var t=y/Math.max(1,size-1);g.FillGradRect(0,y,size,Math.min(4,size-y),0,mix(light?[228,222,247]:[72,52,103],light?[210,239,234]:[26,93,99],t),mix(light?[247,224,236]:[117,65,105],light?[213,239,217]:[32,106,71],t));}
   ssGridImage.ReleaseGraphics(g);return ssGridImage;
 }
 function ssDrawGlassBall(gr,gx,gy,size){
@@ -16,12 +17,12 @@ function ssDrawGlassBall(gr,gx,gy,size){
   for(var i=0;i<ssTrail.length;i++){
     var p=ssTrail[i],a=Math.max(0,1-(now-p.time)/260),r=4+9*a;
     var tx=gx+(p.x+1)*size/2,ty=gy+(1-p.y)*size/2;
-    gr.FillEllipse(tx-r,ty-r,r*2,r*2,RGBA(125,233,196,Math.round(44*a)));
+    gr.FillEllipse(tx-r,ty-r,r*2,r*2,ssAccent(Math.round(44*a)));
   }
   var bx=gx+(ssDraft.x+1)*size/2,by=gy+(1-ssDraft.y)*size/2;
   gr.FillEllipse(bx-24,by-24,48,48,RGBA(78,227,159,28));
   gr.FillEllipse(bx-17,by-17,34,34,RGBA(136,242,203,100));
-  gr.FillEllipse(bx-13,by-13,26,26,RGBA(96,230,169,145));
+  gr.FillEllipse(bx-13,by-13,26,26,ssAccent(175));
   gr.DrawEllipse(bx-16,by-16,32,32,1.5,RGBA(230,255,245,155));
   gr.FillEllipse(bx-10,by-11,12,7,RGBA(255,255,255,130));
   if(ssTrail.length)ssRepaintPreference();
@@ -29,8 +30,8 @@ function ssDrawGlassBall(gr,gx,gy,size){
 function ssRequestNativeLyrics(visible){
   var parent=Number(window.ID)||0, r=R.queue;
   if(!parent||!r) return;
-  var p={parent:parent,x:r.x+10,y:r.y+58,w:Math.max(1,r.w-20),h:Math.max(1,r.h-68),visible:!!visible};
-  var key=[parent,p.x,p.y,p.w,p.h,p.visible].join(',');
+  var p={parent:parent,x:r.x+10,y:r.y+58,w:Math.max(1,r.w-20),h:Math.max(1,r.h-68),visible:!!visible,appearance:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'};
+  var key=[parent,p.x,p.y,p.w,p.h,p.visible,p.appearance].join(',');
   if(key!==ssNativeLyricKey){ ssNativeLyricKey=key; ssSend('lyrics_panel',p); }
 }
 function ssSyncLyricPanel(){
@@ -64,7 +65,7 @@ function ssButton(gr,x,y,w,h,label,act,enabled,primary){
   var hot=hv(x,y,x+w,y+h), color=primary?(enabled?COL.green:COL.seekbg):(hot?COL.hover:COL.elev);
   gr.FillRoundRect(x,y,w,h,6,6,color);
   strokeRound(gr,x,y,w,h,6,1,enabled?COL.greenC:COL.line);
-  tC(gr,label,FONT.pl,primary&&enabled?COL.black:(enabled?COL.text:COL.text3),x,y,w,h);
+  tC(gr,label,FONT.pl,primary&&enabled?COL.onAccent:(enabled?COL.text:COL.text3),x,y,w,h);
   SS_HB.push({x0:x,y0:y,x1:x+w,y1:y+h,act:act,enabled:enabled});
 }
 function ssPreferenceLabel(){
@@ -100,8 +101,8 @@ function drawPreference(gr){
   gr.DrawImage(ssGradientGrid(size),gx,gy,size,size,0,0,size,size);
   for(var j=0;j<=4;j++){
     var p=Math.round(j*size/4);
-    gr.DrawLine(gx+p,gy,gx+p,gy+size,j===2?1.5:1,RGBA(255,255,255,j===2?60:25));
-    gr.DrawLine(gx,gy+p,gx+size,gy+p,j===2?1.5:1,RGBA(255,255,255,j===2?60:25));
+    gr.DrawLine(gx+p,gy,gx+p,gy+size,j===2?1.5:1,ssInk(j===2?60:25));
+    gr.DrawLine(gx,gy+p,gx+size,gy+p,j===2?1.5:1,ssInk(j===2?60:25));
   }
   strokeRound(gr,gx,gy,size,size,5,1,COL.greenC);
   tC(gr,'极少听',FONT.pl,COL.text2,m.rightX,gy+size/2-18,m.labelW,36);
@@ -115,7 +116,7 @@ function drawPreference(gr){
   ssButton(gr,x+24+(btnW+gap)*3,fy,btnW,bh,'回到中心','center',!ssApplyId,false);
   var ready=ssReady(), waiting=ssApplyId?'正在应用…':ready?'应用后按此预览顺序播放':(ssState&&ssState.preview_pending?'正在计算预览…':'正在等待预览…');
   var error=ssError||ssMessage||(ssState&&ssState.error)||'';
-  tL(gr,error||waiting,FONT.plSub,error?RGB(245,150,130):COL.text2,x+24,fy+42,w-304,28);
+  tL(gr,error||waiting,FONT.plSub,error?COL.error:COL.text2,x+24,fy+42,w-304,28);
   ssButton(gr,x+w-266,fy+46,110,40,'取消','cancel',!ssApplyId,false);
   ssButton(gr,x+w-144,fy+46,120,40,ssApplyId?'应用中…':'应用','apply',ready,true);
 }

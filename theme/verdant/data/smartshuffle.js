@@ -31,6 +31,7 @@ function ssAcceptState(s){
   if(ssState&&s.pid&&ssState.pid!==s.pid)ssSeenOpen=0;
   if(ssStarting)ssSeenOpen=s.ui_open||0;
   ssState=s;
+  if(s.theme&&typeof ssApplyAppearance==='function')ssApplyAppearance(s.theme.appearance);
   if(!ssStarting&&typeof ssApplyDefaultWindow==='function'){
     try{ssApplyDefaultWindow(false);}catch(e){console.log('Smart Shuffle window size: '+String(e));}
   }
@@ -82,7 +83,7 @@ function ssPoll(){
 function ssStart(){
   if(ssStarted) return;
   ssStarted=true;ssStarting=true;ssPoll();ssStarting=false;
-  ssSend('state',{theme_version:'1.0.6',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard});
+  ssSend('state',{theme_version:'1.0.7',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard,theme_color:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'});
   if(typeof ssReportLayout==='function')ssReportLayout();
   if(typeof UIWizard!=='undefined'&&UIWizard)window.SetTimeout(function(){
     ssSend('state',{theme_chrome_ready:ssConfigureChrome()});

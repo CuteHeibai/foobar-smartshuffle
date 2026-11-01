@@ -12,7 +12,7 @@ function ssConfigureChrome(){
   if(!UIWizard)return false;
   try{
     if(UIWizard.FrameStyle!==3)UIWizard.FrameStyle=3;
-    UIWizard.MoveStyle=0;UIWizard.DisableWindowSizing=false;UIWizard.DisableWindowMaximizing=false;UIWizard.DarkMode=true;
+    UIWizard.MoveStyle=0;UIWizard.DisableWindowSizing=false;UIWizard.DisableWindowMaximizing=false;UIWizard.DarkMode=typeof SS_APPEARANCE==='undefined'||SS_APPEARANCE==='dark';
     ssApplyDefaultWindow(false);
     capW=-1;applyCaption();
     return UIWizard.FrameStyle===3&&!UIWizard.DisableWindowSizing&&!UIWizard.DisableWindowMaximizing&&capW===W;
@@ -22,7 +22,7 @@ function openMenu(root,x,y){ ssOpenNativeMenu('main',{root:root},x,y); }
 
 // small hover "..." button; records a HB_DOTS target that opens the menu just below it
 function drawDots(gr,cx,cy,pl){
-  if(hv(cx,cy,cx+24,cy+24)) gr.FillEllipse(cx,cy,24,24,RGBA(255,255,255,26));
+  if(hv(cx,cy,cx+24,cy+24)) gr.FillEllipse(cx,cy,24,24,ssInk(26));
   drawIcon(gr,'more',COL.text,cx,cy,24,24,18);
   HB_DOTS.push({x0:cx-2,y0:cy-2,x1:cx+26,y1:cy+26,pl:pl,mx:cx,my:cy+26});
 }
@@ -42,11 +42,11 @@ var SB_NAV ={sw:5,min:30,track:16,on:150,off:80,key:'scrolln'};
 var SB_QUEUE={sw:6,min:36,track:20,on:175,off:95,key:'scrollq'};
 function drawSBV(gr,sx,top,h,scrollPx,maxPx,viewH,contentH,show,s){
   if(contentH<=viewH || h<=6 || !show) return null;
-  gr.FillSolidRect(sx,top,s.sw,h,RGBA(255,255,255,s.track));
+  gr.FillSolidRect(sx,top,s.sw,h,ssInk(s.track));
   var thumbH=Math.max(s.min,Math.round(h*viewH/contentH)); if(thumbH>h) thumbH=h;
   var ty=top+(maxPx>0?Math.round((h-thumbH)*scrollPx/maxPx):0);
   var on=(drag===s.key)||hv(sx-6,top,sx+s.sw+6,top+h);
-  gr.FillSolidRect(sx,ty,s.sw,thumbH,RGBA(255,255,255,on?s.on:s.off));
+  gr.FillSolidRect(sx,ty,s.sw,thumbH,ssInk(on?s.on:s.off));
   return {x0:sx-6,y0:top,x1:sx+s.sw+6,y1:top+h,top:top,h:h,thumbH:thumbH,maxPx:maxPx};
 }
 function drawScrollbar(gr,sx,top,h,sp,mp,vh,ch,show){ SB=drawSBV(gr,sx,top,h,sp,mp,vh,ch,show,SB_MAIN); }
@@ -67,11 +67,11 @@ function setScrollN(y){ if(!SBN) return; navScroll=navScrollT=Math.round(sbFrac(
 function drawScrollbarH(gr,sx,top,w,scrollX,maxX,viewW,contentW,show){
   if(contentW<=viewW || w<=6 || !show){ SBH=null; return; }   // hidden until the section is hovered
   var sh=5;
-  gr.FillSolidRect(sx,top,w,sh,RGBA(255,255,255,20));
+  gr.FillSolidRect(sx,top,w,sh,ssInk(20));
   var thumbW=Math.max(40,Math.round(w*viewW/contentW)); if(thumbW>w) thumbW=w;
   var tx=sx+(maxX>0?Math.round((w-thumbW)*scrollX/maxX):0);
   var on=(drag==='scrollh')||hv(sx,top-6,sx+w,top+sh+6);
-  gr.FillSolidRect(tx,top,thumbW,sh,RGBA(255,255,255,on?175:95));
+  gr.FillSolidRect(tx,top,thumbW,sh,ssInk(on?175:95));
   SBH={x0:sx,y0:top-6,x1:sx+w,y1:top+sh+6,left:sx,w:w,thumbW:thumbW,maxPx:HOME_PLMAX};
 }
 function setScrollH(x){   // free pixel scrolling; target set with it so the easing doesn't fight the drag
@@ -119,10 +119,10 @@ function roundBottom(gr,x,y,w,h){
 
 /* ---- modal dialogs: dim backdrop + drop-shadowed rounded panel, and a capsule button ---- */
 function modalPanel(gr,cw,ch,cy){
-  gr.FillSolidRect(0,0,W,H,RGBA(0,0,0,150));
+  gr.FillSolidRect(0,0,W,H,COL.scrim);
   var cx=Math.round((W-cw)/2);
-  gr.FillSolidRect(cx+4,cy+6,cw,ch,RGBA(0,0,0,140));
-  gr.FillRoundRect(cx,cy,cw,ch,12,12,RGB(42,42,42));
+  gr.FillSolidRect(cx+4,cy+6,cw,ch,COL.shadow);
+  gr.FillRoundRect(cx,cy,cw,ch,12,12,COL.hover);
   return cx;
 }
 function dlgBtn(gr,x,y,w,h,label,col,hcol,txt){
@@ -137,7 +137,7 @@ function drawOverlays(gr){
     var rw=Math.min(420,W-40), rhh=196, ry0=Math.round((H-rhh)/2), rx0=modalPanel(gr,rw,rhh,ry0);
     tL(gr,'重命名歌单',FONT.sect,COL.text,rx0+28,ry0+22,rw-56,26);
     var ix=rx0+28, iyf=ry0+64, iw=rw-56, ih=46;
-    gr.FillRoundRect(ix,iyf,iw,ih,6,6,RGB(62,62,62));
+    gr.FillRoundRect(ix,iyf,iw,ih,6,6,COL.input);
     var tw3=gr.CalcTextWidth(renameEdit.text,FONT.pl);
     tL(gr,renameEdit.text,FONT.pl,COL.text,ix+14,iyf,iw-28,ih);
     if(caretOn){ var cxr=ix+14+Math.min(iw-30,tw3)+2; gr.FillSolidRect(cxr,iyf+Math.round((ih-20)/2),2,20,COL.text); }
@@ -145,8 +145,8 @@ function drawOverlays(gr){
     var bw=118, bh=40, by=ry0+rhh-bh-22, dx=rx0+rw-28-bw, ccx=dx-14-bw;
     RENAME_HB={
       panel:{x0:rx0,y0:ry0,x1:rx0+rw,y1:ry0+rhh},
-      cancel:dlgBtn(gr,ccx,by,bw,bh,'取消',RGB(52,52,52),RGB(66,66,66),COL.text),
-      save:dlgBtn(gr,dx,by,bw,bh,'保存',canSave?COL.green:RGB(60,92,74),canSave?RGB(45,215,110):RGB(60,92,74),canSave?COL.black:COL.text3),
+      cancel:dlgBtn(gr,ccx,by,bw,bh,'取消',COL.button,COL.buttonHover,COL.text),
+      save:dlgBtn(gr,dx,by,bw,bh,'保存',canSave?COL.green:COL.accentMuted,canSave?COL.greenHover:COL.accentMuted,canSave?COL.onAccent:COL.text3),
       canSave:canSave
     };
   }
@@ -157,12 +157,12 @@ function drawOverlays(gr){
     iw=Math.min(iw,Math.max(120,W-20));
     var h=ctxMenu.items.length*ih+pad*2;
     var mnx=Math.max(10,Math.min(ctxMenu.x,W-iw-10)), mny=Math.max(10,Math.min(ctxMenu.y,H-h-10));
-    gr.FillSolidRect(mnx+3,mny+4,iw,h,RGBA(0,0,0,120));       // soft shadow
-    gr.FillRoundRect(mnx,mny,iw,h,8,8,RGB(43,43,43));
+    gr.FillSolidRect(mnx+3,mny+4,iw,h,COL.shadow);       // soft shadow
+    gr.FillRoundRect(mnx,mny,iw,h,8,8,COL.popupAlt);
     for(i=0;i<ctxMenu.items.length;i++){
       var iy=mny+pad+i*ih; it=ctxMenu.items[i];
-      if(hv(mnx,iy,mnx+iw,iy+ih)) gr.FillRoundRect(mnx+4,iy,iw-8,ih,5,5,RGBA(255,255,255,20));
-      tL(gr,it.label,FONT.pl,it.danger?RGB(240,96,96):COL.text,mnx+16,iy,iw-24,ih);
+      if(hv(mnx,iy,mnx+iw,iy+ih)) gr.FillRoundRect(mnx+4,iy,iw-8,ih,5,5,ssInk(20));
+      tL(gr,it.label,FONT.pl,it.danger?COL.dangerHover:COL.text,mnx+16,iy,iw-24,ih);
       CTX_HB.push({x0:mnx,y0:iy,x1:mnx+iw,y1:iy+ih,act:it.act});
     }
   }
@@ -173,8 +173,8 @@ function drawOverlays(gr){
     tL(gr,'将从音乐库移除歌单「'+confirmDel.name+'」。',FONT.pl,COL.text2,cx+28,cy+58,cw-56,40);
     var cbw=118, cbh=40, cby=cy+ch-cbh-22, cdx=cx+cw-28-cbw, cccx=cdx-14-cbw;
     CONF_HB={
-      cancel:dlgBtn(gr,cccx,cby,cbw,cbh,'取消',RGB(52,52,52),RGB(66,66,66),COL.text),
-      del:dlgBtn(gr,cdx,cby,cbw,cbh,'删除',RGB(224,72,72),RGB(240,96,96),COL.text)
+      cancel:dlgBtn(gr,cccx,cby,cbw,cbh,'取消',COL.button,COL.buttonHover,COL.text),
+      del:dlgBtn(gr,cdx,cby,cbw,cbh,'删除',COL.danger,COL.dangerHover,COL.onDanger)
     };
   }
   if(dupPrompt) drawDupPrompt(gr);
@@ -190,8 +190,8 @@ function tPara(gr,s,f,c,x,y,w,lh){
 function winMaxed(){ if(!UIWizard) return false; try{ return UIWizard.WindowState===1; }catch(e){ return false; } }
 function drawCapBtn(gr,glyph,x,w,isClose){
   var hover=hv(x,0,x+w,TBH);
-  if(hover) gr.FillSolidRect(x,0,w,TBH,isClose?RGB(232,17,35):RGB(48,48,48));
-  tC(gr,glyph,FONT.cap,(hover&&isClose)?COL.text:COL.text2,x,0,w,TBH);
+  if(hover) gr.FillSolidRect(x,0,w,TBH,isClose?RGB(232,17,35):COL.hover);
+  tC(gr,glyph,FONT.cap,(hover&&isClose)?COL.onDanger:COL.text2,x,0,w,TBH);
 }
 function drawTitleBar(gr){
   gr.FillSolidRect(0,0,W,TBH,COL.black);
@@ -199,7 +199,7 @@ function drawTitleBar(gr){
   HB_MENU=[]; var mx0=12;
   for(var mi=0;mi<MENUS.length;mi++){
     var lbl=MENUS[mi][0], mw=gr.CalcTextWidth(lbl,FONT.menu)+24, mhover=hv(mx0,0,mx0+mw,TBH);
-    if(mhover) gr.FillSolidRect(mx0,0,mw,TBH,RGB(40,40,40));
+    if(mhover) gr.FillSolidRect(mx0,0,mw,TBH,COL.cardHover);
     tC(gr,lbl,FONT.menu,mhover?COL.text:COL.text2,mx0,0,mw,TBH);
     HB_MENU.push({x0:mx0,y0:0,x1:mx0+mw,y1:TBH,root:MENUS[mi][1],mx:mx0});
     mx0+=mw;
@@ -217,7 +217,7 @@ function drawTitleBar(gr){
    the All Songs group-by; items are [label,value] pairs and the menu is drawn last so it
    floats over the track list. ---- */
 function drawDropPill(gr,x,y,w,h,label,open){
-  gr.FillRoundRect(x,y,w,h,h/2,h/2,(open||hv(x,y,x+w,y+h))?RGB(58,58,58):RGBA(0,0,0,90));
+  gr.FillRoundRect(x,y,w,h,h/2,h/2,(open||hv(x,y,x+w,y+h))?COL.buttonHover:COL.pill);
   tL(gr,label,FONT.pl,COL.text,x+18,y,w-46,h);
   drawIcon(gr,'chevron',COL.text2,x+w-32,y+(h-20)/2,20,20,18);
   return {x0:x,y0:y,x1:x+w,y1:y+h};
@@ -226,11 +226,11 @@ function drawDropMenu(gr,anchor,items,cur,minW){
   var out=[];
   if(!anchor) return out;
   var bw=Math.max(minW,anchor.x1-anchor.x0), ih=40, bx=anchor.x1-bw, iy=anchor.y1+6, bh=items.length*ih+10;
-  gr.FillSolidRect(bx+3,iy+4,bw,bh,RGBA(0,0,0,120));
-  gr.FillRoundRect(bx,iy,bw,bh,8,8,RGB(43,43,43));
+  gr.FillSolidRect(bx+3,iy+4,bw,bh,COL.shadow);
+  gr.FillRoundRect(bx,iy,bw,bh,8,8,COL.popupAlt);
   for(var i=0;i<items.length;i++){
     var ry=iy+5+i*ih;
-    if(hv(bx,ry,bx+bw,ry+ih)) gr.FillRoundRect(bx+4,ry,bw-8,ih,5,5,RGBA(255,255,255,20));
+    if(hv(bx,ry,bx+bw,ry+ih)) gr.FillRoundRect(bx+4,ry,bw-8,ih,5,5,ssInk(20));
     tL(gr,items[i][0],FONT.pl,(items[i][1]===cur)?COL.green:COL.text,bx+18,ry,bw-30,ih);
     out.push({x0:bx,y0:ry,x1:bx+bw,y1:ry+ih,v:items[i][1]});
   }
@@ -238,7 +238,7 @@ function drawDropMenu(gr,anchor,items,cur,minW){
 }
 
 function drawSortDirBtn(gr,x,y,w,h){
-  gr.FillRoundRect(x,y,w,h,h/2,h/2,hv(x,y,x+w,y+h)?RGB(58,58,58):RGBA(0,0,0,90));
+  gr.FillRoundRect(x,y,w,h,h/2,h/2,hv(x,y,x+w,y+h)?COL.buttonHover:COL.pill);
   drawIcon(gr,plSortDir==='asc'?'sortAsc':'sortDesc',COL.text,x,y,w,h,18);
   HB_PLSORTDIR={x0:x,y0:y,x1:x+w,y1:y+h};
 }

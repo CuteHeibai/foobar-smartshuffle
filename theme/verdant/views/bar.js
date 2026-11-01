@@ -29,8 +29,8 @@ function drawBar(gr){
   var centerW=W-R.barInfoW-R.barToolsW,cxC=Math.round(R.barInfoW+centerW/2);
   var pcy=by+34*s, pb=(hv(cxC-27*s,by+7*s,cxC+27*s,by+61*s)?52:48)*s, pbx=cxC-pb/2, pby=pcy-pb/2;
   ctrlBtn(gr,'prev',cxC-58*s,pcy,false,'prev',22*s,26*s);
-  gr.FillEllipse(pbx,pby,pb,pb,COL.text);
-  drawIcon(gr,playing?'pause':'play',COL.black,pbx,pby,pb,pb,Math.round(pb*0.5));
+  gr.FillEllipse(pbx,pby,pb,pb,COL.play);
+  drawIcon(gr,playing?'pause':'play',COL.onPlay,pbx,pby,pb,pb,Math.round(pb*0.5));
   HB_CTRL.push({x0:pbx,y0:pby,x1:pbx+pb,y1:pby+pb,act:'play'});
   ctrlBtn(gr,'next',cxC+58*s,pcy,false,'next',22*s,26*s);
   var sbW=Math.max(60,Math.min(centerW-112*s,560*s)), sbX=cxC-sbW/2, sbY=by+74*s;
@@ -45,7 +45,7 @@ function drawBar(gr){
   HB_CTRL.push({x0:prefX,y0:by+4*s,x1:prefX+modeW,y1:by+34*s,act:'playback_mode'});
   tC(gr,'音频输出 ▾',FONT.plSub,COL.text2,W-106,by+4*s,100,30*s);
   HB_CTRL.push({x0:W-106,y0:by+4*s,x1:W-6,y1:by+34*s,act:'output'});
-  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,RGB(245,150,130),prefX,by+70*s,R.barToolsW-16,22*s);
+  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,COL.error,prefX,by+70*s,R.barToolsW-16,22*s);
   var gearC=by+50*s, fsx=W-46;
   drawIcon(gr,'expand',hv(fsx-8,gearC-16,fsx+30,gearC+16)?COL.text:COL.text2,fsx,gearC-13,26,26,22);
   HB_CTRL.push({x0:fsx-8,y0:gearC-16,x1:fsx+30,y1:gearC+16,act:'fullscreen'});

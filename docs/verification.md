@@ -8,6 +8,7 @@
 .\scripts\build.ps1 -TestsOnly
 node tests/theme_tests.js
 node tests/theme_regressions.js
+node tests/theme_color_tests.js
 node tests/ui_geometry_regressions.js
 node tests/selection_regressions.js
 .\.venv\Scripts\python.exe -m unittest discover -s tests -p 'test*install.py' -v
@@ -26,6 +27,8 @@ node tests/selection_regressions.js
 ## 宿主测试
 
 `fixture.vcxproj` 生成仅供独立播放器副本使用的 `foo_ssfixture.dll`。`tests/host_*.py` 经 SDK 接口检查播放、插队、CUE、失败停止、窗口状态、设置和临时列表清理。`tests/host_ui_render.py` 使用 JSplitter 离屏位图检查字体与绘制边界。`tests/host_updates.py` 检查启动更新和独立偏好窗口。
+
+`tests/host_theme_appearance.py` 自行启停测试副本，检查深浅切换、主题与歌词颜色确认、保存及重启恢复，并保留原有轮次和窗口尺寸；运行前先退出测试副本。浅色菜单、圆角和坐标系的实际位图包含在 `host_ui_render.py` 中。
 
 这些脚本只应针对项目的 `test-player/` 运行。完成后执行 `tests/host_cleanup.py` 并正常退出副本，不把测试组件带入日常安装。
 

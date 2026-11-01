@@ -40,7 +40,7 @@ function ssPaintModal(gr){
     ssDropModalImage();ssModalImage=gdi.CreateImage(Math.max(1,W),Math.max(1,H));ssModalImageW=W;ssModalImageH=H;
     var background=ssModalImage.GetGraphics();
     if(ssSceneImage&&ssSceneW===W&&ssSceneH===H)background.DrawImage(ssSceneImage,0,0,W,H,0,0,W,H);else ssDrawBase(background);
-    background.FillSolidRect(0,0,W,H,RGBA(0,0,0,188));ssModalImage.ReleaseGraphics(background);
+    background.FillSolidRect(0,0,W,H,COL.modalScrim);ssModalImage.ReleaseGraphics(background);
   }
   gr.DrawImage(ssModalImage,0,0,W,H,0,0,W,H);
   drawPreference(gr);
@@ -52,6 +52,6 @@ function ssDrawTransitions(gr){
   var elapsed=Date.now()-ssFadeStart;
   if(elapsed>=145){ssFadeStart=0;return;}
   var r=ssFadeZone==='queue'?R.queue:R.main;
-  if(r)gr.FillSolidRect(r.x,r.y,r.w,r.h,RGBA(0,0,0,Math.round(170*Math.pow(1-elapsed/145,2))));
+  if(r)gr.FillSolidRect(r.x,r.y,r.w,r.h,ssAlpha(COL.base,Math.round(170*Math.pow(1-elapsed/145,2))));
   if(!ssFrame)ssFrame=window.SetTimeout(function(){ssFrame=0;if(ssFadeZone==='queue')repaintQueue();else repaintMain();},16);
 }

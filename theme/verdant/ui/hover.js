@@ -51,7 +51,7 @@ function ssPaintRowHover(gr,restore){
     // The original number is hidden only when the complete glyph cell is visible.
     if(row.pgx0!==undefined&&row.y===row.rowY&&row.h===row.rowH)
       gr.FillSolidRect(row.pgx0,row.y,row.pgx1-row.pgx0,row.h,COL.base);
-    gr.FillRoundRect(row.x,row.y,row.w,row.h,4,4,RGBA(255,255,255,18));
+    gr.FillRoundRect(row.x,row.y,row.w,row.h,4,4,ssInk(18));
     if(row.pgx0!==undefined&&row.y===row.rowY&&row.h===row.rowH)
       drawIcon(gr,'play',COL.text,row.pgx0,row.y,row.pgx1-row.pgx0,row.h,14);
   }
