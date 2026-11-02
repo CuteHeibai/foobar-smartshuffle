@@ -102,6 +102,13 @@ test('named ESLyric child follows lyrics tab bounds and hides for preference mod
   assert.equal(shows.at(-1), true); assert.deepEqual(moves.at(-1).slice(0, 4), [660,108,230,382]);
   c.ssModal = true; c.ssSyncLyricPanel(); assert.equal(shows.at(-1), false);
 });
+test('named lyrics return after resize frames that do not synchronize the child panel',()=>{
+ const c=harness().c,shows=[];c.rightTab='lyrics';c.R={queue:{x:650,y:50,w:250,h:450}};
+ c.window.GetPanel=()=>({Show:b=>shows.push(b),Move(){}});vm.runInContext(fs.readFileSync(path.join(root,'views/preference.js'),'utf8'),c);
+ c.ssSyncLyricPanel();c.ssResizing={key:'nav'};c.ssHideLyrics();c.ssResizing=null;c.ssSyncLyricPanel();
+ assert.deepEqual(shows,[true,false,true]);assert.equal(c.ssLyricShown,true);assert.equal(c.ssLyricVisible,true);
+});
+
 test('preference modal consumes background callbacks and drag movement outside grid', () => {
   const h = harness(), c = h.c;
   vm.runInContext(fs.readFileSync(path.join(root, 'views/preference.js'), 'utf8'), c);
@@ -151,7 +158,7 @@ test('modal geometry fits 900 by 600 at 125 and 150 percent with eight visible r
 test('startup sends one theme readiness handshake with native panel window', () => {
   const h = harness(); h.c.window.ID = 12345; h.c.ssStart(); h.c.ssStart();
   assert.equal(h.writes.length,1); assert.equal(h.writes[0].op,'state');
-  assert.equal(h.writes[0].theme_version,'1.0.11'); assert.equal(h.writes[0].theme_window,12345);
+  assert.equal(h.writes[0].theme_version,'1.0.12'); assert.equal(h.writes[0].theme_window,12345);
 });
 test('missing named child requests native ESLyric host and waits for actual ready visibility', () => {
   const h = harness(), c = h.c; c.window.ID = 9876; c.R = { queue: { x:650,y:50,w:250,h:450 } }; c.rightTab='lyrics';

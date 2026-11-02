@@ -56,12 +56,16 @@ function ssCreateSelectionController(options){
       if(anchor!==null&&positions[anchor]===undefined)anchor=null;
     }
     context={kind:next.kind,key:next.key,bounds:next.bounds||null,writable:!!next.writable,multiple:next.multiple!==false};
-    rows=[];
-    for(i=0;i<(next.rows||[]).length;i++){
-      var row=next.rows[i];if(row.index>=0&&row.index<items.length&&row.y1>row.y0&&row.x1>row.x0)rows.push(row);
+    updateGeometry(next.rows||[],next.bounds||null);
+    if(gesture&&!context.writable&&gesture.mode==='reorder')gesture=null;
+  }
+  // Scrolling/painting replaces only visible geometry, not the playlist identity table.
+  function updateGeometry(incoming,bounds){
+    if(!context)return;if(bounds!==undefined)context.bounds=bounds;
+    rows=[];for(var i=0;i<incoming.length;i++){
+      var row=incoming[i];if(row.index>=0&&row.index<items.length&&row.y1>row.y0&&row.x1>row.x0)rows.push(row);
     }
     rows.sort(function(a,b){return a.y0-b.y0||a.index-b.index;});
-    if(gesture&&!context.writable&&gesture.mode==='reorder')gesture=null;
   }
   function start(event){
     if(!context||!inside(event.x,event.y,context.bounds))return false;
@@ -129,12 +133,12 @@ function ssCreateSelectionController(options){
       pointer:{x:gesture.lastX,y:gesture.lastY},grab:{x:gesture.x,y:gesture.y}};
   }
   function reorderChanges(chosen,target){
-    var moving=Object.create(null),rest=[],i;for(i=0;i<chosen.length;i++)moving[chosen[i]]=true;
-    for(i=0;i<items.length;i++)if(!moving[i])rest.push(i);
-    var order=rest.slice(0,target).concat(chosen,rest.slice(target));
-    for(i=0;i<order.length;i++)if(order[i]!==i)return true;
+    if(!chosen.length)return false;
+    if(target!==chosen[0])return true;
+    for(var i=1;i<chosen.length;i++)if(chosen[i]!==chosen[0]+i)return true;
     return false;
   }
+
   function end(x,y){
     if(!gesture)return null;move(x,y);var g=gesture;
     if(!g.moved&&g.index>=0&&!g.ctrl&&!g.shift){selectOne(g.index);anchor=idKey(items[g.index]);}
@@ -146,6 +150,6 @@ function ssCreateSelectionController(options){
       changed:type==='reorder'&&reorderChanges(chosen,g.targetIndex)};
     gesture=null;return action;
   }
-  return {setContext:setContext,start:start,move:move,end:end,preview:preview,
+  return {setContext:setContext,updateGeometry:updateGeometry,start:start,move:move,end:end,preview:preview,
     cancel:function(){gesture=null;},selectedIndices:indices,isSelected:selectedAt};
 }

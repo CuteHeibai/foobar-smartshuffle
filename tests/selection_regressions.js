@@ -20,6 +20,12 @@ function makeContext(kind='track',writable=true){
 function list(c){return Array.from(c.selectedIndices());}
 function click(c,index,mods={}){c.start(Object.assign({index,x:10,y:index*20+10},mods));return c.end(10,index*20+10);}
 
+test('drag pointer work does not walk the complete playlist for each movement',()=>{
+ let reads=0;const ids=Array.from({length:20000},(_,i)=>'id'+i);ids.slice=function(){return new Proxy(Array.prototype.slice.call(this),{get(a,k){if(k==='length'||!isNaN(Number(k)))reads++;return a[k];}});};
+ const c=context.ssCreateSelectionController({dragUnselected:true});c.setContext({kind:'track',key:'large',items:ids,writable:true,rows:[{index:0,x0:0,y0:0,x1:500,y1:50},{index:1,x0:0,y0:50,x1:500,y1:100}]});
+ c.start({index:0,x:10,y:20});reads=0;for(let i=0;i<50;i++)c.move(10,70+i);assert.ok(reads<300,'movement must be bounded by visible rows and chosen items, not playlist size: '+reads);
+});
+
 test('plain click, Ctrl toggle, Shift range, and Ctrl Shift additive range',()=>{
   const c=controller();click(c,1);assert.deepEqual(list(c),[1]);
   click(c,3,{ctrl:true});assert.deepEqual(list(c),[1,3]);

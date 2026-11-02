@@ -189,7 +189,7 @@ public:
         else{j["point"]={{"x",0},{"y",0}};j["round"]=1;j["remaining_count"]=0;j["remaining"]=json::array();}
         j["ui_layout_reset"]=uiLayoutReset;j["preview_pending"]=previewDirty||previewWork.valid();j["seek_pending"]=pendingSeek.has_value();j["now_id"]=nowId;j["queue"]=json::array();
         auto pm=playlist_manager::get();pfc::list_t<t_playback_queue_item> q;pm->queue_get_contents(q);
-        j["playlists"]=json::array();for(size_t i=0;i<pm->get_playlist_count();++i){pfc::string8 name;pm->playlist_get_name(i,name);j["playlists"].push_back({{"index",i},{"guid",guidstr(playlist_manager_v5::get()->playlist_get_guid(i))},{"name",name.c_str()},{"writable",playlist_writable(i)}});}
+        j["playlists"]=json::array();for(size_t i=0;i<pm->get_playlist_count();++i){pfc::string8 name;pm->playlist_get_name(i,name);j["playlists"].push_back({{"index",i},{"guid",guidstr(playlist_manager_v5::get()->playlist_get_guid(i))},{"name",name.c_str()},{"writable",playlist_writable(i)},{"reorderable",playlist_reorderable(i)}});}
         bool bridgeUsed=false;for(auto& v:q)if(!owned_queue(v,bridgeUsed))j["queue"].push_back(track_json(idof(v.m_handle)));
         j["native_next"]=json::array();if(!enabled){
             auto pi=index_of_source();size_t at=~size_t(0);if(pi<pm->get_playlist_count()){
@@ -510,7 +510,7 @@ public:
             auto order=checked_order(req.at("order"),expected.size());if(!pm->reorder(order.data(),order.size()))throw std::runtime_error("歌单排序未被接受");
         }
         else if(op=="track_reorder"){
-            auto pi=edit_playlist(req);auto pm=playlist_manager::get();if(!playlist_writable(pi))throw std::runtime_error("智能或锁定歌单不能手动排序");
+            auto pi=edit_playlist(req);auto pm=playlist_manager::get();if(!playlist_reorderable(pi))throw std::runtime_error("此歌单已锁定歌曲顺序");
             metadb_handle_list list;pm->playlist_get_all_items(pi,list);auto expected=req.at("expected").get<std::vector<std::string>>();
             if(expected.size()!=list.get_count())throw std::runtime_error("歌曲列表已变化");for(size_t i=0;i<expected.size();++i)if(expected[i]!=idof(list[i]))throw std::runtime_error("歌曲列表已变化");
             auto order=checked_order(req.at("order"),list.get_count());pm->playlist_undo_backup(pi);if(!pm->playlist_reorder_items(pi,order.data(),order.size()))throw std::runtime_error("歌曲排序未被接受");

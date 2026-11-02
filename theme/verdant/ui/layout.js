@@ -1,6 +1,6 @@
 ﻿/* User-sized columns. Requested widths survive small-window clamping and restarts. */
 var SS_WIDTH_KEYS={nav:'SmartShuffle: library width',right:'SmartShuffle: lyrics width'};
-var ssWidths={},ssResizing=null,ssResizeTimer=0,ssSplitHot='',ssLayoutReportTimer=0;
+var ssWidths={},ssResizing=null,ssResizeTimer=0,ssSplitHot='',ssLayoutReportTimer=0,ssResizePreview=null;
 // Work-area proportions, not a fixed requested pixel size. Native code supplies
 // the monitor containing the player, so taskbars and secondary screens are respected.
 function ssDefaultWindowSize(){
@@ -67,13 +67,30 @@ function ssSplitAt(x,y){
   }
   return '';
 }
+function ssDropResizePreview(){if(ssResizePreview&&ssResizePreview.image)try{ssResizePreview.image.Dispose();}catch(e){}ssResizePreview=null;}
+function ssAbortResize(){if(ssResizeTimer)window.ClearTimeout(ssResizeTimer);ssResizeTimer=0;ssResizing=null;ssDropResizePreview();ssResizeCursor(false);}
+function ssCaptureResizePreview(){
+  ssDropResizePreview();if(typeof ssSceneImage==='undefined'||!ssSceneImage||ssSceneW!==W||ssSceneH!==H)return;
+  var panes={},keys=['navTop','navLib','main','queue'];
+  for(var i=0;i<keys.length;i++){var r=R[keys[i]];panes[keys[i]]={x:r.x,y:r.y,w:r.w,h:r.h};}
+  ssResizePreview={image:ssSceneImage.Clone(0,0,W,H),panes:panes,width:W,height:H,barY:R.barY};
+}
+function ssPaintResizePreview(gr){
+  var p=ssResizePreview;if(!ssResizing||!p||p.width!==W||p.height!==H)return false;
+  gr.FillSolidRect(0,0,W,H,COL.black);gr.SetInterpolationMode(5);
+  gr.DrawImage(p.image,0,0,W,TBH,0,0,W,TBH);
+  gr.DrawImage(p.image,0,R.barY,W,H-R.barY,0,p.barY,W,H-p.barY);
+  var keys=['navTop','navLib','main','queue'];
+  for(var i=0;i<keys.length;i++){var to=R[keys[i]],from=p.panes[keys[i]];gr.DrawImage(p.image,to.x,to.y,to.w,to.h,from.x,from.y,from.w,from.h);}
+  return true;
+}
 function ssResizeBegin(x,y){
   var key=ssSplitAt(x,y);if(!key)return false;
-  ssResizing={key:key,x:x};ssHideLyrics();ssResizeCursor(true);return true;
+  ssCaptureResizePreview();ssResizing={key:key,x:x};ssHideLyrics();ssResizeCursor(true);return true;
 }
 function ssResizeCursor(on){try{window.SetCursor(on?32644:32512);}catch(e){}}
 function ssResizeMove(x,y){
-  if(!ssResizing){var hot=ssSplitAt(x,y);if(hot!==ssSplitHot){ssSplitHot=hot;repaintAll();}ssResizeCursor(!!ssSplitHot);return false;}
+  if(!ssResizing){var hot=ssSplitAt(x,y);if(hot!==ssSplitHot){ssSplitHot=hot;ssResizeCursor(!!hot);}return false;}
   ssResizing.x=x;
   if(!ssResizeTimer)ssResizeTimer=window.SetTimeout(function(){ssResizeTimer=0;ssResizeApply();},16);
   return true;
@@ -82,7 +99,7 @@ function ssResizeApply(){
   if(!ssResizing)return;
   var key=ssResizing.key,x=ssResizing.x;
   ssWidths[key]=Math.max(1,key==='nav'?x-M.gap*1.5:W-x-M.gap*1.5);
-  layout();ssDropModalImage();ssDropPopupImage();repaintAll();
+  layout(true);repaintAll();
 }
 function ssResizeEnd(x,y){
   if(!ssResizing)return false;
@@ -90,7 +107,7 @@ function ssResizeEnd(x,y){
   ssResizeApply();var key=ssResizing.key;
   // Save the visible, constrained width rather than an out-of-window pointer position.
   ssWidths[key]=key==='nav'?R.navW:R.queueW;
-  window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);ssResizing=null;ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();return true;
+  window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);ssResizing=null;ssDropResizePreview();ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();return true;
 }
 function ssDrawResizers(gr){
   if(fsMode||ssModal||ssPopup||!R.main||!R.queue||!R.top)return;
@@ -103,7 +120,7 @@ function ssDrawResizers(gr){
 }
 function ssResetLayout(){
   if(ssResizeTimer){window.ClearTimeout(ssResizeTimer);ssResizeTimer=0;}
-  ssResizing=null;ssSplitHot='';
+  ssResizing=null;ssDropResizePreview();ssSplitHot='';
   if(fsMode&&typeof exitFullscreen==='function')exitFullscreen();
   if(typeof rightTab!=='undefined')rightTab='lyrics';
   for(var key in SS_WIDTH_KEYS){ssWidths[key]=0;window.SetProperty(SS_WIDTH_KEYS[key],0);}

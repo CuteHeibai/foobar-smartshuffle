@@ -4,7 +4,7 @@ const root=path.join(__dirname,'../theme/verdant');let count=0,failed=0;
 function test(name,fn){try{fn();console.log('PASS '+name);count++;}catch(e){failed++;console.error('FAIL '+name+': '+e.message);}}
 function context(){
  const timers=new Map();let serial=0,now=0;
- const c={console,Math,JSON,Number,isFinite,Date:{now:()=>now},UISCALE:2,SS_BASE_UI_SCALE:2,ssDensity:1,window:{Width:1180,Height:780,GetProperty:(k,d)=>d,SetProperty(){},SetTimeout(fn){timers.set(++serial,fn);return serial;},ClearTimeout(id){timers.delete(id);},SetInterval:()=>++serial,ClearInterval(){},Repaint(){},RepaintRect(){}},
+ const c={console,Math,JSON,Number,isFinite,Date:{now:()=>now},UISCALE:2,SS_BASE_UI_SCALE:2,ssDensity:1,TBH:32,window:{Width:1180,Height:780,GetProperty:(k,d)=>d,SetProperty(){},SetTimeout(fn){timers.set(++serial,fn);return serial;},ClearTimeout(id){timers.delete(id);},SetInterval:()=>++serial,ClearInterval(){},Repaint(){},RepaintRect(){}},
  fb:{ProfilePath:'P:\\',IsPlaying:false,IsPaused:false,PlaybackLength:0,PlaybackTime:0,Volume:-10},plman:{ActivePlaylist:0},utils:{},
  gdi:{Font:(Name,Size,Style)=>({Name,Size,Style}),CreateImage:(Width,Height)=>({Width,Height,GetGraphics:()=>graphics(),ReleaseGraphics(){}})},
  repaintAll(){},applyKeyMode(){},repaintBar(){},repaintMain(){},repaintQueue(){},repaintNav(){},drawIcon(){},drawCover(){},
@@ -179,6 +179,18 @@ test('ordinary playlist hold uses delivered button events even if a key poll is 
  c.ssSelectionMove(60,120);assert.ok(c.ssSelectOwner,'legacy callbacks without mask must retain an owned press');assert.equal(c.ssMainSelect.preview().pointer.y,120);
  c.ssSelectionMove(60,120,0);assert.equal(c.ssSelectOwner,null,'an explicit released mask still cancels lost mouse-up');
 });
+test('a playlist may allow row reordering while blocking add and remove',()=>{
+ const h=context(),c=h.c;h.app();c.view='playlist';c.R={main:{x:0,y:0,w:500,h:200}};c.ssState={playlists:[{index:0,guid:'auto',writable:false,reorderable:true}]};c.getPlOrder=()=>[0,1,2];c.getItems=()=>[0,1,2].map(i=>({RawPath:'file://song'+i,SubSong:0}));c.HB_TR=[0,1,2].map(i=>({pl:0,item:i,x0:0,y0:i*50,x1:500,y1:(i+1)*50}));c.HB_Q=c.HB_PL=[];c.utils.IsKeyPressed=()=>false;
+ c.ssSelectionDown(20,20);h.advance(170);h.flush();assert.equal(c.ssMainSelect.preview().mode,'reorder');
+ c.ssCancelSelectionGesture();c.ssState.playlists[0].writable=true;c.ssState.playlists[0].reorderable=false;c.ssSelectionDown(20,20);h.advance(170);h.flush();assert.notEqual(c.ssMainSelect.preview().mode,'reorder','an explicit order lock takes priority over the legacy edit flag');
+});
+
+test('drag repaint bounds cover old and new row overlays without repainting the whole panel',()=>{
+ const h=context(),c=h.c;h.app();c.W=1400;c.H=1000;c.TBH=32;c.R={main:{x:200,y:40,w:800,h:850}};c.HB_TR=[];c.HB_Q=[];
+ c.ssSceneImage={};c.ssSelectionZone=c.R.main;c.ssInteractionPainted=[{x:200,y:300,w:800,h:60}];c.ssSelectionRects=()=>[{x:200,y:320,w:800,h:60}];let regions=[];c.window.RepaintRect=(x,y,w,h)=>regions.push({x,y,w,h});
+ c.ssSelectionRepaint();h.flush();assert.equal(regions.length,1);assert.ok(regions[0].y<=300&&regions[0].y+regions[0].h>=380);assert.ok(regions[0].h<150,'nearby drag movement should only restore its row band');
+});
+
 test('splitters paint opaque whole-pixel columns independent of hover',()=>{
  const h=context(),c=h.c;h.load('ui/layout.js');c.W=1180;c.R={main:{x:218,y:40,w:600,h:600},queue:{x:826},top:{y:40},barY:650};c.fsMode=false;c.ssModal=false;c.ssPopup=null;c.ssSplitHot='';let columns=[];
  c.ssDrawResizers({DrawLine(){},FillSolidRect(x,y,w,h,color){columns.push({x,y,w,h,color});}});assert.equal(columns.length,2);assert.ok(columns.every(r=>Number.isInteger(r.x)&&r.w===1&&r.h>550&&((r.color>>>24)&255)===255));

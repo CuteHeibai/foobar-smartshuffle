@@ -11,6 +11,8 @@ size_t edit_playlist(const json& req,const char* field="playlist_guid"){
     pfc::string8 name;pm->playlist_get_name(pi,name);if(name==Managed||name=="__verdant_np__"||name==Library)throw std::runtime_error("内部歌单不能编辑");return pi;
 }
 bool playlist_writable(size_t pi){return playlist_manager::get()->playlist_lock_get_filter_mask(pi)==0;}
+// Add/remove locks do not imply an order lock (standard autoplaylists use mask 11).
+bool playlist_reorderable(size_t pi){return (playlist_manager::get()->playlist_lock_get_filter_mask(pi)&playlist_lock::filter_reorder)==0;}
 std::vector<size_t> checked_order(const json& value,size_t count){
     auto order=value.get<std::vector<size_t>>();if(order.size()!=count)throw std::runtime_error("列表长度已变化");
     std::vector<bool> seen(count);for(auto i:order){if(i>=count||seen[i])throw std::runtime_error("排序不是完整排列");seen[i]=true;}return order;

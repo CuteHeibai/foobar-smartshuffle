@@ -102,7 +102,7 @@ var HOME_STRIDE=0;
 function snapShelf(px){ var st=HOME_STRIDE||1; return clampPx(Math.round(px/st)*st,HOME_PLMAX); }
 
 
-function layout(){
+function layout(contentOnly){
   ssResponsiveMetrics(W,H);
   var g=M.gap, top0=TBH+g;   // one uniform gap on every side, incl. below the title bar and above the bar
   R.barY=H-M.barH;
@@ -121,13 +121,14 @@ function layout(){
   R.navLib={x:R.navX,y:top0+M.navTopH+g*2,w:R.navW,h:topH-M.navTopH-g*2};   // wider gap to the library card
   R.main={x:R.mainX,y:top0,w:R.mainW,h:topH};
   R.queue={x:R.queueX,y:top0,w:R.queueW,h:topH};
+  if(contentOnly)return;
   // frameless; the title-bar strip minus our 3 buttons becomes an OS caption (drag/dbl-click)
   if(UIWizard){ try{ UIWizard.FrameStyle=3; UIWizard.MoveStyle=0; UIWizard.DisableWindowSizing=false; }catch(e){} }
   capW=-1; applyCaption();
   applyKeyMode();
 }
 // bitmaps are keyed by geometry; and the panel's surface is rebuilt, so the next paint must be full
-function on_size(w,h){ if(w<400||h<200)return;W=w; H=h; layout(); ssDropModalImage();ssDropSceneImage(); plCardCache={}; artCardCache={}; artCardN=0; skelImgs={}; dirtyAll=true;ssReportLayout(); }
+function on_size(w,h){ if(w<400||h<200)return;if(typeof ssAbortResize==='function')ssAbortResize();W=w; H=h; layout(); ssDropModalImage();ssDropSceneImage(); plCardCache={}; artCardCache={}; artCardN=0; skelImgs={}; dirtyAll=true;ssReportLayout(); }
 
 // name/count come from the per-playlist caches, not fresh interop: this runs on every paint of the playlist view
 function activePl(){ var i=plman.ActivePlaylist; return {i:i, name:i>=0?plName(i):'', count:i>=0?plCount(i):0}; }
@@ -156,6 +157,7 @@ function on_paint(gr){
   if(!ssModal&&!ssPopup&&!fsMode&&!ctxMenu&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt)ssDrawResizers(gr);
 }
 function ssPaintFrame(gr){
+  if(ssPaintResizePreview(gr))return;
   if(ssSelectionDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!ssModal&&!ssPopup&&!fsMode){
     ssPaintInteractions(gr);return;
   }
@@ -641,7 +643,7 @@ function on_drag_drop(action,x,y,mask){
   navDropHover=false; plDropHover=false; repaintAll();
 }
 function on_script_unload(){
-  ssStopFooterMarquee();ssInvalidateSelections();
+  ssStopFooterMarquee();ssInvalidateSelections();ssDropResizePreview();
   ssStopCovers();
   ssHideLyrics();
   ssStop();if(ssSearchTimer)window.ClearTimeout(ssSearchTimer);
@@ -707,4 +709,4 @@ drpSync();         // make foo_verdant agree with the Discord property before an
 
 ssLoadArtists();ssStart();
 ssStartCovers();
-console.log('Smart Shuffle Chinese Verdant 1.0.11 ready');
+console.log('Smart Shuffle Chinese Verdant 1.0.12 ready');

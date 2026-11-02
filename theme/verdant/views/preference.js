@@ -58,7 +58,7 @@ function ssSyncLyricPanel(){
   }catch(e){ ssLyricVisible=false; }
 }
 function ssHideLyrics(){
-  if(ssLyricChild){ try{ ssLyricChild.Show(false); }catch(e){} }
+  if(ssLyricChild){ try{ ssLyricChild.Show(false);ssLyricShown=false; }catch(e){} }
   else if(ssNativeLyricKey||(ssState&&ssState.lyrics_panel&&ssState.lyrics_panel.ready)) ssRequestNativeLyrics(false);
   ssLyricVisible=false;
 }

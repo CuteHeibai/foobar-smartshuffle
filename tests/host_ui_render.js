@@ -71,6 +71,23 @@
   check(ssFooterMarquee.offset>0&&ssFooterMarquee.image===titleBitmap,'Actual long-title marquee scrolls using one cached text bitmap');
   check(colour(footer,171,20,20,28)===0xff00ff&&colour(footer,5,20,20,28)===0xff00ff,'Actual marquee crop keeps every pixel outside the title viewport unchanged');
   ssStopFooterMarquee();NP=oldNP;ssFooterMarqueeAllowed=allowMarquee;
+  (function(){
+   var oldWidth=W,oldHeight=H,oldNav=ssWidths.nav,oldProperty=window.GetProperty(SS_WIDTH_KEYS.nav,0),basePainter=ssDrawBase,fullFrames=0;
+   var image,ig,started,count=24;
+   try{
+    W=2560;H=1440;layout(true);ssDropSceneImage();image=gdi.CreateImage(W,H);
+    ssDrawBase=function(gr){fullFrames++;return basePainter(gr);};
+    ig=image.GetGraphics();repaintAll();on_paint(ig);image.ReleaseGraphics(ig);
+    started=Date.now();for(var f=0;f<count;f++){ig=image.GetGraphics();repaintAll();on_paint(ig);image.ReleaseGraphics(ig);}result.full_pane_frame_ms=(Date.now()-started)/count;
+    fullFrames=0;check(ssResizeBegin(R.main.x-M.gap/2,R.top.y+80),'Actual pane divider starts a live resize preview');
+    var preview=ssResizePreview.image,navStart=R.main.x-M.gap/2;started=Date.now();
+    for(f=0;f<count;f++){ssResizing.x=navStart+f*2;ssResizeApply();ig=image.GetGraphics();on_paint(ig);image.ReleaseGraphics(ig);}
+    result.resize_preview_frame_ms=(Date.now()-started)/count;
+    check(fullFrames===0&&ssResizePreview.image===preview,'Twenty-four live resize frames reuse one bitmap without drawing library content');
+    ssResizeEnd(navStart+46,R.top.y+80);ig=image.GetGraphics();on_paint(ig);image.ReleaseGraphics(ig);
+    check(!ssResizePreview&&!ssResizing&&fullFrames===1,'Releasing a divider disposes its preview and paints the final exact layout once');
+   }finally{ssAbortResize();ssDrawBase=basePainter;ssWidths.nav=oldNav;window.SetProperty(SS_WIDTH_KEYS.nav,oldProperty);W=oldWidth;H=oldHeight;layout(true);ssDropSceneImage();if(image)try{image.Dispose();}catch(e){}repaintAll();}
+  })();
   for(var pi=0;pi<plman.PlaylistCount;pi++){if(isHiddenPl(plman.GetPlaylistName(pi)))continue;var handles=plman.GetPlaylistItems(pi);if(handles.Count>=2){result.context={playlist:pi,items:[0,1],tracks:[ssTrackID(handles[0]),ssTrackID(handles[1])],path:handles[0].Path,raw:handles[0].RawPath};break;}}
   check(!!result.context,'Real JSplitter handles supply a native playlist context payload');result.ok=true;
  }catch(error){if(typeof oldR!=="undefined")R=oldR;result.error=String(error);}

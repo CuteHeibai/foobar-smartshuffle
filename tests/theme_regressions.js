@@ -115,7 +115,7 @@ function layoutHarness(){
   c.window.GetProperty=(key,dflt)=>props.has(key)?props.get(key):dflt;c.window.SetProperty=(key,value)=>props.set(key,value);
   c.W=1180;c.H=780;c.M={gap:8,navW:210,queueW:350,barH:96,navTopH:84};c.R={};c.UIWizard=null;c.applyCaption=()=>{};
   const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
-  vm.runInContext(app.slice(app.indexOf('function layout(){'),app.indexOf('// bitmaps are keyed')),c);
+  vm.runInContext(app.slice(app.indexOf('function layout('),app.indexOf('// bitmaps are keyed')),c);
   c.layout();return {h,c,props};
 }
 test('all three columns and footer regions keep content space at different window widths',()=>{
@@ -152,6 +152,15 @@ test('splitter drags coalesce geometry updates and save the constrained width',(
   c.ssResizeEnd(359,120);assert.equal(props.get(c.SS_WIDTH_KEYS.nav),c.R.navW);assert.equal(c.ssResizing,null);
   c.ssModal=true;assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),false);
 });
+test('splitter movement uses cached pane previews and avoids repeated native chrome work',()=>{
+ const {h,c}=layoutHarness();let clones=0,chrome=0;const image={Clone(){clones++;return {Dispose(){}};}};c.ssSceneImage=image;c.ssSceneW=c.W;c.ssSceneH=c.H;c.ssHideLyrics=()=>{};c.repaintAll=()=>{};c.UIWizard={set FrameStyle(v){chrome++;},set MoveStyle(v){chrome++;},set DisableWindowSizing(v){chrome++;},SetCaptionAreaSize(){chrome++;}};
+ c.ssResizeBegin(c.R.main.x-c.M.gap/2,120);
+ for(let frame=0;frame<10;frame++){c.ssResizeMove(250+frame*4,120);h.flush();}
+ assert.equal(chrome,0,'pane resizing must not reconfigure native window chrome every frame');assert.equal(clones,1);
+ let copies=0;assert.equal(c.ssPaintResizePreview({FillSolidRect(){},SetInterpolationMode(){},DrawImage(){copies++;}}),true);assert.ok(copies>=5,'the live preview must include panes, title and footer');
+ c.ssResizeEnd(286,120);assert.equal(c.ssResizePreview,null);assert.equal(c.ssResizing,null);
+});
+
 test('settings reset clears every width and restores the window without changing playback state',()=>{
   const {c,props}=layoutHarness(),sizes=[];c.ssWidths={nav:300,right:400,info:280,tools:360};
   c.UIWizard={ExitMaximize(){},SetWindowSize(w,h){sizes.push([w,h]);},SetCaptionAreaSize(){}};

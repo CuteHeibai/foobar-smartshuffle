@@ -20,6 +20,9 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         for(auto& path:files){metadb_handle_ptr h;metadb::get()->handle_create(h,make_playable_location(path.c_str(),0));items.add_item(h);}
         pm->playlist_insert_items(pi,0,items,pfc::bit_array_false());pm->set_active_playlist(pi);playback_control::get()->set_volume(-60);r["playlist"]=pi;
         auto outside=pm->find_or_create_playlist("SmartShuffle external queue");pm->playlist_clear(outside);pm->playlist_insert_items(outside,0,items,pfc::bit_array_false());r["outside"]=outside;
+    }else if(op=="setup_auto"){
+        auto name=q.at("name").get<std::string>();if(name.rfind("Mode acceptance ",0)!=0)throw std::runtime_error("Fixture playlist name required");
+        auto pi=pm->find_or_create_playlist(name.c_str());autoplaylist_manager::get()->add_client_simple("ALL","",pi,0);pm->set_active_playlist(pi);r["playlist"]=pi;
     }else if(op=="library_items"){
         metadb_handle_list list;library_manager::get()->get_all_items(list);r["items"]=json::array();
         for(auto& item:list)r["items"].push_back(std::string(item->get_path())+"|"+std::to_string(item->get_subsong_index()));
@@ -120,7 +123,7 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
     }
     else if(op=="status"){
         r["playing"]=playback_control::get()->is_playing();r["position"]=playback_control::get()->playback_get_position();r["playing_playlist"]=pm->get_playing_playlist();r["queue"]=pm->queue_get_count();r["names"]=json::array();
-        for(size_t i=0;i<pm->get_playlist_count();++i){pfc::string8 n;pm->playlist_get_name(i,n);r["names"].push_back({{"index",i},{"name",n.c_str()},{"count",pm->playlist_get_item_count(i)}});}
+        for(size_t i=0;i<pm->get_playlist_count();++i){pfc::string8 n;pm->playlist_get_name(i,n);r["names"].push_back({{"index",i},{"name",n.c_str()},{"count",pm->playlist_get_item_count(i)},{"lock_mask",pm->playlist_lock_get_filter_mask(i)},{"auto",autoplaylist_manager::get()->is_client_present(i)}});}
     }
     std::ofstream out(root/L"fixture-response.json",std::ios::trunc);out<<r.dump();
 }catch(const std::exception& e){std::ofstream out(root/L"fixture-response.json",std::ios::trunc);out<<json({{"id",last},{"ok",false},{"error",e.what()}}).dump();}}
