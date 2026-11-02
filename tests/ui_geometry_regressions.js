@@ -125,6 +125,25 @@ test('responsive playback bar keeps long track labels clear of transport and out
   if(width>=1180)assert.equal(c.R.transport.center,Math.round(width/2));
  }
 });
+test('footer track area grows with the window instead of stopping at a compact fixed width',()=>{
+ const {c,load}=context();load('ui/layout.js');
+ const widths=[1180,1800,2560].map(w=>c.ssLayoutWidths(w).info);
+ assert.ok(widths[0]>=375,'normal windows need more room for the current song');
+ assert.ok(widths[2]>widths[0]*1.8,'maximized windows should offer substantially more title space');
+ for(let i=0;i<widths.length;i++)assert.ok(widths[i]<[1180,1800,2560][i]/2-80,'keep space before the centered transport');
+});
+
+test('permanent dividers use quiet opaque colours in both appearances',()=>{
+ const {c}=context();
+ for(const mode of ['light','dark']){
+  const palette=c.ssPalette(mode);assert.equal((palette.splitter>>>24)&255,255);
+  for(const shift of [0,8,16]){
+   const contrast=Math.abs(((palette.splitter>>>shift)&255)-((palette.black>>>shift)&255));
+   assert.ok(contrast>=25&&contrast<=65,mode+' divider should stay visible without a heavy edge');
+  }
+ }
+});
+
 test('only upper pane splitters paint permanent lines and footer stays clear',()=>{
  const {c,load}=context();load('ui/layout.js');c.W=1180;c.H=780;c.R={top:{y:40},main:{x:230,h:600},queue:{x:850},barY:680,barInfoW:300,barToolsW:300};c.fsMode=false;let lines=[];const g=graphics();g.FillSolidRect=(...a)=>lines.push(a);c.ssDrawResizers(g);assert.equal(lines.length,2);assert.ok(lines.every(a=>a[2]===1&&a[1]<680&&a[1]+a[3]<680));
 });

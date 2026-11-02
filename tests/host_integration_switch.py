@@ -88,7 +88,7 @@ switch_mode.prepare(TARGET, backup)
 switch_mode.switch_mode(TARGET, 'themed')
 process = start()
 try:
-    before = b.wait(lambda s: s.get('pid') == process.pid and s.get('theme', {}).get('version') == '1.0.10'
+    before = b.wait(lambda s: s.get('pid') == process.pid and s.get('theme', {}).get('version') == '1.0.11'
                     and s['theme'].get('layout', {}).get('nav'))
     outputs = b.request('outputs')['response']
     check(outputs['active_output'] == '{EEEB07DE-C2C8-44C2-985C-C85856D96DA1}', 'Disposable host remains on null output')
@@ -107,7 +107,7 @@ try:
     menu = fixture('integration_menu')
     check(menu['found'] and not menu['disabled'], 'Native re-enable menu remains available with Engine inactive')
     fixture('integration_menu', execute=True)
-    after = b.wait(lambda s: s.get('pid') not in (process.pid, original['pid']) and s.get('theme', {}).get('version') == '1.0.10'
+    after = b.wait(lambda s: s.get('pid') not in (process.pid, original['pid']) and s.get('theme', {}).get('version') == '1.0.11'
                    and s['theme'].get('layout', {}).get('nav') and s.get('lyrics_panel', {}).get('visible'), timeout=45)
     check(all(after['theme']['layout'][k] == before['theme']['layout'][k] for k in ('nav', 'right', 'info', 'tools'))
           and after['theme']['appearance'] == before['theme']['appearance'], 'Returning themed restores its own widths and appearance')

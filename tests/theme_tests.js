@@ -151,7 +151,7 @@ test('modal geometry fits 900 by 600 at 125 and 150 percent with eight visible r
 test('startup sends one theme readiness handshake with native panel window', () => {
   const h = harness(); h.c.window.ID = 12345; h.c.ssStart(); h.c.ssStart();
   assert.equal(h.writes.length,1); assert.equal(h.writes[0].op,'state');
-  assert.equal(h.writes[0].theme_version,'1.0.10'); assert.equal(h.writes[0].theme_window,12345);
+  assert.equal(h.writes[0].theme_version,'1.0.11'); assert.equal(h.writes[0].theme_window,12345);
 });
 test('missing named child requests native ESLyric host and waits for actual ready visibility', () => {
   const h = harness(), c = h.c; c.window.ID = 9876; c.R = { queue: { x:650,y:50,w:250,h:450 } }; c.rightTab='lyrics';

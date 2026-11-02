@@ -49,10 +49,10 @@
   ssModal=false;fsMode=false;splitG.FillSolidRect(0,0,W,H,COL.base);ssDrawResizers(splitG);splitImage.ReleaseGraphics(splitG);
   var sx=Math.round(R.main.x-M.gap/2),sy=Math.round(R.top.y+36);
   result.splitter_pixels=[colour(splitImage,sx-1,sy,1,5),colour(splitImage,sx,sy,1,5),colour(splitImage,sx+1,sy,1,5),COL.splitter&0xffffff];
-  // GetColourScheme quantizes colours; verify strong coverage and untouched
+  // GetColourScheme quantizes colours; verify quiet, visible coverage and untouched
   // adjacent pixels rather than comparing its palette entry to an exact RGB.
   var splitColour=result.splitter_pixels[1];
-  check(((splitColour>>16)&255)<190&&((splitColour>>8)&255)<190&&(splitColour&255)<190&&result.splitter_pixels[0]===0xffffff&&result.splitter_pixels[2]===0xffffff,'Light splitter remains one strong pixel wide without pointer hover');
+  check(((splitColour>>16)&255)>175&&((splitColour>>16)&255)<220&&((splitColour>>8)&255)<220&&(splitColour&255)<220&&result.splitter_pixels[0]===0xffffff&&result.splitter_pixels[2]===0xffffff,'Light splitter remains one quiet visible pixel wide without pointer hover');
   check(Math.abs(ssTransportLayout(W,80,W-140,1).center-W/2)<=1,'Transport geometry stays at the whole-window midpoint with asymmetric side widths');
   ssModal=oldModal;fsMode=oldFs;ssApplyAppearance(oldAppearance);
   check(COL.base===(oldAppearance==='light'?ssPalette('light'):ssPalette('dark')).base,'Returning to the previous appearance restores its palette');

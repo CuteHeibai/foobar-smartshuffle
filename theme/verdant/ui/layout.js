@@ -55,7 +55,8 @@ function ssFitWidths(left,right,budget,minLeft,minRight){
 function ssLayoutWidths(w){
   var mainMin=Math.min(330,Math.round(w*.36)),navMin=Math.min(156,Math.round(w*.18)),rightMin=Math.min(220,Math.round(w*.24));
   var panes=ssFitWidths(ssWidths.nav||Math.min(M.navW,w*.19),ssWidths.right||Math.min(M.queueW,w*.27),w-M.gap*4-mainMin,navMin,rightMin);
-  var bar=ssFitWidths(Math.min(310,w*.26),Math.min(300,w*.27),w-Math.min(310,w*.34),Math.min(180,w*.2),Math.min(260,w*.28));
+  // Let the title use the left third as the window grows; reserve the middle for transport.
+  var bar=ssFitWidths(w*.36,Math.min(300,w*.27),w-Math.min(310,w*.34),Math.min(180,w*.2),Math.min(260,w*.28));
   return {nav:panes.left,right:panes.right,info:bar.left,tools:bar.right};
 }
 function ssSplitAt(x,y){

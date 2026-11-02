@@ -22,7 +22,7 @@ startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 startup.wShowWindow = 0
 process = subprocess.Popen([str(exe)], startupinfo=startup)
 after = b.wait(lambda s: s.get("pid") == process.pid and
-               s.get("theme", {}).get("version") == "1.0.10" and
+               s.get("theme", {}).get("version") == "1.0.11" and
                s.get("theme", {}).get("layout", {}).get("width"), timeout=25)
 for key in ("source", "round", "point"):
     assert before[key] == after[key], key
