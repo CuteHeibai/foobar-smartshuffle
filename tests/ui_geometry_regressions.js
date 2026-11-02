@@ -200,6 +200,32 @@ test('song drag requests paint immediately and merges pending damage under rapid
  const damage=c.ssInteractionDamage[0];assert.ok(damage.y<=300&&damage.y+damage.h>=536,'all queued positions survive a pointer reversal before paint');
 });
 
+test('wheel movement is modest at display density and animation avoids a second 16ms timer quantum',()=>{
+ const h=context(),c=h.c;h.app();c.view='playlist';c.ssDensity=1.25;c.WHEEL_PX=72;c.PL_MAXPX=5000;c.firstRow=c.firstRowT=0;c.R={main:{x:200,y:40,w:900,h:900},barY:960};c.mx=500;c.my=600;let interval;c.window.SetInterval=(fn,ms)=>{interval=ms;return 99;};
+ c.on_mouse_wheel(-1);assert.equal(c.firstRowT,90,'one notch should move about one row at this density');assert.ok(interval<=8,'request animation within one host timer quantum');
+});
+
+test('scroll row rasters reuse full-size pixels and invalidate with content paints',()=>{
+ const h=context(),c=h.c;h.app();c.ssQuietRows=true;c.R={main:{x:0,y:0,w:800,h:700},barY:720};let drawn=0,copies=[];const gr=graphics();gr.DrawImage=(im,...a)=>copies.push(a);
+ const draw=g=>{drawn++;g.FillSolidRect(0,0,800,56,1);};
+ c.ssDrawCachedRow(gr,'row',0,120,800,56,draw);c.ssDrawCachedRow(gr,'row',0,97,800,56,draw);
+ assert.equal(drawn,1,'scrolling the same row must not rerender its text or artwork');assert.equal(copies.at(-1)[2],copies.at(-1)[6],'cache copies must retain 1:1 pixels');
+ c.repaintMain(true);c.ssDrawCachedRow(gr,'row',0,90,800,56,draw);assert.equal(drawn,1);
+ c.repaintMain();c.ssDrawCachedRow(gr,'row',0,80,800,56,draw);assert.equal(drawn,2,'new content must rebuild a row');
+ c.repaintAll();c.ssDrawCachedRow(gr,'row',0,80,800,56,draw);assert.equal(drawn,3);
+});
+
+test('small wheel steps still move the home playlist shelf by a card',()=>{
+ const h=context(),c=h.c;h.app();c.view='home';c.WHEEL_PX=72;c.ssDensity=1;c.HOME_STRIDE=192;c.HOME_PLMAX=1000;c.plScrollT=0;c.R={main:{x:200,y:40,w:900,h:900}};c.HOME_SHELF_Y0=100;c.HOME_SHELF_Y1=250;c.mx=500;c.my=180;
+ c.on_mouse_wheel(-1);assert.equal(c.plScrollT,192);c.on_mouse_wheel(-1);assert.equal(c.plScrollT,384);
+});
+
+test('only viewport-clipped lists skip footer redraw while scrolling',()=>{
+ const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:800,h:700},barY:720};let bar=0;c.repaintBar=()=>bar++;
+ for(const view of ['home','search']){c.view=view;c.repaintMain(true);}assert.equal(bar,2,'unclipped views still need the footer mask');
+ for(const view of ['playlist','songs']){c.view=view;c.repaintMain(true);}assert.equal(bar,2,'clipped rows cannot overwrite the footer');
+});
+
 test('splitters paint opaque whole-pixel columns independent of hover',()=>{
  const h=context(),c=h.c;h.load('ui/layout.js');c.W=1180;c.R={main:{x:218,y:40,w:600,h:600},queue:{x:826},top:{y:40},barY:650};c.fsMode=false;c.ssModal=false;c.ssPopup=null;c.ssSplitHot='';let columns=[];
  c.ssDrawResizers({DrawLine(){},FillSolidRect(x,y,w,h,color){columns.push({x,y,w,h,color});}});assert.equal(columns.length,2);assert.ok(columns.every(r=>Number.isInteger(r.x)&&r.w===1&&r.h>550&&((r.color>>>24)&255)===255));

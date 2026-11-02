@@ -44,7 +44,13 @@ var VOL_CEIL = Math.max(-60, Math.min(0, propNum('Playback: output ceiling (dB b
 
 /* Wheel step for the continuous (pixel-scrolled) lists. The tall artist cards scale this up
    themselves; see on_mouse_wheel. */
-var WHEEL_PX = Math.max(20, propNum('Scrolling: wheel step (px)', 180));
+try{
+  if(!window.GetProperty('SmartShuffle: gentle wheel defaults',false)){
+    if(Number(window.GetProperty('Scrolling: wheel step (px)',72))===180)window.SetProperty('Scrolling: wheel step (px)',72);
+    window.SetProperty('SmartShuffle: gentle wheel defaults',true);
+  }
+}catch(e){}
+var WHEEL_PX = Math.max(20, propNum('Scrolling: wheel step (px)', 72));
 
 /* Optional Discord presence is off by default. This does nothing when foo_verdant
    is absent; no optional presence component is required by the Chinese theme. */

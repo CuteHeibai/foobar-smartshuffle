@@ -149,12 +149,14 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
   tL(gr,pbShuffle?'本轮剩余 '+(ssState.remaining_count||0)+' 首':ssState.source_name||'顺序播放',FONT.qArtist,COL.green,x,qy,r.w-36,24); qy+=30;
   var viewport=Math.max(0,bottom-qy);SS_QUEUE_MAX=Math.max(0,rows.length*rh-viewport);ssQueueScroll=clampPx(ssQueueScroll,SS_QUEUE_MAX);ssQueueScrollT=clampPx(ssQueueScrollT,SS_QUEUE_MAX);
   if(viewport<1)return true;
-  var top=qy,start=Math.floor(ssQueueScroll/rh),parentGr=gr,layer=ssBeginViewport('queue-list',gr,r.x,top,r.w,viewport);gr=layer.gr;qy-=ssQueueScroll-start*rh;
+  var drawScroll=Math.round(ssQueueScroll),top=qy,start=Math.floor(drawScroll/rh),parentGr=gr,layer=ssBeginViewport('queue-list',gr,r.x,top,r.w,viewport);gr=layer.gr;qy-=drawScroll-start*rh;
   for(var i=start;i<rows.length&&qy<bottom;i++){
     var tr=rows[i],hb={x0:x-8,y0:Math.max(top,qy),x1:r.x+r.w-18,y1:Math.min(bottom,qy+rh),rowY:qy,rowH:rh};hb.track_id=tr.id;hb.scope=i<priority.length?'priority':pbShuffle?'remaining':'native';hb.queueIndex=i<priority.length?i:pbShuffle?i-priority.length:tr.item;if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}HB_Q.push(hb);
     var labelW=r.w-48;
+    ssDrawCachedRow(gr,'queue:'+i+':'+tr.id,r.x,qy,r.w,rh,function(gr){
     tL(gr,(i<priority.length?'优先 · ':'')+(tr.title||'未知曲目'),FONT.qName,COL.text,x,qy+3,labelW,Math.round(rh*.5)-3);
-    tL(gr,tr.artist||'',FONT.qArtist,COL.text2,x,qy+Math.round(rh*.53),labelW,Math.round(rh*.4)); qy+=rh;
+    tL(gr,tr.artist||'',FONT.qArtist,COL.text2,x,qy+Math.round(rh*.53),labelW,Math.round(rh*.4));
+    });qy+=rh;
   }
   layer.finish();gr=parentGr;
   SS_QUEUE_SB=drawSBV(gr,r.x+r.w-10,top,viewport,ssQueueScroll,SS_QUEUE_MAX,viewport,rows.length*rh,hv(r.x,top,r.x+r.w,bottom)||drag==='scrollq',SB_QUEUE);

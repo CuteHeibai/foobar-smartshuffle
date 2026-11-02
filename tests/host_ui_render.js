@@ -72,6 +72,18 @@
   check(colour(footer,171,20,20,28)===0xff00ff&&colour(footer,5,20,20,28)===0xff00ff,'Actual marquee crop keeps every pixel outside the title viewport unchanged');
   ssStopFooterMarquee();NP=oldNP;ssFooterMarqueeAllowed=allowMarquee;
   (function(){
+   var quiet=ssQuietRows,im=gdi.CreateImage(260,160),pg=im.GetGraphics(),draws=0,rowY=40;
+   try{
+    ssQuietRows=true;ssInvalidateRowRasters();pg.FillSolidRect(0,0,260,160,RGB(255,255,255));
+    function drawRow(gr){draws++;gr.FillSolidRect(20,rowY,200,40,RGB(0,0,255));}
+    var rowLayer=ssBeginViewport('cached-row-host',pg,20,50,200,60);ssDrawCachedRow(rowLayer.gr,'cache-host',20,rowY,200,40,drawRow);rowLayer.finish();
+    rowY=70;rowLayer=ssBeginViewport('cached-row-host',pg,20,50,200,60);ssDrawCachedRow(rowLayer.gr,'cache-host',20,rowY,200,40,drawRow);rowLayer.finish();im.ReleaseGraphics(pg);pg=null;
+    check(draws===1,'Moving a cached song row reuses its bitmap without rerendering text or artwork');
+    check(white(colour(im,25,40,20,5))&&white(colour(im,25,115,20,5))&&colour(im,25,80,20,5)===0x0000ff,'Cached rows retain unscaled pixels and cannot overwrite the header or footer');
+    ssInvalidateRowRasters();pg=im.GetGraphics();ssDrawCachedRow(pg,'cache-host',20,rowY,200,40,drawRow);im.ReleaseGraphics(pg);pg=null;check(draws===2,'Content invalidation rebuilds a previously cached row');
+   }finally{if(pg)im.ReleaseGraphics(pg);ssQuietRows=quiet;ssInvalidateRowRasters();if(typeof im.Dispose==='function')im.Dispose();}
+  })();
+  (function(){
    var oldWidth=W,oldHeight=H,oldNav=ssWidths.nav,oldProperty=window.GetProperty(SS_WIDTH_KEYS.nav,0),basePainter=ssDrawBase,fullFrames=0;
    var image,ig,started,count=24;
    try{

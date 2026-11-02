@@ -20,16 +20,16 @@ function clearDirty(){ dirtyAll=dirtyBar=dirtyQueue=dirtySearch=dirtyMain=dirtyN
 var dirtySince=0, DIRTY_STALE_MS=250;
 function anyDirty(){ return dirtyBar||dirtyQueue||dirtySearch||dirtyMain||dirtyNav||dirtyTitle||dirtyViz; }
 function markDirty(){ if(!anyDirty()) dirtySince=Date.now(); }
-function repaintAll(){ dirtyAll=true; window.Repaint(); }
+function repaintAll(){ if(typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();dirtyAll=true; window.Repaint(); }
 /* Main's views draw the row/card straddling their crop line at full height and mask only the
    10px gutter below it (see the FillSolidRect(r.x,cropY,...) in each), so the remainder lands on
    the player bar. drawBar runs after main in the partial path, so pairing them covers it -- and
    it is far cheaper than the full-window repaint that used to hide this. */
-function repaintMain(){ markDirty(); dirtyMain=true; window.RepaintRect(R.main.x,R.main.y,R.main.w,R.main.h); repaintBar(); }
+function repaintMain(scrollOnly){ if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyMain=true; window.RepaintRect(R.main.x,R.main.y,R.main.w,R.main.h); if(!scrollOnly||(view!=='playlist'&&view!=='songs'))repaintBar(); }
 function repaintNav(){ markDirty(); dirtyNav=true; window.RepaintRect(R.navLib.x,R.navLib.y,R.navLib.w,R.navLib.h); }
 // drawNav paints both nav cards, so a hover crossing between them must invalidate their union
 function repaintNavAll(){ markDirty(); dirtyNav=true; window.RepaintRect(R.navTop.x,R.navTop.y,R.navTop.w,(R.navLib.y+R.navLib.h)-R.navTop.y); }
-function repaintQueue(){ markDirty(); dirtyQueue=true; window.RepaintRect(R.queue.x,R.queue.y,R.queue.w,R.queue.h); }
+function repaintQueue(scrollOnly){ if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyQueue=true; window.RepaintRect(R.queue.x,R.queue.y,R.queue.w,R.queue.h); }
 // the visualizer's own band, 30 times a second -- see the fullscreen branch of on_paint
 function repaintViz(){ markDirty(); dirtyViz=true; window.RepaintRect(0,VIZ_TOP,W,Math.max(0,(H-172)-VIZ_TOP)); }
 function repaintTitle(){ markDirty(); dirtyTitle=true; window.RepaintRect(0,0,W,TBH); }
@@ -56,18 +56,18 @@ var firstRow=0, hoverKey='', scrollKey='', hoverZoneKey='', mx=-1, my=-1, drag=n
 var firstRowT=0, navScrollT=0, homeScrollT=0, PL_MAXPX=0, scrollTimer=null,scrollLast=Date.now();
 function scrollTick(){
   var now=Date.now(),dt=Math.max(1,Math.min(80,now-scrollLast));scrollLast=now;
-  var alpha=1-Math.exp(-dt/75),mm=false,nm=false,qm=false;
-  function step(current,target,zone){var d=target-current;if(Math.abs(d)<.1)return target;if(zone==='nav')nm=true;else if(zone==='queue')qm=true;else mm=true;return current+d*alpha;}
+  var alpha=1-Math.exp(-dt/95),mm=false,nm=false,qm=false;
+  function step(current,target,zone){var d=target-current;if(Math.abs(d)<.5)return target;if(zone==='nav')nm=true;else if(zone==='queue')qm=true;else mm=true;return current+d*alpha;}
   firstRow=step(firstRow,firstRowT);homeScroll=step(homeScroll,homeScrollT);songsScroll=step(songsScroll,songsScrollT);
   searchScroll=step(searchScroll,searchScrollT);plScroll=step(plScroll,plScrollT);navScroll=step(navScroll,navScrollT,'nav');
   ssQueueScroll=step(ssQueueScroll,ssQueueScrollT,'queue');
-  if(mm) repaintMain();
+  if(mm) repaintMain(true);
   if(nm) repaintNav();
-  if(qm) repaintQueue();
+  if(qm) repaintQueue(true);
   // one more frame after the scroll settles, so shimSettle can restart the sweep it suppressed
   if(!mm && !nm && !qm){ stopScrollAnim(); if(shimCount>0) repaintMain(); }
 }
-function startScrollAnim(){ if(!scrollTimer){scrollLast=Date.now();scrollTimer=window.SetInterval(scrollTick,16);} }
+function startScrollAnim(){ if(!scrollTimer){scrollLast=Date.now();scrollTimer=window.SetInterval(scrollTick,8);} }
 function stopScrollAnim(){ if(scrollTimer){ window.ClearInterval(scrollTimer); scrollTimer=null; } }
 
 function hv(x0,y0,x1,y1){ return mx>=x0 && mx<x1 && my>=y0 && my<y1; }
@@ -568,6 +568,7 @@ function on_char(code){
     try{ fb.PlayOrPause(); }catch(e){}
   }
 }
+function ssWheelStep(){return Math.max(20,Math.round(WHEEL_PX*ssDensity));}
 function on_mouse_wheel(step){
   if(ssPopupWheel(step))return;
   if(ssModal) return;
@@ -583,20 +584,20 @@ function on_mouse_wheel(step){
     if(lyStWheel(step)) repaintQueue();
     return;
   }
-  if(R.queue&&rightTab==='queue'&&mx>=R.queue.x&&mx<R.queue.x+R.queue.w&&my>=R.queue.y&&my<R.queue.y+R.queue.h){ssQueueScrollT=clampPx(ssQueueScrollT-step*WHEEL_PX,SS_QUEUE_MAX);startScrollAnim();return;}
+  if(R.queue&&rightTab==='queue'&&mx>=R.queue.x&&mx<R.queue.x+R.queue.w&&my>=R.queue.y&&my<R.queue.y+R.queue.h){ssQueueScrollT=clampPx(ssQueueScrollT-step*ssWheelStep(),SS_QUEUE_MAX);startScrollAnim();return;}
   if(R.navLib && mx>=R.navLib.x && mx<R.navLib.x+R.navLib.w && my>=R.navLib.y && my<R.navLib.y+R.navLib.h){
-    navScrollT=clampPx(navScrollT-step*WHEEL_PX,NAV_MAX); startScrollAnim(); return;
+    navScrollT=clampPx(navScrollT-step*ssWheelStep(),NAV_MAX); startScrollAnim(); return;
   }
   if(mx<R.main.x || mx>=R.main.x+R.main.w) return;
   if(view==='home'){
-    if(my>=HOME_SHELF_Y0 && my<HOME_SHELF_Y1){ plScrollT=snapShelf(plScrollT-step*WHEEL_PX); startScrollAnim(); }   // shelf: eased glide onto a card boundary
-    else { homeScrollT=clampPx(homeScrollT-step*Math.round(WHEEL_PX*1.7),HOME_MAXROW); startScrollAnim(); }   // artists: bigger step, tall cards
+    if(my>=HOME_SHELF_Y0 && my<HOME_SHELF_Y1){ plScrollT=snapShelf(plScrollT-step*Math.max(ssWheelStep(),HOME_STRIDE||0)); startScrollAnim(); }   // shelf: eased glide onto a card boundary
+    else { homeScrollT=clampPx(homeScrollT-step*Math.round(ssWheelStep()*1.7),HOME_MAXROW); startScrollAnim(); }   // artists: bigger step, tall cards
     return;
   }
-  else if(view==='songs'){ songsScrollT=clampPx(songsScrollT-step*WHEEL_PX,SONGS_MAXPX); startScrollAnim(); return; }
-  else if(view==='search'){ searchScrollT=clampPx(searchScrollT-step*WHEEL_PX,SEARCH_MAXPX); startScrollAnim(); return; }
+  else if(view==='songs'){ songsScrollT=clampPx(songsScrollT-step*ssWheelStep(),SONGS_MAXPX); startScrollAnim(); return; }
+  else if(view==='search'){ searchScrollT=clampPx(searchScrollT-step*ssWheelStep(),SEARCH_MAXPX); startScrollAnim(); return; }
   else if(view==='artist'){ artScroll=clampPx(artScroll-step,ART_MAXBLOCK); repaintAll(); return; }
-  firstRowT=clampPx(firstRowT-step*WHEEL_PX,PL_MAXPX); startScrollAnim();
+  firstRowT=clampPx(firstRowT-step*ssWheelStep(),PL_MAXPX); startScrollAnim();
 }
 /* ---- drag & drop external files: two targets, the library section (-> new playlist) and the
    playlist view body (-> appends to it); everywhere else denies. We never see the dropped paths
@@ -709,4 +710,4 @@ drpSync();         // make foo_verdant agree with the Discord property before an
 
 ssLoadArtists();ssStart();
 ssStartCovers();
-console.log('Smart Shuffle Chinese Verdant 1.0.13 ready');
+console.log('Smart Shuffle Chinese Verdant 1.0.14 ready');

@@ -54,7 +54,7 @@ function drawSongs(gr,r){
   if(viewH<1)return;
   SONGS_MAXPX=maxPx;
   songsScroll=clampPx(songsScroll,maxPx); songsScrollT=clampPx(songsScrollT,maxPx);
-  var j0=songsFirstAt(songsScroll);
+  var drawScroll=Math.round(songsScroll),j0=songsFirstAt(drawScroll);
   var parentGr=gr,layer=ssBeginViewport('main-list',gr,r.x,rowsTop,r.w,Math.max(1,viewH));gr=layer.gr;
   // Nested mode: a rail runs from each artist banner past all of its albums, so the owning
   // artist stays visible. Drawn before the rows so hover fills paint over it, and started from
@@ -63,18 +63,19 @@ function drawSongs(gr,r){
     var q0=(songsRows[j0].g1i!==undefined)?songsRows[j0].g1i:j0;
     for(var q=q0;q<songsRows.length;q++){
       var gq=songsRows[q]; if(gq.k!=='g1') continue;
-      var rt=rowsTop+gq.y+gq.h-songsScroll-4, rb=rowsTop+(gq.y1||0)-songsScroll-8;
+      var rt=rowsTop+gq.y+gq.h-drawScroll-4, rb=rowsTop+(gq.y1||0)-drawScroll-8;
       if(rt>=cropY) break;
       var t0=Math.max(rt,rowsTop), t1=Math.min(rb,cropY);
       if(t1>t0) gr.FillSolidRect(lx+SG_IND/2-1,t0,2,t1-t0,ssInk(30));   // centred in the indent gutter
     }
   }
   for(var j=j0; j<songsRows.length; j++){
-    var row=songsRows[j], ry=rowsTop+row.y-songsScroll, gh=row.h;
+    var row=songsRows[j], ry=rowsTop+row.y-drawScroll, gh=row.h;
     if(ry>=cropY) break;
     var vy0=Math.max(ry,rowsTop), vy1=Math.min(ry+gh,cropY);   // visible band: rows scrolled
     if(vy1<=vy0) continue;                                     // under the sticky header don't take the mouse
     if(row.k==='t'){
+      ssDrawCachedRow(gr,'song:'+row.ti,r.x,ry,r.w,gh,function(gr){
       var t=row.t, isPlaying=!!(NP && t.h && t.h.Path===NP.Path);
       var isHover=ssRowHover(lx-8,vy0,rx+8,vy1);
       if(isHover) gr.FillRoundRect(lx-8,ry,rx-lx+16,gh,4,4,COL.rowHover);
@@ -91,6 +92,7 @@ function drawSongs(gr,r){
       if(showAlbum) tL(gr,t.album,FONT.rowCell,COL.text2,colX,ry,colW,gh);
       else if(showArtist) tL(gr,t.artist,FONT.rowCell,COL.text2,colX,ry,colW,gh);
       tR(gr,t.len,FONT.rowCell,COL.text2,rx-durW,ry,durW,gh);
+      },flat);
       HB_TR.push({x0:lx-8,y0:vy0,x1:rx+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:numX,pgx1:numX+numW});
     } else {
       /* Group header: every kind is the same block on the same rhythm (GAP, artwork, PADB),

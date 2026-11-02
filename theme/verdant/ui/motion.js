@@ -2,7 +2,7 @@
 var ssFrame=0,ssModalImage=null,ssModalImageW=0,ssModalImageH=0,ssTrail=[],ssSceneKey='',ssFadeStart=0,ssFadeZone='main';
 var ssPopupImage=null,ssPopupImageOwned=false,ssSceneImage=null,ssSceneW=0,ssSceneH=0,ssPopupRestore=false;
 var ssPreferenceFrame=0,ssPreferenceFrameAt=0,ssPreferenceImage=null,ssPreferenceKey='',ssPreferencePartial=false;
-function ssDropSceneImage(){ssDropPopupImage();if(ssSceneImage)try{ssSceneImage.Dispose();}catch(e){}ssSceneImage=null;ssPopupRestore=false;ssHoverPainted=null;ssHoverDirty=false;ssInteractionPainted=[];ssInteractionDamage=[];}
+function ssDropSceneImage(){if(typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();ssDropPopupImage();if(ssSceneImage)try{ssSceneImage.Dispose();}catch(e){}ssSceneImage=null;ssPopupRestore=false;ssHoverPainted=null;ssHoverDirty=false;ssInteractionPainted=[];ssInteractionDamage=[];}
 function ssBeginScene(){
   if(!ssSceneImage||ssSceneW!==W||ssSceneH!==H){ssDropSceneImage();ssSceneImage=gdi.CreateImage(Math.max(1,W),Math.max(1,H));ssSceneW=W;ssSceneH=H;}
   ssQuietRows=true;var g=ssSceneImage.GetGraphics();g.SetSmoothingMode(2);g.SetInterpolationMode(5);return g;

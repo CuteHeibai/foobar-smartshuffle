@@ -52,13 +52,14 @@ function drawPlaylist(gr,r){
   warmOnce('pl'+p.i,items);
   var parentGr=gr,layer=ssBeginViewport('main-list',gr,r.x,rowsTop,r.w,Math.max(1,viewH));gr=layer.gr;
   for(var d=Math.floor(firstRow/rh); d<p.count; d++){
-    var ry=rowsTop+d*rh-firstRow; if(ry>=cropY) break;
+    var ry=rowsTop+d*rh-Math.round(firstRow); if(ry>=cropY) break;
     var j=order[d]; var h=items[j]; if(!h){ continue; }
     var isPlaying=(loc && loc.IsValid && loc.PlaylistIndex===p.i && loc.PlaylistItemIndex===j)
                   || (shufHere && sameHandle(h,NP));   // playing from this playlist's hidden shuffle copy
     // the row whose context menu is open stays lit (brighter than hover)
     var isMenuRow=!!(ctxMenu && ctxMenu.kind==='track' && ctxMenu.pl===p.i && ctxMenu.item===j);
     var isHover=ssRowHover(r.x,ry,r.x+r.w,ry+rh)||isMenuRow;
+    ssDrawCachedRow(gr,'pl:'+p.i+':'+j+':'+d,r.x,ry,r.w,rh,function(gr){
     if(isHover) gr.FillRoundRect(lx-8,ry,rx-lx+16,rh,4,4,isMenuRow?COL.rowActive:COL.rowHover);
     var titleCol=isPlaying?COL.green:COL.text;
     if(isHover) drawIcon(gr,'play',COL.text,lx,ry,numW,rh,14);
@@ -70,6 +71,7 @@ function drawPlaylist(gr,r){
     tL(gr,meta.artist[j],FONT.rowArtist,COL.text2,ttx,ry+30*s,ttw,16*s);
     if(albumW>0) tL(gr,alb,FONT.rowCell,COL.text2,albumX,ry,albumW,rh);
     tR(gr,meta.len[j],FONT.rowCell,COL.text2,rx-durW,ry,durW,rh);
+    });
     HB_TR.push({x0:lx-8,y0:Math.max(ry,rowsTop),x1:rx+8,y1:Math.min(ry+rh,cropY),rowY:ry,rowH:rh,pl:p.i,item:j,pgx0:lx,pgx1:lx+numW});
   }
   layer.finish();gr=parentGr;
