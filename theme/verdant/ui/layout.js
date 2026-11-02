@@ -92,12 +92,12 @@ function ssResizeEnd(x,y){
   window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);ssResizing=null;ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();return true;
 }
 function ssDrawResizers(gr){
-  if(fsMode||ssModal||ssPopup)return;
-  var active=ssResizing?ssResizing.key:ssSplitHot,keys=['nav','right'];
+  if(fsMode||ssModal||ssPopup||!R.main||!R.queue||!R.top)return;
+  var active=ssResizing?ssResizing.key:'',keys=['nav','right'];
   for(var i=0;i<keys.length;i++){
     var key=keys[i],x=key==='nav'?R.main.x-M.gap/2:R.queue.x-M.gap/2;
     var y=R.top.y+14,h=R.main.h-28;
-    gr.DrawLine(Math.round(x)+.5,Math.round(y),Math.round(x)+.5,Math.round(y+Math.max(4,h)),1,key===active?COL.text2:COL.line);
+    gr.FillSolidRect(Math.round(x),Math.round(y),1,Math.round(Math.max(4,h)),key===active?COL.text2:COL.splitter);
   }
 }
 function ssResetLayout(){

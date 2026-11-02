@@ -43,7 +43,7 @@ test('queue header hides the round counter and retains the remaining track count
  assert.ok(words.includes('接下来'));assert.ok(words.includes('本轮剩余 17 首'));assert.ok(!words.some(s=>/第\s*42\s*轮/.test(s)));
 });
 test('all-songs header cover is never erased by a row crop mask and has no scan caption',()=>{
- const {c,load}=context();load('views/songs.js');c.ROW_GATE_MS=0;c.ssDensity=1.25;c.M.cpad=24;c.M.artSz=200;c.SHEAD=320;c.SG_CROP=120;
+ const {c,load}=context();load('data/playback.js');load('views/songs.js');c.ROW_GATE_MS=0;c.ssDensity=1.25;c.M.cpad=24;c.M.artSz=200;c.SHEAD=320;c.SG_CROP=120;
  c.ensureBuilt=c.gateReady=()=>true;c.songsReady=c.songsSteps=c.rowHandlesSongs=()=>[];c.libChoice=()=>({single:null});c.artHue=()=>1;c.songsGroup='none';c.songsScroll=c.songsScrollT=0;c.songsContentH=70;c.songsTotalSec=1000;c.songsFirstAt=()=>0;c.NP=null;
  c.songsTracks=Array.from({length:214},()=>({}));c.songsRows=[{k:'t',y:0,h:70,n:1,ti:0,t:{title:'Title',artist:'Artist',album:'Album',len:'1:00'}}];c.rgStat={scanned:1,total:214,missing:[1]};c.rgScanFailed=false;c.rgModeOn=()=>false;
  c.drawNormalizePill=c.drawDropPill=()=>null;c.SONGS_GROUPS=[['不分组','none']];c.drawScrollbar=c.drawGroupMenu=()=>{};c.sgMenuOpen=false;c.hv=()=>false;c.drag=null;
@@ -126,7 +126,7 @@ test('responsive playback bar keeps long track labels clear of transport and out
  }
 });
 test('only upper pane splitters paint permanent lines and footer stays clear',()=>{
- const {c,load}=context();load('ui/layout.js');c.W=1180;c.H=780;c.R={top:{y:40},main:{x:230,h:600},queue:{x:850},barY:680,barInfoW:300,barToolsW:300};c.fsMode=false;let lines=[];const g=graphics();g.DrawLine=(...a)=>lines.push(a);c.ssDrawResizers(g);assert.equal(lines.length,2);assert.ok(lines.every(a=>a[4]===1&&a[1]<680&&a[3]<680));
+ const {c,load}=context();load('ui/layout.js');c.W=1180;c.H=780;c.R={top:{y:40},main:{x:230,h:600},queue:{x:850},barY:680,barInfoW:300,barToolsW:300};c.fsMode=false;let lines=[];const g=graphics();g.FillSolidRect=(...a)=>lines.push(a);c.ssDrawResizers(g);assert.equal(lines.length,2);assert.ok(lines.every(a=>a[2]===1&&a[1]<680&&a[1]+a[3]<680));
 });
 test('top menus open submenus by click and remain open when the pointer leaves',()=>{
  const h=context(),c=h.c;h.load('ui/menus.js');c.TBH=32;c.ssPoll=()=>{};
@@ -153,5 +153,16 @@ test('song drag overlay captures one whole row and tracks the actual pointer del
  const g=graphics();g.DrawRoundRect=()=>{};g.DrawImage=(im,...args)=>copies.push(args);
  c.ssDrawDragOverlay(g,p);p.pointer.y=250;c.ssDrawDragOverlay(g,p);
  assert.equal(captures,1);assert.equal(copies[0][0],160);assert.equal(copies[0][1],200);assert.equal(copies[1][1],230);assert.equal(copies[0][2],500);assert.equal(copies[0][3],50);
+});
+test('ordinary playlist hold uses delivered button events even if a key poll is false',()=>{
+ const h=context(),c=h.c;h.app();c.view='playlist';c.R={main:{x:0,y:0,w:500,h:200}};c.ssState={playlists:[{index:0,guid:'ordinary',writable:true}]};c.getPlOrder=()=>[0,1,2];c.getItems=()=>[0,1,2].map(i=>({RawPath:'file://song'+i,Path:'song'+i,SubSong:0}));c.HB_TR=[0,1,2].map(i=>({pl:0,item:i,x0:0,y0:i*50,x1:500,y1:(i+1)*50}));c.HB_Q=c.HB_PL=[];c.utils.IsKeyPressed=()=>false;
+ c.ssSelectionDown(20,20);h.advance(170);h.flush();assert.equal(c.ssMainSelect.preview().mode,'reorder','a delivered down must lift at the deadline without keyboard polling');
+ c.ssSelectionMove(60,120);assert.ok(c.ssSelectOwner,'legacy callbacks without mask must retain an owned press');assert.equal(c.ssMainSelect.preview().pointer.y,120);
+ c.ssSelectionMove(60,120,0);assert.equal(c.ssSelectOwner,null,'an explicit released mask still cancels lost mouse-up');
+});
+test('splitters paint opaque whole-pixel columns independent of hover',()=>{
+ const h=context(),c=h.c;h.load('ui/layout.js');c.W=1180;c.R={main:{x:218,y:40,w:600,h:600},queue:{x:826},top:{y:40},barY:650};c.fsMode=false;c.ssModal=false;c.ssPopup=null;c.ssSplitHot='';let columns=[];
+ c.ssDrawResizers({DrawLine(){},FillSolidRect(x,y,w,h,color){columns.push({x,y,w,h,color});}});assert.equal(columns.length,2);assert.ok(columns.every(r=>Number.isInteger(r.x)&&r.w===1&&r.h>550&&((r.color>>>24)&255)===255));
+ const normal=columns.map(r=>r.color);columns=[];c.ssSplitHot='nav';c.ssDrawResizers({DrawLine(){},FillSolidRect(x,y,w,h,color){columns.push({color});}});assert.deepEqual(columns.map(r=>r.color),normal);
 });
 console.log(count+' passed, '+failed+' failed');if(failed)process.exitCode=1;

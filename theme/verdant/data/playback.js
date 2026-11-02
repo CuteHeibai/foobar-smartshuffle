@@ -19,7 +19,7 @@ function syncOrderFromFb(){ var o=readOrder(); pbRepeat=o===2?2:(o===1?1:0); }
 function toggleShuffle(){ ssSend('enable',{enabled:!pbShuffle}); repaintAll(); }
 function cycleRepeat(){ pbRepeat=(pbRepeat+1)%3; applyPlaybackOrder(); }
 var ROUTE='__verdant_np__', SHUF='__smartshuffle__';
-function isHiddenPl(nm){ return nm===SHUF||nm===ROUTE; }
+function isHiddenPl(nm){ return nm===SHUF||nm===ROUTE||nm==='__smartshuffle_library__'; }
 function playlistOfName(nm){ for(var i=0;i<plman.PlaylistCount;i++) if(plman.GetPlaylistName(i)===nm) return i; return -1; }
 function sameHandle(a,b){ return !!(a&&b&&a.Path===b.Path&&a.SubSong===b.SubSong); }
 // A playlist action resumes its native saved round; row actions remain explicit track choices.
@@ -30,6 +30,11 @@ function playPlaylist(pl){
   // GUID identity prevents a pending click from starting another playlist after a reorder.
   if(!info||!info.guid||isHiddenPl(info.name)||isHiddenPl(plman.GetPlaylistName(pl)))return false;
   ssSend('play_playlist',{playlist_guid:info.guid});return true;
+}
+// Read the library in the SDK; never serialize the entire collection through the theme bridge.
+function playLibrary(){
+  if(!songsTracks||!songsTracks.length)return false;
+  ssSend('play_library');return true;
 }
 function drawPlaylistPlay(gr,x,y,size,pl){
   var box={x0:x,y0:y,x1:x+size,y1:y+size,pl:pl,label:'播放歌单'};

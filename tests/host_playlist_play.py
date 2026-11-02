@@ -109,7 +109,7 @@ def playlist(index):
 
 
 verify_disposable()
-media = ROOT / 'build/playlist-play-fixtures'
+media = ROOT / 'build/playlist-play-fixtures' / uuid.uuid4().hex
 media.mkdir(parents=True, exist_ok=True)
 files = []
 for n in range(4):

@@ -4,7 +4,7 @@
 
 /* ---- All Songs: header + group-by pill + grouped/flat track list ---- */
 function drawSongs(gr,r){
-  HB_TR=[]; HB_CARD=[]; HB_SG=null; HB_RGNORM=null;
+  HB_TR=[]; HB_CARD=[]; HB_SG=null; HB_RGNORM=null; HB_SONGS_PLAY=null;
   var songsOk=ensureBuilt('songs',songsReady,songsSteps);
   if(!songsOk || !gateReady('songsart',rowHandlesSongs(),0,ROW_GATE_MS)){   // 0 = the default cap
     if(songsOk || skelVisible('songs')) drawViewSkeleton(gr,r);
@@ -15,6 +15,10 @@ function drawSongs(gr,r){
   gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,blend(artHue(cov.single,'__lib__'),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
   var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad, lx=r.x+M.cpad, ay=r.y+(compact?22:44)*s, art=M.artSz;
   drawLibCover(gr,lx,ay,art,8);
+  if(songsTracks.length){
+    HB_SONGS_PLAY=drawPlaylistPlay(gr,lx+art-52*s,ay+art-52*s,44*s,-1);
+    HB_SONGS_PLAY.label='播放全部歌曲';HB_SONGS_PLAY.library=true;
+  }
   // header text stops short of the pill column so the two can never collide on a narrow panel
   var gpW=compact?Math.max(150,Math.floor((r.w-M.cpad*2-8)*.54)):232, pgap=8, nzW=compact?r.w-M.cpad*2-gpW-pgap:Math.max(196,Math.round(gr.CalcTextWidth('音量均衡',FONT.pl))+72);
   var clW=nzW+pgap+gpW, clX=compact?lx:Math.max(lx+art+24,rx-clW), gpX=clX+nzW+pgap;

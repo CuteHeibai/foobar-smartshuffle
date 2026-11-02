@@ -20,6 +20,9 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         for(auto& path:files){metadb_handle_ptr h;metadb::get()->handle_create(h,make_playable_location(path.c_str(),0));items.add_item(h);}
         pm->playlist_insert_items(pi,0,items,pfc::bit_array_false());pm->set_active_playlist(pi);playback_control::get()->set_volume(-60);r["playlist"]=pi;
         auto outside=pm->find_or_create_playlist("SmartShuffle external queue");pm->playlist_clear(outside);pm->playlist_insert_items(outside,0,items,pfc::bit_array_false());r["outside"]=outside;
+    }else if(op=="library_items"){
+        metadb_handle_list list;library_manager::get()->get_all_items(list);r["items"]=json::array();
+        for(auto& item:list)r["items"].push_back(std::string(item->get_path())+"|"+std::to_string(item->get_subsong_index()));
     }else if(op=="play"){pm->playlist_execute_default_action(q.at("playlist").get<size_t>(),q.at("item").get<size_t>());}
     else if(op=="queue"){pm->queue_add_item_playlist(q.at("playlist").get<size_t>(),q.at("item").get<size_t>());}
     else if(op=="rename"){auto name=q.at("name").get<std::string>();pm->playlist_rename(q.at("playlist").get<size_t>(),name.c_str(),name.size());}

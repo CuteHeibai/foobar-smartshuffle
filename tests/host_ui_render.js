@@ -48,7 +48,11 @@
   var splitImage=gdi.CreateImage(W,H),splitG=splitImage.GetGraphics(),oldModal=ssModal,oldFs=fsMode;
   ssModal=false;fsMode=false;splitG.FillSolidRect(0,0,W,H,COL.base);ssDrawResizers(splitG);splitImage.ReleaseGraphics(splitG);
   var sx=Math.round(R.main.x-M.gap/2),sy=Math.round(R.top.y+36);
-  check(colour(splitImage,sx,sy,1,5)!==0xffffff||colour(splitImage,sx+1,sy,1,5)!==0xffffff,'Light splitter remains visible without pointer hover');
+  result.splitter_pixels=[colour(splitImage,sx-1,sy,1,5),colour(splitImage,sx,sy,1,5),colour(splitImage,sx+1,sy,1,5),COL.splitter&0xffffff];
+  // GetColourScheme quantizes colours; verify strong coverage and untouched
+  // adjacent pixels rather than comparing its palette entry to an exact RGB.
+  var splitColour=result.splitter_pixels[1];
+  check(((splitColour>>16)&255)<190&&((splitColour>>8)&255)<190&&(splitColour&255)<190&&result.splitter_pixels[0]===0xffffff&&result.splitter_pixels[2]===0xffffff,'Light splitter remains one strong pixel wide without pointer hover');
   check(Math.abs(ssTransportLayout(W,80,W-140,1).center-W/2)<=1,'Transport geometry stays at the whole-window midpoint with asymmetric side widths');
   ssModal=oldModal;fsMode=oldFs;ssApplyAppearance(oldAppearance);
   check(COL.base===(oldAppearance==='light'?ssPalette('light'):ssPalette('dark')).base,'Returning to the previous appearance restores its palette');
@@ -61,6 +65,12 @@
   check(staticCount===1,'Forty actual ball frames reuse the static panel typography and controls');
   check(colour(modalImage,4,4,4,4)===stable,'Actual cached ball frames retain the dimmed background without opacity accumulation');
   drawPreference=staticDraw;ssDropModalImage();ssDraft=draftSaved;ssTrail=trailSaved;
+  var oldNP=NP,allowMarquee=ssFooterMarqueeAllowed;NP={RawPath:'fixture-long-title',SubSong:0};ssFooterMarqueeAllowed=function(){return true;};
+  var footer=gdi.CreateImage(400,80),footerG=footer.GetGraphics(),longTitle='Long English title 中文歌曲名称 '.repeat(5);footerG.FillSolidRect(0,0,400,80,RGB(255,0,255));
+  ssDrawFooterTitle(footerG,longTitle,FONT.npTitle,COL.text,30,20,140,28);var titleBitmap=ssFooterMarquee.image;ssFooterMarquee.started-=2500;ssDrawFooterTitle(footerG,longTitle,FONT.npTitle,COL.text,30,20,140,28);footer.ReleaseGraphics(footerG);
+  check(ssFooterMarquee.offset>0&&ssFooterMarquee.image===titleBitmap,'Actual long-title marquee scrolls using one cached text bitmap');
+  check(colour(footer,171,20,20,28)===0xff00ff&&colour(footer,5,20,20,28)===0xff00ff,'Actual marquee crop keeps every pixel outside the title viewport unchanged');
+  ssStopFooterMarquee();NP=oldNP;ssFooterMarqueeAllowed=allowMarquee;
   for(var pi=0;pi<plman.PlaylistCount;pi++){if(isHiddenPl(plman.GetPlaylistName(pi)))continue;var handles=plman.GetPlaylistItems(pi);if(handles.Count>=2){result.context={playlist:pi,items:[0,1],tracks:[ssTrackID(handles[0]),ssTrackID(handles[1])],path:handles[0].Path,raw:handles[0].RawPath};break;}}
   check(!!result.context,'Real JSplitter handles supply a native playlist context payload');result.ok=true;
  }catch(error){if(typeof oldR!=="undefined")R=oldR;result.error=String(error);}

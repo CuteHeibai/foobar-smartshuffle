@@ -20,6 +20,55 @@ function ssTransportLayout(w,left,right,s){
   var room=Math.max(0,Math.min(center-left,right-center));
   return {center:center,seekWidth:Math.max(24,Math.min(560*s,room*2-112*s))};
 }
+// A title owns only its text viewport. Cache the complete line on the footer's
+// opaque background, then copy a moving crop so glyphs can never reach controls.
+var ssFooterMarquee=null,ssFooterMarqueeTimer=null;
+function ssFooterMarqueeAllowed(){
+  return !!NP&&(fb.IsPlaying||fb.IsPaused)&&!fsMode&&
+    !(typeof ssPopup!=='undefined'&&ssPopup)&&!(typeof ssModal!=='undefined'&&ssModal)&&
+    !(typeof renameEdit!=='undefined'&&renameEdit)&&!(typeof ctxMenu!=='undefined'&&ctxMenu)&&
+    !(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof dupPrompt!=='undefined'&&dupPrompt)&&
+    !(typeof rgPrompt!=='undefined'&&rgPrompt)&&!(typeof sgMenuOpen!=='undefined'&&sgMenuOpen)&&
+    !(typeof plSortMenuOpen!=='undefined'&&plSortMenuOpen)&&!(typeof vizMenuOpen!=='undefined'&&vizMenuOpen);
+}
+function ssFooterTrackKey(){return String(NP.RawPath||NP.Path||'')+'|'+String(NP.SubSong||0);}
+function ssStopFooterMarquee(){
+  if(ssFooterMarqueeTimer!==null){window.ClearInterval(ssFooterMarqueeTimer);ssFooterMarqueeTimer=null;}
+  if(ssFooterMarquee&&ssFooterMarquee.image)try{ssFooterMarquee.image.Dispose();}catch(e){}
+  ssFooterMarquee=null;
+}
+function ssFooterMarqueeOffset(now){
+  var m=ssFooterMarquee,pause=900,travel=m.distance/m.speed*1000;
+  var phase=Math.max(0,now-m.started)%(2*pause+2*travel);
+  if(phase<pause)return 0;
+  if(phase<pause+travel)return Math.round((phase-pause)*m.speed/1000);
+  if(phase<2*pause+travel)return m.distance;
+  return Math.round(m.distance-(phase-2*pause-travel)*m.speed/1000);
+}
+function ssFooterMarqueeTick(){
+  if(!ssFooterMarqueeAllowed()){ssStopFooterMarquee();return;}
+  var m=ssFooterMarquee;if(!m)return;
+  var offset=ssFooterMarqueeOffset(Date.now());
+  if(offset!==m.offset){m.offset=offset;repaintBar();}
+}
+function ssDrawFooterTitle(gr,text,font,col,x,y,w,h){
+  x=Math.round(x);y=Math.round(y);w=Math.max(1,Math.round(w));h=Math.max(1,Math.round(h));
+  if(!ssFooterMarqueeAllowed()){ssStopFooterMarquee();tL(gr,text,font,col,x,y,w,h);return;}
+  var fitted=ssFitFont(gr,ssScriptFont(text,font),h),textW=Math.ceil(gr.CalcTextWidth(text,fitted));
+  if(textW<=w){ssStopFooterMarquee();tL(gr,text,font,col,x,y,w,h);return;}
+  var key=ssFooterTrackKey(),m=ssFooterMarquee;
+  if(!m||m.track!==key||m.text!==text||m.font!==font||m.fitted!==fitted||m.w!==w||m.h!==h||m.col!==col||m.bg!==COL.black){
+    ssStopFooterMarquee();
+    var image=gdi.CreateImage(textW+2,h),g=image.GetGraphics();
+    g.FillSolidRect(0,0,textW+2,h,COL.black);
+    ssText(g,text,fitted,col,0,0,textW+2,h,0,false);image.ReleaseGraphics(g);
+    m=ssFooterMarquee={track:key,text:text,font:font,fitted:fitted,w:w,h:h,col:col,bg:COL.black,image:image,
+      distance:textW+2-w,speed:24*ssDensity,started:Date.now(),offset:0};
+    ssFooterMarqueeTimer=window.SetInterval(ssFooterMarqueeTick,33);
+  }
+  m.offset=ssFooterMarqueeOffset(Date.now());
+  gr.DrawImage(m.image,x,y,w,h,m.offset,0,w,h);
+}
 function drawBar(gr){
   HB_CTRL=[];
   var by=R.barY;
@@ -30,7 +79,7 @@ function drawBar(gr){
   var cs=Math.round(64*s), cx=Math.round(16*s), cy=by+(M.barH-cs)/2;
   drawCover(gr,cx,cy,cs,5,NP,'np');
   var tx=cx+cs+14*s;
-  tL(gr,npTitleStr,FONT.npTitle,COL.text,tx,by+26*s,Math.max(20,R.barInfoW-tx-12*s),20*s);
+  ssDrawFooterTitle(gr,npTitleStr,FONT.npTitle,COL.text,tx,by+26*s,Math.max(20,R.barInfoW-tx-12*s),20*s);
   tL(gr,npArtistStr,FONT.npArtist,COL.text2,tx,by+50*s,Math.max(20,R.barInfoW-tx-12*s),18*s);
   // Anchor to the window, using actual side content rather than unused panel space.
   var prefX=W-R.barToolsW+6,modeW=R.barToolsW-114;

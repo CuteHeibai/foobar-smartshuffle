@@ -2,9 +2,10 @@
 var ssMainSelect=ssCreateSelectionController({marquee:false,dragUnselected:true,holdDelay:160}),ssNavSelect=ssCreateSelectionController(),ssQueueSelect=ssCreateSelectionController({holdDelay:160});
 var ssSelectOwner=null,ssMainRows=[],ssMainIndex={},ssNavRows=[],ssQueueRows=[],ssSelectPaint=0,ssSelectionDirty=false,ssSelectionZone=null,ssSelectionContextKey='';
 var ssSelectContext=null,ssSelectScroll=0;
-var ssSelectHold=0,ssDragOverlay=null;
+var ssSelectHold=0,ssDragOverlay=null,ssSelectLeftDown=false;
 function ssDropDragOverlay(){if(ssDragOverlay&&ssDragOverlay.image)try{ssDragOverlay.image.Dispose();}catch(e){}ssDragOverlay=null;}
 function ssInvalidateSelections(){
+  ssSelectLeftDown=false;
   ssDropDragOverlay();if(ssSelectHold)window.ClearTimeout(ssSelectHold);ssSelectHold=0;
   if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectOwner=null;ssMainRows=[];ssSelectionContextKey='';
   ssMainSelect.setContext({kind:'track',key:'invalidated',items:[],rows:[]});
@@ -56,13 +57,17 @@ function ssSelectionDown(x,y){
   else return false;
   ssSelectionZone=ssSelectOwner===ssMainSelect?R.main:ssSelectOwner===ssNavSelect?R.navLib:R.queue;
   if(!ssSelectOwner.start({index:index,x:x,y:y,ctrl:ctrl&&ssSelectOwner===ssMainSelect,shift:false})){ssSelectOwner=null;return false;}
+  ssSelectLeftDown=true;
   if(ssSelectHold)window.ClearTimeout(ssSelectHold);
-  if(!ctrl)ssSelectHold=window.SetTimeout(function(){ssSelectHold=0;if(ssSelectOwner&&utils.IsKeyPressed(1)){ssSelectOwner.move(mx>=0?mx:x,my>=0?my:y);ssSelectionRepaint();}},160);
+  var owner=ssSelectOwner,deadline=Date.now()+160;
+  function lift(){ssSelectHold=0;if(ssSelectOwner!==owner||!ssSelectLeftDown)return;var delay=deadline-Date.now();if(delay>0){ssSelectHold=window.SetTimeout(lift,delay);return;}owner.move(mx>=0?mx:x,my>=0?my:y);ssSelectionRepaint();}
+  if(!ctrl)ssSelectHold=window.SetTimeout(lift,160);
   if(!ssSelectScroll)ssSelectScroll=window.SetInterval(ssSelectionScroll,50);
   ssSelectionRepaint();return true;
 }
 function ssMoveOrder(count,chosen,target){var rest=[],moving={},i;for(i=0;i<chosen.length;i++)moving[chosen[i]]=true;for(i=0;i<count;i++)if(!moving[i])rest.push(i);return rest.slice(0,target).concat(chosen,rest.slice(target));}
 function ssSelectionUp(x,y){
+  ssSelectLeftDown=false;
   if(ssSelectHold)window.ClearTimeout(ssSelectHold);ssSelectHold=0;ssDropDragOverlay();
   if(!ssSelectOwner)return false;if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;var owner=ssSelectOwner,action=owner.end(x,y);ssSelectOwner=null;if(!action)return false;
   if(action.type==='reorder'&&action.changed){
@@ -83,9 +88,9 @@ function ssSelectionUp(x,y){
   }
   ssSelectionRepaint();return action.type!=='click';
 }
-function ssCancelSelectionGesture(){if(ssSelectHold)window.ClearTimeout(ssSelectHold);ssSelectHold=0;ssDropDragOverlay();if(ssSelectOwner)ssSelectOwner.cancel();ssSelectOwner=null;if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectionRepaint();}
+function ssCancelSelectionGesture(){ssSelectLeftDown=false;if(ssSelectHold)window.ClearTimeout(ssSelectHold);ssSelectHold=0;ssDropDragOverlay();if(ssSelectOwner)ssSelectOwner.cancel();ssSelectOwner=null;if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectionRepaint();}
 function ssSelectionMove(x,y,mask){
-  if(!ssSelectOwner)return false;var held=mask!==undefined?!!(mask&1):typeof utils.IsKeyPressed==='function'?utils.IsKeyPressed(1):true;
+  if(!ssSelectOwner)return false;var held=typeof mask==='number'?!!(mask&1):ssSelectLeftDown;
   if(!held){ssCancelSelectionGesture();return false;}ssSelectOwner.move(x,y);ssSelectionRepaint();return true;
 }
 function ssSelectionScroll(){

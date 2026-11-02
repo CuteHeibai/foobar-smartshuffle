@@ -25,7 +25,7 @@ def wait_apply():
  while not fixture('panel')['apply_enabled']:
   assert time.monotonic()<until,'Native window did not display its completed preview'
   time.sleep(.05)
-s=b.wait(lambda s:s.get('component')=='1.0.9' and s.get('edition')=='core' and
+s=b.wait(lambda s:s.get('component')=='1.0.10' and s.get('edition')=='core' and
          (not os.environ.get('SS_TEST_PID') or s.get('pid')==int(os.environ['SS_TEST_PID'])))
 check(s['fonts']['private_resources']>=3,'Standalone privately loads the bundled Inter fonts')
 check(not s['theme']['version'],'Standalone loads without a project theme')

@@ -12,6 +12,8 @@ node tests/theme_color_tests.js
 node tests/ui_geometry_regressions.js
 node tests/selection_regressions.js
 node tests/playlist_play_tests.js
+node tests/all_songs_play_tests.js
+node tests/footer_marquee_tests.js
 .\.venv\Scripts\python.exe -m unittest discover -s tests -p 'test*install.py' -v
 python -m unittest discover -s tests -p test_switch_mode.py
 python -m unittest discover -s tests -p test_update_apply.py
@@ -34,6 +36,10 @@ python -m unittest discover -s tests -p test_update_apply.py
 `tests/host_theme_appearance.py` 自行启停测试副本，检查深浅切换、主题与歌词颜色确认、保存及重启恢复，并保留原有轮次和窗口尺寸；运行前先退出测试副本。浅色菜单、圆角和坐标系的实际位图包含在 `host_ui_render.py` 中。
 
 这些脚本只应针对项目的 `test-player/` 运行。完成后执行 `tests/host_cleanup.py` 并正常退出副本，不把测试组件带入日常安装。
+
+`host_all_songs_play.py` 在已运行、使用空输出的副本内检查 SDK 音乐库播放、歌手／搜索结果来源隔离、暂停续播、插队和临时列表清理。可通过 `SS_LIBRARY_PROFILE` 选择项目的 `build/core-player/profile` 检查空库拒绝路径。`host_ui_render.py` 还检查长标题位图裁切和分隔线的实际单像素覆盖。
+
+`host_pointer_hold.py` 自行启停测试副本，通过真实 JS 定时器、普通 SDK 歌单及 GDI 浮层检查长按和原生排序指令；只临时创建测试歌单，不模拟鼠标输入，也不修改音频文件。
 
 `host_update_bootstrap.py` 要求先在测试副本放入基于旧版源码的更新补丁、旧版主题和本地助手，检查只新增内置更新入口、下载进度与取消退出。`host_in_app_update.py --target-version <已发布版本>` 会实际从 GitHub 下载、正常退出、备份、安装并重新打开测试副本，再核对播放状态和输出。两者都会自行启停副本，运行前先退出副本并选择空输出；不针对日常播放器运行。
 

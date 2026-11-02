@@ -31,6 +31,7 @@ namespace fs=std::filesystem;
 using Clock=std::chrono::steady_clock;
 unsigned privateFontCount=0;
 constexpr auto Managed="__smartshuffle__";
+constexpr auto Library="__smartshuffle_library__";
 std::wstring wide(const std::string& s){if(s.empty())return {};int n=MultiByteToWideChar(CP_UTF8,0,s.data(),int(s.size()),nullptr,0);std::wstring r(n,0);MultiByteToWideChar(CP_UTF8,0,s.data(),int(s.size()),r.data(),n);return r;}
 std::string narrow(const std::wstring& s){if(s.empty())return {};int n=WideCharToMultiByte(CP_UTF8,0,s.data(),int(s.size()),nullptr,0,nullptr,nullptr);std::string r(n,0);WideCharToMultiByte(CP_UTF8,0,s.data(),int(s.size()),r.data(),n,nullptr,nullptr);return r;}
 fs::path local_path(const char* s){
@@ -173,7 +174,7 @@ public:
         for(auto& h:list){auto id=idof(h);if(handles.count(id))continue;handles[id]=h;tracks.push_back(describe(h));}
         ss::reconcile(round(),tracks,seed(),recent_counts());
     }
-    void select_source(size_t pi){auto pm=playlist_manager_v5::get();if(pi>=pm->get_playlist_count()||internal(pi))return;source=guidstr(pm->playlist_get_guid(pi));pfc::string8 name;pm->playlist_get_name(pi,name);if(name=="__verdant_np__")temporarySources.insert(source);refresh();lastScan=Clock::now()-std::chrono::seconds(30);changed=true;}
+    void select_source(size_t pi){auto pm=playlist_manager_v5::get();if(pi>=pm->get_playlist_count()||internal(pi))return;source=guidstr(pm->playlist_get_guid(pi));pfc::string8 name;pm->playlist_get_name(pi,name);if(name=="__verdant_np__"||name==Library)temporarySources.insert(source);refresh();lastScan=Clock::now()-std::chrono::seconds(30);changed=true;}
     std::vector<ss::Track> remaining_tracks(){std::set<std::string> ids(round().remaining.begin(),round().remaining.end());std::vector<ss::Track> ret;for(auto& t:tracks)if(ids.count(t.id))ret.push_back(t);return ret;}
     json track_json(const std::string& id){auto it=std::find_if(tracks.begin(),tracks.end(),[&](const ss::Track& t){return t.id==id;});if(it!=tracks.end())return {{"id",id},{"title",it->title},{"artist",it->artist},{"duration",it->duration},{"analyzed",!it->features.empty()}};return {{"id",id},{"title",id},{"artist",""}};}
     json list_json(const std::vector<std::string>& ids,size_t limit=SIZE_MAX){json a=json::array();for(size_t i=0;i<ids.size()&&i<limit;++i)a.push_back(track_json(ids[i]));return a;}
@@ -413,7 +414,7 @@ public:
         inside=true;
         for(size_t i=pm->get_playlist_count();i-->0;){
             pfc::string8 name;pm->playlist_get_name(i,name);
-            bool managed=name==Managed,route=name=="__verdant_np__";
+            bool managed=name==Managed,route=name=="__verdant_np__"||name==Library;
             if(!managed&&!route)continue;
             auto guid=guidstr(pm->playlist_get_guid(i));
             if(route&&!temporarySources.count(guid))continue;
@@ -421,7 +422,7 @@ public:
             bool queued=false;for(auto& q:queue)if(q.m_playlist==i){queued=true;break;}
             if(queued)continue;
             if(pm->get_active_playlist()==i){
-                for(size_t j=0;j<pm->get_playlist_count();++j){pfc::string8 other;pm->playlist_get_name(j,other);if(other!=Managed&&other!="__verdant_np__"){pm->set_active_playlist(j);break;}}
+                for(size_t j=0;j<pm->get_playlist_count();++j){pfc::string8 other;pm->playlist_get_name(j,other);if(other!=Managed&&other!="__verdant_np__"&&other!=Library){pm->set_active_playlist(j);break;}}
             }
             if(pm->remove_playlist(i)){
                 if(route){temporarySources.erase(guid);rounds.erase(guid);roundAudio.erase(guid);if(source==guid){source.clear();tracks.clear();handles.clear();preview.reset();previewDirty=false;}}
@@ -430,6 +431,42 @@ public:
         }
         inside=false;
         if(source.empty())select_source(pm->get_active_playlist());
+    }
+
+    void play_source_playlist(size_t pi,bool allowResume=true){
+        auto pm=playlist_manager_v5::get();auto pc=playback_control::get();
+        auto chosen=guidstr(pm->playlist_get_guid(pi));
+        size_t playing=~size_t(0),at=~size_t(0);pm->get_playing_item_location(&playing,&at);
+        metadb_handle_ptr current;
+        // Clicking the current smart source is a resume, never a replay or new round.
+        if(allowResume&&enabled&&source==chosen&&pc->is_playing()&&(playing==pi||internal(playing))&&pc->get_now_playing(current)&&handles.count(idof(current))){
+            if(pc->is_paused())pc->pause(false);changed=true;return;
+        }
+        pendingSeek.reset();select_source(pi);remove_owned_queue();
+        // The host default action clears its playback queue. Preserve explicit
+        // user inserts around the requested playlist start, retaining FIFO order.
+        auto startPlaylist=[&](size_t target){
+            pfc::list_t<t_playback_queue_item> queue;pm->queue_get_contents(queue);
+            pm->playlist_execute_default_action(target,0);
+            if(queue.get_count()){
+                pm->queue_flush();
+                for(auto& item:queue){
+                    if(item.m_playlist<pm->get_playlist_count()&&item.m_item<pm->playlist_get_item_count(item.m_playlist)){
+                        metadb_handle_ptr at;pm->playlist_get_item_handle(at,item.m_playlist,item.m_item);
+                        if(at==item.m_handle){pm->queue_add_item_playlist(item.m_playlist,item.m_item);continue;}
+                    }
+                    pm->queue_add_item(item.m_handle);
+                }
+            }
+        };
+        if(!enabled){invalidate();startPlaylist(pi);return;}
+        if(round().remaining.empty())next_round();
+        metadb_handle_list all;for(auto& id:round().remaining)if(handles.count(id))all.add_item(handles[id]);
+        if(!all.get_count())throw std::runtime_error("歌单中没有可播放的歌曲");
+        // Only the managed projection is replaced; user queue entries and saved seen/order survive.
+        auto owned=pm->find_or_create_playlist(Managed);pm->playlist_clear(owned);
+        pm->playlist_insert_items(owned,0,all,pfc::bit_array_false());pm->playback_order_set_active(0);
+        invalidate();managedRequested=true;startPlaylist(owned);
     }
 
     void dispatch(const json& req){
@@ -482,7 +519,7 @@ public:
             auto pm=playlist_manager::get();auto list=selected_handles(req);bool move=req.value("move",false);size_t from=~size_t(0);
             if(move){from=edit_playlist(req);if(!playlist_writable(from))throw std::runtime_error("智能或锁定歌单只能复制歌曲");}
             bool create=req.value("new_playlist",false);size_t target;
-            if(create){auto name=req.value("name",std::string("所选歌曲"));if(name.empty()||name==Managed||name=="__verdant_np__")throw std::runtime_error("歌单名称无效");target=pm->create_playlist(name.c_str(),name.size(),pm->get_playlist_count());}
+            if(create){auto name=req.value("name",std::string("所选歌曲"));if(name.empty()||name==Managed||name=="__verdant_np__"||name==Library)throw std::runtime_error("歌单名称无效");target=pm->create_playlist(name.c_str(),name.size(),pm->get_playlist_count());}
             else target=edit_playlist(req,"target_guid");
             if(target==from)throw std::runtime_error("来源和目标歌单相同");if(!playlist_writable(target))throw std::runtime_error("目标歌单不接受添加歌曲");
             auto beforeCount=pm->playlist_get_item_count(target);pm->playlist_undo_backup(target);pm->playlist_insert_items(target,beforeCount,list,pfc::bit_array_false());
@@ -514,43 +551,37 @@ public:
             }else throw std::runtime_error("未知待播队列");
         }
         else if(op=="play_playlist"){
-            auto pm=playlist_manager_v5::get();auto pc=playback_control::get();
+            auto pm=playlist_manager_v5::get();
             size_t pi=req.contains("playlist_guid")?edit_playlist(req):req.at("playlist").get<size_t>();
             if(pi>=pm->get_playlist_count()||internal(pi))throw std::runtime_error("歌单已变化，请重新选择");
-            pfc::string8 name;pm->playlist_get_name(pi,name);if(name=="__verdant_np__")throw std::runtime_error("内部歌单不能播放");
+            pfc::string8 name;pm->playlist_get_name(pi,name);if(name=="__verdant_np__"||name==Library)throw std::runtime_error("内部歌单不能播放");
             if(!pm->playlist_get_item_count(pi))throw std::runtime_error("歌单中没有可播放的歌曲");
-            auto chosen=guidstr(pm->playlist_get_guid(pi));
-            size_t playing=~size_t(0),at=~size_t(0);pm->get_playing_item_location(&playing,&at);
-            metadb_handle_ptr current;
-            // Clicking the current smart source is a resume, never a replay or new round.
-            if(enabled&&source==chosen&&pc->is_playing()&&(playing==pi||internal(playing))&&pc->get_now_playing(current)&&handles.count(idof(current))){
-                if(pc->is_paused())pc->pause(false);changed=true;return;
-            }
-            pendingSeek.reset();select_source(pi);remove_owned_queue();
-            // The host default action clears its playback queue. Preserve explicit
-            // user inserts around the requested playlist start, retaining FIFO order.
-            auto startPlaylist=[&](size_t target){
-                pfc::list_t<t_playback_queue_item> queue;pm->queue_get_contents(queue);
-                pm->playlist_execute_default_action(target,0);
-                if(queue.get_count()){
-                    pm->queue_flush();
-                    for(auto& item:queue){
-                        if(item.m_playlist<pm->get_playlist_count()&&item.m_item<pm->playlist_get_item_count(item.m_playlist)){
-                            metadb_handle_ptr at;pm->playlist_get_item_handle(at,item.m_playlist,item.m_item);
-                            if(at==item.m_handle){pm->queue_add_item_playlist(item.m_playlist,item.m_item);continue;}
-                        }
-                        pm->queue_add_item(item.m_handle);
-                    }
+            play_source_playlist(pi);
+        }
+        else if(op=="play_library"){
+            // The SDK library is the same collection shown by All Songs, not a union of playlists.
+            metadb_handle_list library,all;library_manager::get()->get_all_items(library);
+            std::set<std::string> identities;
+            for(auto& handle:library)if(identities.insert(idof(handle)).second)all.add_item(handle);
+            if(!all.get_count())throw std::runtime_error("音乐库中没有可播放的歌曲");
+            auto pm=playlist_manager_v5::get();auto pc=playback_control::get();
+            auto pi=pm->find_playlist(Library);bool unchanged=false;
+            if(pi<pm->get_playlist_count()){
+                metadb_handle_list previous;pm->playlist_get_all_items(pi,previous);std::set<std::string> previousIds;
+                for(auto& handle:previous)previousIds.insert(idof(handle));
+                // SDK enumeration order is unspecified; preserve a source with unchanged membership.
+                unchanged=previous.get_count()==all.get_count()&&previousIds==identities;
+                if(unchanged&&source==guidstr(pm->playlist_get_guid(pi))&&pc->is_playing()){
+                    if(pc->is_paused())pc->pause(false);changed=true;return;
                 }
-            };
-            if(!enabled){invalidate();startPlaylist(pi);return;}
-            if(round().remaining.empty())next_round();
-            metadb_handle_list all;for(auto& id:round().remaining)if(handles.count(id))all.add_item(handles[id]);
-            if(!all.get_count())throw std::runtime_error("歌单中没有可播放的歌曲");
-            // Only the managed projection is replaced; user queue entries and saved seen/order survive.
-            auto owned=pm->find_or_create_playlist(Managed);pm->playlist_clear(owned);
-            pm->playlist_insert_items(owned,0,all,pfc::bit_array_false());pm->playback_order_set_active(0);
-            invalidate();managedRequested=true;startPlaylist(owned);
+            }
+            if(!unchanged){
+                pfc::vartoggle_t<bool> guard(inside,true);
+                if(pi>=pm->get_playlist_count())pi=pm->find_or_create_playlist(Library);
+                pm->playlist_clear(pi);pm->playlist_insert_items(pi,0,all,pfc::bit_array_false());
+            }
+            // Repeat clicks were handled above. A changed collection must refresh/reconcile first.
+            play_source_playlist(pi,false);
         }
         else if(op=="play"){
             pendingSeek.reset();std::optional<double> seek;

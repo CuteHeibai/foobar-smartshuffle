@@ -8,7 +8,7 @@ metadb_handle_ptr handle_id(const std::string& id){
 size_t edit_playlist(const json& req,const char* field="playlist_guid"){
     auto pm=playlist_manager_v5::get();auto pi=pm->find_playlist_by_guid(parseguid(req.at(field).get<std::string>()));
     if(pi>=pm->get_playlist_count())throw std::runtime_error("歌单已变化，请重新选择");
-    pfc::string8 name;pm->playlist_get_name(pi,name);if(name==Managed||name=="__verdant_np__")throw std::runtime_error("内部歌单不能编辑");return pi;
+    pfc::string8 name;pm->playlist_get_name(pi,name);if(name==Managed||name=="__verdant_np__"||name==Library)throw std::runtime_error("内部歌单不能编辑");return pi;
 }
 bool playlist_writable(size_t pi){return playlist_manager::get()->playlist_lock_get_filter_mask(pi)==0;}
 std::vector<size_t> checked_order(const json& value,size_t count){
