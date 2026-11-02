@@ -1,6 +1,6 @@
 ﻿/* Selection is keyed by row occurrence, so duplicate files stay independent. */
 var ssMainSelect=ssCreateSelectionController({marquee:false,dragUnselected:true,holdDelay:160}),ssNavSelect=ssCreateSelectionController(),ssQueueSelect=ssCreateSelectionController({holdDelay:160});
-var ssSelectOwner=null,ssMainRows=[],ssMainIndex={},ssNavRows=[],ssQueueRows=[],ssSelectPaint=0,ssSelectionDirty=false,ssSelectionZone=null,ssSelectionContextKey='';
+var ssSelectOwner=null,ssMainRows=[],ssMainIndex={},ssNavRows=[],ssQueueRows=[],ssSelectionDirty=false,ssSelectionZone=null,ssSelectionContextKey='';
 var ssSelectContext=null,ssSelectScroll=0;
 var ssSelectHold=0,ssDragOverlay=null,ssSelectLeftDown=false;
 function ssDropDragOverlay(){if(ssDragOverlay&&ssDragOverlay.image)try{ssDragOverlay.image.Dispose();}catch(e){}ssDragOverlay=null;}
@@ -12,16 +12,16 @@ function ssInvalidateSelections(){
 }
 function ssTrackID(h){return (h.RawPath||h.Path)+'|'+h.SubSong;}
 function ssPlaylistInfo(index){var lists=ssState&&ssState.playlists||[];for(var i=0;i<lists.length;i++)if(lists[i].index===index)return lists[i];return null;}
-function ssSelectionRepaint(){if(ssSelectPaint)return;ssSelectPaint=window.SetTimeout(function(){
-  ssSelectPaint=0;ssSelectionDirty=true;
-  var areas=ssInteractionPainted.concat(ssSelectionRects()),r=null;
+function ssSelectionRepaint(){
+  ssSelectionDirty=true;
+  var areas=ssInteractionPainted.concat(ssSelectionRects(),ssInteractionDamage),r=null;
   // Submit one bounding damage rectangle: the host may clear the band between
   // invalidations, so restoration and invalidation must cover exactly that band.
   for(var i=0;i<areas.length;i++){var a=areas[i];if(!a||a.w<=0||a.h<=0)continue;
     if(!r)r={x:a.x,y:a.y,w:a.w,h:a.h};else{var right=Math.max(r.x+r.w,a.x+a.w),bottom=Math.max(r.y+r.h,a.y+a.h);r.x=Math.min(r.x,a.x);r.y=Math.min(r.y,a.y);r.w=right-r.x;r.h=bottom-r.y;}}
   if(!ssSceneImage||!r)r=ssSelectionZone||R.main;
-  r=ssPixelRect(r);ssQueueInteractionDamage(r);window.RepaintRect(r.x,r.y,r.w,r.h);
-},16);}
+  r=ssPixelRect(r);ssQueueInteractionDamage(r);window.RepaintRect(r.x,r.y,r.w,r.h,false);
+}
 function ssCanReorder(info){return !!info&&(typeof info.reorderable==='boolean'?info.reorderable:!!info.writable);}
 function ssMainSelectionContext(){
   var rows=[],key=view,items=[],i,j,pi,order,handles,info;

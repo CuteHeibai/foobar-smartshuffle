@@ -4,7 +4,13 @@ var ssQuietRows=false,ssHoverFrame=0,ssHoverDirty=false,ssHoverPainted=null;
 var ssInteractionPainted=[];
 var ssInteractionDamage=[];
 function ssPixelRect(r){var x=Math.floor(r.x),y=Math.floor(r.y);return {x:x,y:y,w:Math.ceil(r.x+r.w)-x,h:Math.ceil(r.y+r.h)-y};}
-function ssQueueInteractionDamage(rect){if(rect&&rect.w>0&&rect.h>0)ssInteractionDamage.push({x:rect.x,y:rect.y,w:rect.w,h:rect.h});}
+function ssQueueInteractionDamage(rect){
+  if(!rect||rect.w<=0||rect.h<=0)return;
+  var r=ssInteractionDamage[0];
+  if(!r){ssInteractionDamage=[{x:rect.x,y:rect.y,w:rect.w,h:rect.h}];return;}
+  var right=Math.max(r.x+r.w,rect.x+rect.w),bottom=Math.max(r.y+r.h,rect.y+rect.h);
+  r.x=Math.min(r.x,rect.x);r.y=Math.min(r.y,rect.y);r.w=right-r.x;r.h=bottom-r.y;
+}
 function ssPaintInteractions(gr){
   var hover=ssHoverRow(),current=typeof ssSelectionRects==='function'?ssSelectionRects():[];
   if(hover)current.push(hover);

@@ -45,6 +45,8 @@ python -m unittest discover -s tests -p test_update_apply.py
 
 播放检查先将测试副本设为空输出，避免占用日常使用的音频设备。`host_playlist_play.py` 要求副本已经运行，使用生成的 WAV 检查整张歌单播放、暂停续播、重复点击、插队接回及原生模式。`host_integration_switch.py --original-backup <安装前备份目录>` 自行启停副本，经原生菜单执行两次切换，检查原版后台停用、新版布局恢复以及当前歌单、轮次、音频输出保留。它只读取输入备份，将必要界面内容复制到测试副本。
 
+`host_drag_frames.py` 自行启停独立副本，在 2560×1440 离屏位图上测量歌曲浮层帧耗时、刷新请求派发延迟和整页重建次数。它直接调用脚本鼠标回调，不发送系统鼠标输入；测量结果保留在本地 `build/drag-frames-acceptance.json`。
+
 ## 发布检查
 
 - 两版均能加载原生组件，启动更新不阻塞播放；离线、无更新和发现更新三种状态行为正确。

@@ -191,6 +191,15 @@ test('drag repaint bounds cover old and new row overlays without repainting the 
  c.ssSelectionRepaint();h.flush();assert.equal(regions.length,1);assert.ok(regions[0].y<=300&&regions[0].y+regions[0].h>=380);assert.ok(regions[0].h<150,'nearby drag movement should only restore its row band');
 });
 
+test('song drag requests paint immediately and merges pending damage under rapid movement',()=>{
+ const h=context(),c=h.c;h.app();c.W=1400;c.H=1000;c.R={main:{x:200,y:40,w:800,h:850}};c.ssSceneImage={};c.HB_TR=[];c.HB_Q=[];c.ssSelectionZone=c.R.main;c.ssInteractionPainted=[{x:200,y:300,w:800,h:60}];
+ let y=320,paints=[];c.ssSelectionRects=()=>[{x:200,y,w:800,h:60}];c.window.RepaintRect=(...a)=>paints.push(a);
+ c.ssSelectionRepaint();assert.equal(paints.length,1,'the host should receive damage in the pointer callback, without a script timer');assert.equal(paints[0][4],false,'use the host deferred/coalesced paint rather than synchronous drawing');
+ for(let i=0;i<200;i++){y=320+(i%40)*4;c.ssSelectionRepaint();}
+ assert.equal(c.ssInteractionDamage.length,1,'pending mouse events must not allocate a growing list of dirty rectangles');
+ const damage=c.ssInteractionDamage[0];assert.ok(damage.y<=300&&damage.y+damage.h>=536,'all queued positions survive a pointer reversal before paint');
+});
+
 test('splitters paint opaque whole-pixel columns independent of hover',()=>{
  const h=context(),c=h.c;h.load('ui/layout.js');c.W=1180;c.R={main:{x:218,y:40,w:600,h:600},queue:{x:826},top:{y:40},barY:650};c.fsMode=false;c.ssModal=false;c.ssPopup=null;c.ssSplitHot='';let columns=[];
  c.ssDrawResizers({DrawLine(){},FillSolidRect(x,y,w,h,color){columns.push({x,y,w,h,color});}});assert.equal(columns.length,2);assert.ok(columns.every(r=>Number.isInteger(r.x)&&r.w===1&&r.h>550&&((r.color>>>24)&255)===255));

@@ -22,7 +22,10 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         auto outside=pm->find_or_create_playlist("SmartShuffle external queue");pm->playlist_clear(outside);pm->playlist_insert_items(outside,0,items,pfc::bit_array_false());r["outside"]=outside;
     }else if(op=="setup_auto"){
         auto name=q.at("name").get<std::string>();if(name.rfind("Mode acceptance ",0)!=0)throw std::runtime_error("Fixture playlist name required");
-        auto pi=pm->find_or_create_playlist(name.c_str());autoplaylist_manager::get()->add_client_simple("ALL","",pi,0);pm->set_active_playlist(pi);r["playlist"]=pi;
+        // This mutating request must not replay after a fixture host restart.
+        fs::remove(root/L"fixture-request.json");auto pi=pm->find_or_create_playlist(name.c_str());
+        if(!autoplaylist_manager::get()->is_client_present(pi))autoplaylist_manager::get()->add_client_simple("ALL","",pi,0);
+        pm->set_active_playlist(pi);r["playlist"]=pi;
     }else if(op=="library_items"){
         metadb_handle_list list;library_manager::get()->get_all_items(list);r["items"]=json::array();
         for(auto& item:list)r["items"].push_back(std::string(item->get_path())+"|"+std::to_string(item->get_subsong_index()));
