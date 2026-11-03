@@ -13,7 +13,7 @@ function drawSongs(gr,r){
   var cov=libChoice(), g=songsGroup;
   // header: gradient wash + mosaic cover + title/meta, mirroring the playlist header
   gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,blend(artHue(cov.single,'__lib__'),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
-  var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad-32*s, lx=r.x+M.cpad, ay=r.y+(compact?22:44)*s, art=M.artSz;
+  var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0), lx=r.x+M.cpad, ay=r.y+(compact?22:44)*s, art=M.artSz;
   drawLibCover(gr,lx,ay,art,8);
   if(songsTracks.length){
     HB_SONGS_PLAY=drawPlaylistPlay(gr,lx+art-52*s,ay+art-52*s,44*s,-1);
@@ -93,7 +93,7 @@ function drawSongs(gr,r){
       else if(showArtist) tL(gr,t.artist,FONT.rowCell,COL.text2,colX,ry,colW,gh);
       tR(gr,t.len,FONT.rowCell,COL.text2,rx-durW,ry,durW,gh);
       },flat);
-      HB_TR.push({x0:lx-8,y0:vy0,x1:rx+32*s+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:numX,pgx1:numX+numW,favoriteX:rx+4*s});
+      HB_TR.push({x0:lx-8,y0:vy0,x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:numX,pgx1:numX+numW,favoriteX:rx+4*s});
     } else {
       /* Group header: every kind is the same block on the same rhythm (GAP, artwork, PADB),
          differing only in indent, artwork size and -- for the artist banner -- a slab + eyebrow. */
@@ -129,6 +129,6 @@ function drawSongs(gr,r){
   else if(showArtist) tL(gr,'歌手',FONT.head,COL.text2,colX,listTop,colW,20);
   drawIcon(gr,'clock',COL.text2,rx-16,listTop,16,20,15);
   gr.DrawLine(lx,listTop+26,rx,listTop+26,1,COL.line);
-  drawScrollbar(gr,rx+32*s+8,rowsTop,viewH,songsScroll,maxPx,viewH,contentH,hv(r.x,r.y,r.x+r.w,cropY)||drag==='scroll');
+  drawScrollbar(gr,rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,rowsTop,viewH,songsScroll,maxPx,viewH,contentH,hv(r.x,r.y,r.x+r.w,cropY)||drag==='scroll');
   drawGroupMenu(gr);
 }

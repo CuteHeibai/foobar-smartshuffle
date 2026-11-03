@@ -40,7 +40,7 @@ function drawNav(gr){
   var active=plman.ActivePlaylist, pls=visiblePlaylists();
   var footH=72*s, footTop=R.navLib.y+R.navLib.h-footH;   // pinned "add playlist" footer, always visible
   var pinY=R.navLib.y+48*s, pinH=58*s;
-  var personalH=typeof ssPersonalTitle==='function'?Math.max(25*s,Math.min(34*s,(R.navLib.h-footH-48*s-pinH-40*s)/3)):0;
+  var personalH=typeof ssPersonalEnabled==='function'&&ssPersonalEnabled()?Math.max(25*s,Math.min(34*s,(R.navLib.h-footH-48*s-pinH-40*s)/3)):0;
   // scrollable playlist list (continuous pixel scroll), cropped just above the footer
   var listTop=pinY+pinH+personalH*3+10*s, rh=58*s, cropY=footTop-6, viewH=Math.max(0,cropY-listTop);
   var contentH=pls.length*rh, maxPx=Math.max(0,contentH-viewH);

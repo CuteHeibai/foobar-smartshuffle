@@ -1,6 +1,7 @@
 """Measure drag drawing and repaint dispatch in a disposable SDK/GDI host."""
 import json
 import sqlite3
+import sys
 from pathlib import Path
 import subprocess
 import time
@@ -27,6 +28,8 @@ try:
     (ROOT/'build/personal-ui-host-acceptance.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps(result,ensure_ascii=False,indent=2))
 finally:
+    sys.path.insert(0,str(ROOT/'scripts'));from bridge import Bridge
+    Bridge(PROFILE).request('personal_config',enabled=False)
     subprocess.run([str(ROOT/'test-player/foobar2000.exe'),'/stop'],check=True);subprocess.run([str(ROOT/'test-player/foobar2000.exe'),'/exit'],check=True);p.wait(timeout=20)
     app.write_bytes(saved);script.unlink(missing_ok=True)
     (PROFILE/'smartshuffle/store.json').write_bytes(saved_store)

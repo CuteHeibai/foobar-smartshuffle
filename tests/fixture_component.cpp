@@ -60,6 +60,16 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         while(pages.next(base))if((page &= base)&&std::string(page->get_name())=="智能随机"){
             found=true;auto callback=fb2k::service_new<SettingsCallback>();auto instance=page->instantiate(core_api::get_main_window(),callback);
             r["state"]=instance->get_state();r["window"]=IsWindow(instance->get_wnd())!=FALSE;
+            auto personal=GetDlgItem(instance->get_wnd(),1004);r["personal_control"]=personal!=nullptr;
+            if(personal){
+                r["personal_checked"]=SendMessageW(personal,BM_GETCHECK,0,0)==BST_CHECKED;
+                if(q.contains("personal_enabled")){
+                    SendMessageW(personal,BM_SETCHECK,q.at("personal_enabled").get<bool>()?BST_CHECKED:BST_UNCHECKED,0);
+                    r["personal_draft_state"]=instance->get_state();
+                    if(q.value("apply",true))instance->apply();
+                    r["personal_applied_state"]=instance->get_state();
+                }
+            }
             if(q.value("reset",false)){instance->reset();r["draft_state"]=instance->get_state();instance->apply();r["applied_state"]=instance->get_state();}
             DestroyWindow(instance->get_wnd());instance.release();break;
         }

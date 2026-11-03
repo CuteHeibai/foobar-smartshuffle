@@ -11,6 +11,7 @@ function ssDrawPersonalHeart(gr,x,y,size,active){
   drawIcon(gr,active?'heartFilled':'heart',active?COL.green:COL.text2,x,y,size,size,size*.65);
 }
 function ssDrawPersonalRowActions(gr){
+  if(!ssPersonalEnabled()){HB_PERSONAL_ACTIONS=[];return;}
   var ids=[],prefetch=ssPersonalPrefetchRows(HB_TR);
   for(var i=0;i<HB_TR.length;i++){
     var row=HB_TR[i],index=ssPersonalPrefetchIndex(row),cachedID=prefetch&&index>=prefetch.start&&index<prefetch.end?prefetch.byIndex[index-prefetch.start]:'';
@@ -24,6 +25,7 @@ function ssDrawPersonalRowActions(gr){
   ssPersonalVisible(ids,prefetch?prefetch.ids:[]);
 }
 function drawPersonal(gr,r){
+  if(!ssPersonalEnabled())return;
   HB_TR=[];var s=ssDensity,lx=r.x+M.cpad,rx=r.x+r.w-M.cpad,w=rx-lx,p=ssPersonal;
   var titleY=r.y+18*s,titleH=34*s,subY=titleY+titleH+4*s,headY=subY+46*s,rowsTop=Math.round(headY+28*s);
   var footerH=Math.round(42*s),cropY=Math.max(rowsTop,Math.floor(r.y+r.h-footerH)),viewH=cropY-rowsTop,history=view==='history';

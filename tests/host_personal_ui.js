@@ -1,4 +1,4 @@
-/* Actual JSplitter personal pages and SDK commands, no desktop input. */
+﻿/* Actual JSplitter personal pages and SDK commands, no desktop input. */
 (function(){
  var result={ok:false,checks:[]},oldView=view,oldWidth=W,oldHeight=H,source='',ids=[],target='',deadline=Date.now()+20000;
  function check(v,label){if(!v)throw Error(label);result.checks.push(label);}
@@ -13,6 +13,6 @@
   var action=HB_PERSONAL_ACTIONS.filter(function(h){return h.kind==='later';})[0];check(!!action,'The real row exposes a later-list action');on_mouse_lbtn_down((action.x0+action.x1)/2,(action.y0+action.y1)/2);on_mouse_lbtn_up((action.x0+action.x1)/2,(action.y0+action.y1)/2);
   wait(function(){return ssState.personal.later_count===1&&!ssPersonal.loading;},function(){try{check(true,'Clicking a row action persists the native later membership');pageTwo();}catch(e){finish(e);}});
  }catch(e){finish(e);}});}
- function start(){wait(function(){return ssState&&ssState.personal&&fb.GetLibraryItems().Count>=60;},function(){try{source=ssState.source;var library=fb.GetLibraryItems();for(var i=0;i<60;i++)ids.push(ssTrackID(library[i]));ssPersonalSet('favorites',ids,true);wait(function(){return ssState.personal.favorites_count===60;},function(){ssOpenPersonal('favorites');pageOne();});}catch(e){finish(e);}});}
+ function start(){wait(function(){return ssState&&ssState.personal&&fb.GetLibraryItems().Count>=60;},function(){try{source=ssState.source;var library=fb.GetLibraryItems();for(var i=0;i<60;i++)ids.push(ssTrackID(library[i]));ssSend('personal_config',{enabled:true});wait(function(){return ssState.personal.enabled===true;},function(){ssPersonalSet('favorites',ids,true);wait(function(){return ssState.personal.favorites_count===60;},function(){ssOpenPersonal('favorites');pageOne();});});}catch(e){finish(e);}});}
  window.SetTimeout(start,120);
 })();

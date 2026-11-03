@@ -2,12 +2,12 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.join(__dirname,'../theme/verdant');let passed=0;
 function test(name,fn){try{fn();console.log('PASS '+name);passed++;}catch(e){console.error('FAIL '+name+': '+e.stack);process.exitCode=1;}}
-function harness(){
+function harness(enabled=true){
   const sent=[],timers=new Map();let timer=0;
   const c={console,Date,Math,JSON,Number,isFinite,view:'home',HB_TR:[],HB_Q:[],HB_PL:[],NP:null,drag:null,
     ssSend(op,args){const r=Object.assign({op,id:'r'+(sent.length+1)},args);sent.push(r);return r.id;},
     window:{SetTimeout(fn){timers.set(++timer,fn);return timer;},ClearTimeout(id){timers.delete(id);}},
-    repaintAll(){},repaintMain(){},ssInvalidateSelections(){},ssState:{personal:{revision:1}},ssDensity:1,
+    repaintAll(){},repaintMain(){},ssInvalidateSelections(){},ssState:{personal:{revision:1,enabled}},ssDensity:1,
     clampPx:(x,max)=>Math.max(0,Math.min(x,max)),R:{main:{x:0,y:0,w:500,h:400}},M:{cpad:16,rowH:56},
     getSearchIdx:()=>[],plman:{},rightTab:'lyrics',ssInteractionPainted:[],ssInteractionDamage:[],utils:{IsKeyPressed:()=>false},
   };
@@ -18,6 +18,32 @@ function harness(){
     accept(r,personal,ok=true){c.ssAcceptPersonal(r,{personal:c.ssState.personal,response:{ok,personal}});}};
 }
 const item=(id,title=id)=>({id,title,artist:'歌手',album:'专辑',duration:123});
+
+test('personal library defaults off and does not query, mutate or reserve list space while disabled',()=>{
+ const h=harness(false),c=h.c;h.load('views/personal.js');
+ assert.equal(c.ssPersonalEnabled(),false);assert.equal(c.ssPersonalGutter(),0);
+ c.ssOpenPersonal('history');c.ssPersonalSet('favorites',['a'],true);c.ssPersonalVisible(['a']);h.tick();
+ assert.equal(c.view,'home');assert.equal(h.sent.length,0);
+ c.HB_PERSONAL_ACTIONS=[{track_id:'stale'}];c.HB_TR=[{track_id:'a',favoriteX:100}];c.ssDrawPersonalRowActions({});
+ assert.equal(c.HB_PERSONAL_ACTIONS.length,0);assert.equal(h.sent.length,0);
+ c.ssState=null;assert.equal(c.ssPersonalEnabled(),false,'startup without a state must stay hidden');
+});
+
+test('turning the feature off exits its page and discards pending gestures and late responses',()=>{
+ const h=harness(),c=h.c;c.ssOpenPersonal('history');const request=h.sent[0];
+ c.ssPersonalVisible(['a']);c.ssPersonalPressed={track_id:'a'};c.ssState.personal.enabled=false;
+ c.ssAcceptPersonal(null,{personal:c.ssState.personal});h.tick();
+ assert.equal(c.view,'home');assert.equal(c.ssPersonalPressed,null);assert.equal(c.ssPersonal.request,'');assert.equal(c.ssPersonal.items.length,0);
+ h.accept(request,{kind:'history',offset:0,total:1,revision:1,items:[item('a')]});assert.equal(c.ssPersonal.items.length,0);assert.equal(h.sent.length,1);
+ c.ssState.personal.enabled=true;c.ssAcceptPersonal(null,{personal:c.ssState.personal});c.ssOpenPersonal('favorites');
+ assert.equal(h.sent.at(-1).kind,'favorites');assert.equal(c.ssPersonalGutter(),32);
+});
+
+test('disabled state refreshes leave ordinary playlist selection and dragging intact',()=>{
+ const h=harness(false),c=h.c;let invalidated=0;c.view='playlist';c.ssInvalidateSelections=()=>invalidated++;
+ c.ssAcceptPersonal(null,{personal:c.ssState.personal});c.ssAcceptPersonal(null,{personal:c.ssState.personal});
+ assert.equal(invalidated,0,'disabled snapshots must not reset the existing list interaction');
+});
 test('browsing requests only one bounded page and never changes playback source',()=>{
   const h=harness();assert.equal(typeof h.c.ssOpenPersonal,'function','personal data module must exist');
   h.c.ssOpenPersonal('history');assert.equal(h.c.view,'history');assert.deepEqual(JSON.parse(JSON.stringify(h.sent)),[{op:'personal_list',id:'r1',kind:'history',offset:0,limit:50}]);

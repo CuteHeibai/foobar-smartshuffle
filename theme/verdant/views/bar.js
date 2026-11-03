@@ -79,7 +79,7 @@ function drawBar(gr){
   var cs=Math.round(64*s), cx=Math.round(16*s), cy=by+(M.barH-cs)/2;
   drawCover(gr,cx,cy,cs,5,NP,'np');
   var tx=cx+cs+14*s;
-  var personalSpace=NP&&typeof ssPersonalNow==='function'?56*s:0;
+  var personalSpace=NP&&typeof ssPersonalEnabled==='function'&&ssPersonalEnabled()?56*s:0;
   ssDrawFooterTitle(gr,npTitleStr,FONT.npTitle,COL.text,tx,by+26*s,Math.max(20,R.barInfoW-tx-12*s-personalSpace),20*s);
   tL(gr,npArtistStr,FONT.npArtist,COL.text2,tx,by+50*s,Math.max(20,R.barInfoW-tx-12*s-personalSpace),18*s);
   if(personalSpace){

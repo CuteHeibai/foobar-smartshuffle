@@ -35,6 +35,10 @@ def history():return call('personal_list',kind='history',offset=0,limit=100)['re
 def last(identity):return next(r for r in history() if r['id']==identity)
 try:
  s=start();check('personal' in s,'Native state exposes a small personal-library summary')
+ check(s['personal'].get('enabled') is False and not s['personal']['history_enabled'],'Personal library defaults off for existing installations')
+ setting=fixture('settings',personal_enabled=True,apply=False)
+ check(setting.get('personal_control') and not setting['personal_checked'] and not call('state')['personal']['enabled'],'Native preferences exposes an unchecked switch and cancelling leaves the feature off')
+ fixture('settings',personal_enabled=True);check(call('state')['personal']['enabled'],'Applying the native setting enables the personal library')
  folder=ROOT/'build'/('personal-audio-'+uuid.uuid4().hex);folder.mkdir()
  paths=[]
  for name,seconds in [('short.wav',1.2),('long.wav',8)]:
@@ -89,8 +93,17 @@ try:
   time.sleep(.05)
  check(last(c)['outcome']=='skipped','An unsuccessful manual advance cannot mark the previous song as naturally completed')
 
+ subprocess.run([str(EXE),'/stop'],check=True)
+ old_count=call('state')['personal']['history_count'];call('personal_config',enabled=False)
+ fixture('play',playlist=pi,item=1);time.sleep(.25);subprocess.run([str(EXE),'/stop'],check=True)
+ check(call('state')['personal']['history_count']==old_count,'Disabled feature does not record new playback history')
+ fixture('play',playlist=pi,item=1);time.sleep(.2);call('personal_config',enabled=True);time.sleep(.2)
+ check(call('state')['personal']['current']['listened']<.6,'Enabling during playback starts listening from the setting change')
+ call('personal_config',enabled=False);check(call('state')['personal']['current'] is None,'Disabling during playback closes the current history event')
  subprocess.run([str(EXE),'/stop'],check=True);fixture('cleanup');stop()
- s=start();flags=call('personal_flags',tracks=identities)['response']['personal_flags'];check(flags[0]['favorite'] and flags[1]['later'],'Favorite and later lists survive normal restart')
+ s=start();check(s['personal']['enabled'] is False and not s['personal']['history_enabled'],'The disabled setting persists after restart')
+ call('personal_config',enabled=True)
+ flags=call('personal_flags',tracks=identities)['response']['personal_flags'];check(flags[0]['favorite'] and flags[1]['later'],'Favorite and later lists survive disable, restart and re-enable')
  check(len([r for r in history() if r['id']==c])>=2 and all(r['outcome']!='playing' for r in history()),'History survives restart without a stale playing session')
  call('personal_set',kind='favorites',tracks=[a],value=False);call('personal_set',kind='later',tracks=[c],value=False)
  flags=call('personal_flags',tracks=identities)['response']['personal_flags'];check(not flags[0]['favorite'] and not flags[1]['later'],'Removing a personal membership does not remove the music file');check(all(p.is_file() for p in paths),'Generated audio files are unchanged')
@@ -102,7 +115,9 @@ try:
  (ROOT/'build/personal-host-acceptance.json').write_text(json.dumps({'ok':True,'checks':checks},indent=2),encoding='utf-8')
 finally:
  if process is not None:
-  try:subprocess.run([str(EXE),'/stop'],check=True);fixture('cleanup')
+  try:
+   b.request('personal_config',enabled=False)
+   subprocess.run([str(EXE),'/stop'],check=True);fixture('cleanup')
   finally:stop()
  for name,content in saved.items():
   p=PROFILE/'smartshuffle'/name

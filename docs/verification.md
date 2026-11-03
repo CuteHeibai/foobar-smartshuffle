@@ -53,7 +53,7 @@ python -m unittest discover -s tests -p test_update_apply.py
 
 `host_scroll_frames.py` 在独立副本内检查每格滚轮距离、可见行边界和真实 `on_paint` 回调耗时；等待启动与封面预热后再测，不在计时回调中额外绘制第二帧。它不模拟系统鼠标输入，数据保存在本地 `build/scroll-frames-acceptance.json`。
 
-`host_personal.py` 自行启停空输出副本，使用项目生成的 WAV 检查历史、暂停与 seek、自然结束与手动切歌、重复播放、保存失败恢复、重启持久化和未知版本文件保护。`host_personal_ui.py` 通过完整 JSplitter 回调与真实 SDK 句柄检查三个页面、分页、收藏／稍后听、跨来源入队与不同窗口尺寸的裁切。两者完成后还原原有个人数据和调度存储，不更改音频文件。
+`host_personal.py` 自行启停空输出副本，使用项目生成的 WAV 检查历史、暂停与 seek、自然结束与手动切歌、重复播放、保存失败恢复、重启持久化和未知版本文件保护。同时通过 SDK 首选项实例检查开关默认关闭、应用与取消，以及关闭后停止记录、运行中启用和数据保留。`host_personal_ui.py` 通过完整 JSplitter 回调与真实 SDK 句柄检查三个页面、分页、收藏／稍后听、跨来源入队与不同窗口尺寸的裁切。两者完成后关闭功能并还原原有个人数据和调度存储，不更改音频文件。
 
 ## 发布检查
 

@@ -2,21 +2,23 @@
 var ssPersonal={kind:'',offset:0,limit:50,total:0,revision:-1,items:[],loading:false,error:'',request:''};
 var ssPersonalRevision=-1,ssPersonalRequests={},ssPersonalFlags=Object.create(null),ssPersonalFlagFlight='',ssPersonalFlagTimer=0,ssPersonalVisibleIDs=[];
 var ssPersonalPrefetchCache=null,ssPersonalPrefetchIDs=[],ssPersonalWantedIDs=[];
-var ssPersonalHandleSource=null,ssPersonalHandles=Object.create(null),ssPersonalPID=0,ssPersonalCurrent=null;
+var ssPersonalHandleSource=null,ssPersonalHandles=Object.create(null),ssPersonalPID=0,ssPersonalCurrent=null,ssPersonalWasEnabled=false;
 var HB_PERSONAL=[],HB_PERSONAL_ACTIONS=[],ssPersonalPressed=null,ssPersonalScroll=0,ssPersonalScrollT=0,SS_PERSONAL_MAX=0;
+function ssPersonalEnabled(){return !!(ssState&&ssState.personal&&ssState.personal.enabled===true);}
+function ssPersonalGutter(){return ssPersonalEnabled()?32*ssDensity:0;}
 function ssIsPersonal(kind){return kind==='history'||kind==='favorites'||kind==='later';}
 function ssPersonalTitle(kind){return kind==='history'?'播放历史':kind==='favorites'?'我的收藏':'稍后听';}
 function ssPersonalSelectionKey(){return view+':'+ssPersonal.offset+':'+ssPersonal.revision;}
 function ssPersonalIDs(ids){var seen=Object.create(null),out=[];for(var i=0;i<(ids||[]).length;i++){var id=ids[i];if(typeof id==='string'&&id&&!seen[id]){seen[id]=true;out.push(id);}}return out;}
 function ssPersonalClear(){ssPersonal.items=[];ssPersonal.error='';if(typeof ssInvalidateSelections==='function')ssInvalidateSelections();}
 function ssOpenPersonal(kind){
-  if(!ssIsPersonal(kind))return;
+  if(!ssPersonalEnabled()||!ssIsPersonal(kind))return;
   view=kind;ssPersonal.kind=kind;ssPersonal.offset=0;ssPersonal.total=0;ssPersonal.request='';ssPersonalScroll=ssPersonalScrollT=0;
   if(ssState&&ssState.personal)ssPersonalRevision=Number(ssState.personal.revision);
   ssPersonalReload();
 }
 function ssPersonalReload(){
-  if(!ssIsPersonal(view)||ssPersonal.kind!==view)return;
+  if(!ssPersonalEnabled()||!ssIsPersonal(view)||ssPersonal.kind!==view)return;
   ssPersonalClear();ssPersonal.loading=true;
   if(!ssPersonal.request){
     var id=ssSend('personal_list',{kind:ssPersonal.kind,offset:ssPersonal.offset,limit:ssPersonal.limit});
@@ -31,12 +33,13 @@ function ssPersonalPage(delta){
   ssPersonal.offset=offset;ssPersonalScroll=ssPersonalScrollT=0;ssPersonalReload();
 }
 function ssPersonalSet(kind,tracks,value){
-  if(kind!=='favorites'&&kind!=='later')return;
+  if(!ssPersonalEnabled()||(kind!=='favorites'&&kind!=='later'))return;
   tracks=ssPersonalIDs(tracks);if(!tracks.length||(typeof value!=='boolean'&&tracks.length!==1))return;
   var args={kind:kind,tracks:tracks};if(typeof value==='boolean')args.value=value;ssSend('personal_set',args);
 }
 function ssPersonalFlag(id){return ssPersonalFlags[id]||{favorite:false,later:false};}
 function ssPersonalVisible(ids,prefetch){
+  if(!ssPersonalEnabled())return;
   if(arguments.length>1)ssPersonalPrefetchIDs=prefetch||[];
   ssPersonalVisibleIDs=ssPersonalIDs(ids).slice(0,256);
   ssPersonalWantedIDs=ssPersonalIDs(ssPersonalVisibleIDs.concat(ssPersonalPrefetchIDs)).slice(0,256);
@@ -44,7 +47,7 @@ function ssPersonalVisible(ids,prefetch){
     ssPersonalFlagTimer=window.SetTimeout(ssPersonalFetchFlags,40);
 }
 function ssPersonalFetchFlags(){
-  ssPersonalFlagTimer=0;if(ssPersonalFlagFlight)return;
+  ssPersonalFlagTimer=0;if(!ssPersonalEnabled()||ssPersonalFlagFlight)return;
   var ids=ssPersonalWantedIDs.filter(function(id){return !ssPersonalFlags[id];});if(!ids.length)return;
   var id=ssSend('personal_flags',{tracks:ids});ssPersonalFlagFlight=id;ssPersonalRequests[id]={flags:true,revision:ssPersonalRevision,tracks:ids};
 }
@@ -73,6 +76,15 @@ function ssPersonalPrefetchRows(rows){
   ssPersonalPrefetchCache=cache;return cache;
 }
 function ssAcceptPersonal(done,s){
+  if(!ssPersonalEnabled()){
+    if(ssPersonalWasEnabled||ssIsPersonal(view)){
+    ssStopPersonal();ssPersonalRequests={};ssPersonalFlagFlight='';ssPersonalVisibleIDs=[];ssPersonalFlags=Object.create(null);ssPersonalCurrent=null;
+    ssPersonal.request='';ssPersonal.loading=false;ssPersonal.kind='';ssPersonalClear();HB_PERSONAL=[];HB_PERSONAL_ACTIONS=[];
+    if(ssIsPersonal(view))view='home';
+    }
+    ssPersonalWasEnabled=false;return;
+  }
+  ssPersonalWasEnabled=true;
   var summary=s.personal,revision=summary?Number(summary.revision):ssPersonalRevision;
   var restarted=!!(s.pid&&ssPersonalPID&&s.pid!==ssPersonalPID);if(s.pid)ssPersonalPID=s.pid;
   var changed=restarted||revision!==ssPersonalRevision;
@@ -142,10 +154,10 @@ function ssPersonalRowID(row){
   return h?ssTrackID(h):'';
 }
 function ssPersonalActionAt(x,y){for(var i=0;i<HB_PERSONAL_ACTIONS.length;i++){var h=HB_PERSONAL_ACTIONS[i];if(inRect(x,y,h))return h;}return null;}
-function ssPersonalPointerDown(x,y){ssPersonalPressed=ssPersonalActionAt(x,y);return !!ssPersonalPressed;}
+function ssPersonalPointerDown(x,y){ssPersonalPressed=ssPersonalEnabled()?ssPersonalActionAt(x,y):null;return !!ssPersonalPressed;}
 function ssPersonalPointerUp(x,y){
   var pressed=ssPersonalPressed;ssPersonalPressed=null;if(!pressed)return false;
-  if(inRect(x,y,pressed)&&!ssModal&&!ssPopup){if(pressed.page!==undefined)ssPersonalPage(pressed.page);else if(pressed.retry)ssPersonalReload();else ssPersonalSet(pressed.kind,[pressed.track_id]);}
+  if(ssPersonalEnabled()&&inRect(x,y,pressed)&&!ssModal&&!ssPopup){if(pressed.page!==undefined)ssPersonalPage(pressed.page);else if(pressed.retry)ssPersonalReload();else ssPersonalSet(pressed.kind,[pressed.track_id]);}
   return true;
 }
 function ssPersonalNow(kind){if(NP)ssPersonalSet(kind,[ssTrackID(NP)]);}

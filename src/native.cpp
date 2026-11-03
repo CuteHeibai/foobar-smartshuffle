@@ -145,7 +145,7 @@ public:
         auto hasTheme=fs::exists(root.parent_path()/L"verdant"/L"main.js");
         try{edition=native_ss::installation_edition(readjson(root/L"installation.json"),hasTheme);}catch(...){edition=hasTheme?"full":"core";}
         if(edition!="full")edition="core";
-        personalHistory=edition=="full";
+        personalHistory=edition=="full"&&native_ss::personal_library_enabled();
         if(fs::exists(root/L"personal.json"))try{personal.load(readjson(root/L"personal.json"),epoch());personalDirty=true;}
         catch(const std::exception& e){personalReady=false;personalError=std::string("个人音乐记录无法读取，已保留原文件：")+e.what();}
 
@@ -161,9 +161,18 @@ public:
         metadb_handle_ptr h;if(playback_control::get()->get_now_playing(h)){on_playback_new_track(h);accountingPaused=playback_control::get()->is_paused();}
         try{uiLayoutReset=readjson(root/L"store.json").value("layout_reset",uint64_t(0));}catch(...){}
         native_ss::set_layout_reset_handler([this]{++uiLayoutReset;save();changed=true;publish();});
+        native_ss::set_personal_library_handler([this](bool value){
+            accrue();close_personal("stopped");personalAwaitingStart=false;
+            personalHistory=edition=="full"&&value;
+            metadb_handle_ptr h;
+            if(personalHistory&&personalReady&&playback_control::get()->get_now_playing(h)){
+                personal.begin(personal_track(h),epoch());personalDirty=true;
+            }
+            changed=true;publish();
+        });
         publish();
     }
-    ~Engine(){quitting=true;accrue();close_personal("interrupted");save_personal(true);native_ss::close_native_dialogs();native_ss::set_dialog_handlers({},{});native_ss::set_layout_reset_handler({});remove_owned_queue();lyrics.reset();metadata.reset();scanner.reset();save();}
+    ~Engine(){quitting=true;accrue();close_personal("interrupted");save_personal(true);native_ss::set_personal_library_handler({});native_ss::close_native_dialogs();native_ss::set_dialog_handlers({},{});native_ss::set_layout_reset_handler({});remove_owned_queue();lyrics.reset();metadata.reset();scanner.reset();save();}
     json personal_track(const metadb_handle_ptr& h){
         file_info_impl info;std::string title,artist,album;double length=0;
         if(h->get_info(info)){
@@ -248,6 +257,7 @@ public:
         j["native_order"]=pm->playback_order_get_active();j["order_name"]=pm->playback_order_get_name(pm->playback_order_get_active());j["orders"]=json::array();
         for(size_t i=0;i<pm->playback_order_get_count();++i)j["orders"].push_back({{"index",i},{"name",pm->playback_order_get_name(i)}});
         j["personal"]=personal.summary(nowId);j["personal"]["error"]=personalError;j["personal"]["history_enabled"]=personalHistory;
+        j["personal"]["enabled"]=edition=="full"&&native_ss::personal_library_enabled();
         j["personal"]["current"]=personal.active()?personal.page("history",0,1).at("items").at(0):json(nullptr);
         j["metadata"]=metadataState;
         j["update"]=updater?updater->status():json::object();j["edition"]=edition;j["fonts"]={{"family","Inter"},{"private_resources",privateFontCount}};
@@ -542,6 +552,10 @@ public:
         }
         else if(op=="cancel"){preview.reset();previewDirty=false;autoApply=false;}
         else if(op=="preset"){make_preview(req,true);autoApply=true;}
+        else if(op=="personal_config"){
+            if(edition!="full")throw std::runtime_error("此功能仅适用于完整版");
+            native_ss::set_personal_library_enabled(req.at("enabled").get<bool>());
+        }
         else if(op=="personal_list"){
             if(!personalReady)throw std::runtime_error(personalError);
             response["personal"]=personal.page(req.at("kind").get<std::string>(),req.value("offset",size_t(0)),req.value("limit",size_t(50)));
@@ -551,6 +565,7 @@ public:
             response["personal_flags"]=personal.flags(req.at("tracks").get<std::vector<std::string>>());
         }
         else if(op=="personal_set"){
+            if(!personalHistory)throw std::runtime_error("请先在插件设置中启用播放历史、收藏和稍后听");
             if(!personalReady)throw std::runtime_error(personalError);
             auto kind=req.at("kind").get<std::string>();auto list=selected_handles(req);
             if(list.get_count()>1024)throw std::runtime_error("每次最多操作1024首歌曲");
