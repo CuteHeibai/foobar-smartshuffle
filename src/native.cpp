@@ -11,6 +11,7 @@
 #include "updater.hpp"
 #include "native_dialogs.hpp"
 #include "integration_switch.hpp"
+#include "personal_store.hpp"
 #include <fstream>
 #include <map>
 #include <set>
@@ -82,6 +83,12 @@ struct Preview {uint64_t seed=0,revision=0;std::string token,source;ss::Point po
 class Engine:public play_callback_impl_base,public playlist_callback_impl_base {
 public:
     fs::path root;
+    ss::PersonalStore personal;
+    bool personalReady=true,personalDirty=false,personalHistory=false,personalAwaitingStart=false;
+    std::string personalError;
+    std::future<void> personalWrite;
+    Clock::time_point personalCheckpoint=Clock::now(),personalRetryAfter=Clock::time_point::min();
+
     bool enabled=true,scanPaused=false,changed=true,dirty=false,quitting=false,inside=false;
     uint64_t revision=1,uiOpen=0,scanRevision=0,uiLayoutReset=0;
     std::string source,lastRequest,error,nowId;
@@ -138,6 +145,10 @@ public:
         auto hasTheme=fs::exists(root.parent_path()/L"verdant"/L"main.js");
         try{edition=native_ss::installation_edition(readjson(root/L"installation.json"),hasTheme);}catch(...){edition=hasTheme?"full":"core";}
         if(edition!="full")edition="core";
+        personalHistory=edition=="full";
+        if(fs::exists(root/L"personal.json"))try{personal.load(readjson(root/L"personal.json"),epoch());personalDirty=true;}
+        catch(const std::exception& e){personalReady=false;personalError=std::string("个人音乐记录无法读取，已保留原文件：")+e.what();}
+
         lyrics->set_light(themeAppearance=="light");
         if(edition=="full")localLabels=std::make_unique<LocalLabels>(root.parent_path()/L"verdant"/L"locale"/L"zh-CN.json");
         wchar_t componentFile[32768]{};GetModuleFileNameW(core_api::get_my_instance(),componentFile,32768);
@@ -152,7 +163,34 @@ public:
         native_ss::set_layout_reset_handler([this]{++uiLayoutReset;save();changed=true;publish();});
         publish();
     }
-    ~Engine(){quitting=true;native_ss::close_native_dialogs();native_ss::set_dialog_handlers({},{});native_ss::set_layout_reset_handler({});remove_owned_queue();lyrics.reset();metadata.reset();scanner.reset();save();}
+    ~Engine(){quitting=true;accrue();close_personal("interrupted");save_personal(true);native_ss::close_native_dialogs();native_ss::set_dialog_handlers({},{});native_ss::set_layout_reset_handler({});remove_owned_queue();lyrics.reset();metadata.reset();scanner.reset();save();}
+    json personal_track(const metadb_handle_ptr& h){
+        file_info_impl info;std::string title,artist,album;double length=0;
+        if(h->get_info(info)){
+            auto get=[&](const char* key){auto v=info.meta_get(key,0);return v?std::string(v):std::string{};};
+            title=get("TITLE");artist=get("ARTIST");album=get("ALBUM");length=info.get_length();
+        }
+        if(title.empty())title=narrow(local_path(h->get_path()).stem().wstring());
+        if(!(length>0)){
+            metadb_handle_ptr current;auto pc=playback_control::get();
+            if(pc->get_now_playing(current)&&current==h)length=pc->playback_get_length_ex();
+        }
+        return {{"id",idof(h)},{"title",title},{"artist",artist},{"album",album},{"duration",std::isfinite(length)&&length>0?length:0}};
+    }
+    void close_personal(const char* outcome){
+        if(!personalHistory||!personalReady||!personal.active())return;
+        personal.finish(outcome,epoch());personalDirty=true;changed=true;
+    }
+    void save_personal(bool force=false){
+        if(personalWrite.valid()){
+            if(!force&&personalWrite.wait_for(std::chrono::seconds(0))!=std::future_status::ready)return;
+            try{personalWrite.get();personalError.clear();}catch(const std::exception& e){personalError=std::string("个人音乐记录保存失败：")+e.what();personalDirty=true;personalRetryAfter=Clock::now()+std::chrono::seconds(1);changed=true;}
+        }
+        if(!personalReady||!personalDirty||(!force&&Clock::now()<personalRetryAfter))return;
+        auto data=personal.dump();auto path=root/L"personal.json";personalDirty=false;
+        if(force){try{writejson(path,data);}catch(const std::exception& e){console::print((std::string("Smart Shuffle personal: ")+e.what()).c_str());}return;}
+        personalWrite=std::async(std::launch::async,[path,data=std::move(data)]{writejson(path,data);});
+    }
     size_t index_of_source(){if(source.empty())return ~size_t(0);return playlist_manager_v5::get()->find_playlist_by_guid(parseguid(source));}
     std::string source_name(){auto p=index_of_source();pfc::string8 s;if(p!=~size_t(0))playlist_manager::get()->playlist_get_name(p,s);return s.c_str();}
     bool internal(size_t p){pfc::string8 n;return p!=~size_t(0)&&playlist_manager::get()->playlist_get_name(p,n)&&n==Managed;}
@@ -209,6 +247,8 @@ public:
         }
         j["native_order"]=pm->playback_order_get_active();j["order_name"]=pm->playback_order_get_name(pm->playback_order_get_active());j["orders"]=json::array();
         for(size_t i=0;i<pm->playback_order_get_count();++i)j["orders"].push_back({{"index",i},{"name",pm->playback_order_get_name(i)}});
+        j["personal"]=personal.summary(nowId);j["personal"]["error"]=personalError;j["personal"]["history_enabled"]=personalHistory;
+        j["personal"]["current"]=personal.active()?personal.page("history",0,1).at("items").at(0):json(nullptr);
         j["metadata"]=metadataState;
         j["update"]=updater?updater->status():json::object();j["edition"]=edition;j["fonts"]={{"family","Inter"},{"private_resources",privateFontCount}};
         j["hover_focus"]={{"installed",hoverFocus.installed()},{"surface",hoverFocus.surface()},{"focused",hoverFocus.focused()},{"routed_wheel",hoverFocus.routed()}};
@@ -286,9 +326,9 @@ public:
         if(pi!=~size_t(0)&&pi<pm->get_playlist_count())e.playlist=internal(pi)?Managed:guidstr(pm->playlist_get_guid(pi));
         events.push_back(std::move(e));
     }
-    void on_playback_starting(play_control::t_track_command c,bool paused)override{startCommand=c;accountingPaused=paused;if(managedRequested){managedContext=true;managedRequested=false;}else if(c!=play_control::track_command_default&&c!=play_control::track_command_next)managedContext=false;}
-    void on_playback_new_track(metadb_handle_ptr h)override{accrue();nowId=idof(h);if(pendingSeek&&pendingSeek->id!=nowId)pendingSeek.reset();listened=0;statsCounted=false;auto t=describe(h);duration=t.duration;countAtStart=t.play_count;clock=Clock::now();queue_event(h);startCommand=play_control::track_command_default;accountingPlaying=true;accountingPaused=playback_control::get()->is_paused();}
-    void on_playback_stop(play_control::t_stop_reason r)override{accrue();if(r!=play_control::stop_reason_starting_another)pendingSeek.reset();accountingPlaying=false;if(r==play_control::stop_reason_eof){ended=true;eofManaged=managedContext;eofRevision=revision;eofSource=source;eofRound=source.empty()?0:round().number;eofRemaining=source.empty()?std::vector<std::string>{}:round().remaining;}}
+    void on_playback_starting(play_control::t_track_command c,bool paused)override{accrue();startCommand=c;accountingPaused=paused;if(managedRequested){managedContext=true;managedRequested=false;}else if(c!=play_control::track_command_default&&c!=play_control::track_command_next)managedContext=false;}
+    void on_playback_new_track(metadb_handle_ptr h)override{accrue();close_personal(startCommand==play_control::track_command_default?"completed":"skipped");personalAwaitingStart=false;if(personalHistory&&personalReady){personal.begin(personal_track(h),epoch());personalDirty=true;}nowId=idof(h);if(pendingSeek&&pendingSeek->id!=nowId)pendingSeek.reset();listened=0;statsCounted=false;auto t=describe(h);duration=t.duration;countAtStart=t.play_count;clock=Clock::now();queue_event(h);startCommand=play_control::track_command_default;accountingPlaying=true;accountingPaused=playback_control::get()->is_paused();}
+    void on_playback_stop(play_control::t_stop_reason r)override{accrue();if(r==play_control::stop_reason_starting_another)personalAwaitingStart=personal.active();else{close_personal(r==play_control::stop_reason_eof?(personalAwaitingStart&&startCommand!=play_control::track_command_default?"skipped":"completed"):r==play_control::stop_reason_shutting_down?"interrupted":"stopped");personalAwaitingStart=false;}if(r!=play_control::stop_reason_starting_another)pendingSeek.reset();accountingPlaying=false;if(r==play_control::stop_reason_eof){ended=true;eofManaged=managedContext;eofRevision=revision;eofSource=source;eofRound=source.empty()?0:round().number;eofRemaining=source.empty()?std::vector<std::string>{}:round().remaining;}}
     void on_playback_seek(double)override{accrue();}
     void on_playback_pause(bool p)override{accrue();accountingPaused=p;}
     void on_items_added(t_size p,t_size,const pfc::list_base_const_t<metadb_handle_ptr>&,const bit_array&)override{markdirty(p);}
@@ -343,6 +383,10 @@ public:
     }
     void accrue(){
         auto now=Clock::now();double delta=std::chrono::duration<double>(now-clock).count();clock=now;
+        if(personalHistory&&personalReady&&personal.active()&&accountingPlaying&&!accountingPaused){
+            auto elapsed=std::max(0.0,delta);personal.listen(elapsed);
+            if(now-personalCheckpoint>=std::chrono::seconds(15)){personalCheckpoint=now;personalDirty=true;}
+        }
         if(accountingPlaying&&!accountingPaused&&!statsCounted&&!nowId.empty()&&duration>0){
             listened+=std::max(0.0,delta);
             if(!source.empty()&&handles.count(nowId)&&listened>=std::min(.1,duration/4))roundAudio[source]=true;
@@ -498,6 +542,23 @@ public:
         }
         else if(op=="cancel"){preview.reset();previewDirty=false;autoApply=false;}
         else if(op=="preset"){make_preview(req,true);autoApply=true;}
+        else if(op=="personal_list"){
+            if(!personalReady)throw std::runtime_error(personalError);
+            response["personal"]=personal.page(req.at("kind").get<std::string>(),req.value("offset",size_t(0)),req.value("limit",size_t(50)));
+        }
+        else if(op=="personal_flags"){
+            if(!personalReady)throw std::runtime_error(personalError);
+            response["personal_flags"]=personal.flags(req.at("tracks").get<std::vector<std::string>>());
+        }
+        else if(op=="personal_set"){
+            if(!personalReady)throw std::runtime_error(personalError);
+            auto kind=req.at("kind").get<std::string>();auto list=selected_handles(req);
+            if(list.get_count()>1024)throw std::runtime_error("每次最多操作1024首歌曲");
+            std::vector<json> rows;for(auto& h:list)rows.push_back(personal_track(h));
+            bool value;if(req.contains("value")){value=req.at("value").get<bool>();}
+            else{if(rows.size()!=1)throw std::runtime_error("批量操作需要明确添加或移除");value=!personal.contains(kind,rows.front().at("id").get<std::string>());}
+            if(personal.set(kind,rows,value,epoch())){personalDirty=true;changed=true;}
+        }
         else if(op=="scan_retry"){for(auto it=cache.begin();it!=cache.end();){if(!it.value().contains("features"))it=cache.erase(it);else ++it;}lastScan=Clock::now()-std::chrono::seconds(30);writejson(root/L"features.json",cache);changed=true;}
         else if(op=="restart"){if(source.empty())select_source(playlist_manager::get()->get_active_playlist());if(!source.empty()){next_round();if(!nowId.empty())ss::consume(round(),nowId);invalidate();rebuild();}}
         else if(op=="enable"){enabled=req.value("enabled",true);if(enabled){if(source.empty())select_source(playlist_manager::get()->get_active_playlist());rebuild();}else remove_owned_queue();invalidate();}
@@ -777,7 +838,7 @@ public:
         }}
         try{auto req=readjson(root/L"request.json");if(req.is_object()&&req.contains("id")&&req["id"].is_string()){auto id=req["id"].get<std::string>();if(id!=lastRequest){lastRequest=id;try{dispatch(req);}catch(const std::exception& e){error=e.what();response={{"ok",false},{"message",error}};}changed=true;}}}catch(...){/* A concurrent request write is retried on the next tick. */}
         pump_clients();pump_preview();
-        cleanup_temporary_playlists();
+        cleanup_temporary_playlists();save_personal();
         if(changed||now-lastPublish>std::chrono::seconds(2))publish();
     }
 };

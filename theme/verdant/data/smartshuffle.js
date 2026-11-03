@@ -48,6 +48,7 @@ function ssAcceptState(s){
   if(ssFlight&&s.request_id===ssFlight.id){ done=ssFlight; ssFlight=null; }
   if(typeof ssAcceptMenu==='function')ssAcceptMenu(done,s);
   if(typeof ssAcceptFiles==='function')ssAcceptFiles(done,s);
+  if(typeof ssAcceptPersonal==='function')ssAcceptPersonal(done,s);
   if(s.ui_open>ssSeenOpen){
     ssSeenOpen=s.ui_open;
     if(!ssModal&&!ssOwnOpen[s.request_id]) ssShow(false);
@@ -84,7 +85,7 @@ function ssPoll(){
 function ssStart(){
   if(ssStarted) return;
   ssStarted=true;ssStarting=true;ssPoll();ssStarting=false;
-  ssSend('state',{theme_version:'1.0.14',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard,theme_color:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'});
+  ssSend('state',{theme_version:'1.0.15',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard,theme_color:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'});
   if(typeof ssReportLayout==='function')ssReportLayout();
   if(typeof UIWizard!=='undefined'&&UIWizard)window.SetTimeout(function(){
     ssSend('state',{theme_chrome_ready:ssConfigureChrome()});

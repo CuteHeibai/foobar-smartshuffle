@@ -60,6 +60,7 @@ function setScroll(y){
   else if(view==='home') homeScroll=homeScrollT=px;
   else if(view==='songs') songsScroll=songsScrollT=px;
   else if(view==='search') searchScroll=searchScrollT=px;
+  else if(typeof ssIsPersonal==='function'&&ssIsPersonal(view))ssPersonalScroll=ssPersonalScrollT=px;
   repaintMain();
 }
 function setScrollN(y){ if(!SBN) return; navScroll=navScrollT=Math.round(sbFrac(y,SBN.top,SBN.h,SBN.thumbH)*SBN.maxPx); repaintNav(); }

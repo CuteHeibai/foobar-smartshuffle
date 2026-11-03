@@ -31,13 +31,14 @@ function ssMainSelectionContext(){
   }else if(view==='songs'){for(i=0;i<(songsTracks||[]).length;i++)rows.push({h:songsTracks[i].h});}
   else if(view==='search'){for(i=0;i<searchTrks.length;i++)rows.push({h:searchTrks[i].h});key+=':'+searchQuery;}
   else if(view==='artist'){key+=':'+viewArtist;for(i=0;i<artistAlbums.length;i++)for(j=0;j<artistAlbums[i].tracks.length;j++)rows.push({h:artistAlbums[i].tracks[j].handle,block:i,idx:j});}
-  ssMainIndex={};for(i=0;i<rows.length;i++){items.push((rows[i].item===undefined?i:rows[i].item)+':'+ssTrackID(rows[i].h));if(rows[i].item!==undefined)ssMainIndex['p'+rows[i].pl+':'+rows[i].item]=i;else if(rows[i].block!==undefined)ssMainIndex['a'+rows[i].block+':'+rows[i].idx]=i;}
+  else if(typeof ssIsPersonal==='function'&&ssIsPersonal(view)){key=ssPersonalSelectionKey();for(i=0;i<ssPersonal.items.length;i++)rows.push({track_id:ssPersonal.items[i].id,event_id:ssPersonal.items[i].event_id});}
+  ssMainIndex={};for(i=0;i<rows.length;i++){items.push((rows[i].event_id!==undefined?rows[i].event_id:rows[i].item===undefined?i:rows[i].item)+':'+(rows[i].track_id||ssTrackID(rows[i].h)));if(rows[i].item!==undefined)ssMainIndex['p'+rows[i].pl+':'+rows[i].item]=i;else if(rows[i].block!==undefined)ssMainIndex['a'+rows[i].block+':'+rows[i].idx]=i;}
   var geometry=[];for(i=0;i<HB_TR.length;i++){var hb=HB_TR[i],at=ssMainRowIndex(hb,rows);if(at>=0)geometry.push({index:at,x0:hb.x0,y0:hb.y0,x1:hb.x1,y1:hb.y1});}
   ssMainRows=rows;var b=geometry.length?{x0:R.main.x,y0:geometry[0].y0,x1:R.main.x+R.main.w,y1:R.main.y+R.main.h}:null;
   ssSelectionContextKey=key;ssSelectContext={kind:'track',key:key,items:items,rows:geometry,bounds:b,writable:view==='playlist'&&ssCanReorder(info),multiple:true};ssMainSelect.setContext(ssSelectContext);
 }
 function ssMainRowIndex(row,rows){
-  rows=rows||ssMainRows;if(row.songs)return row.ti;if(row.srch)return row.idx;
+  rows=rows||ssMainRows;if(row.personal)return row.idx;if(row.songs)return row.ti;if(row.srch)return row.idx;
   var key=row.pl!==undefined?'p'+row.pl+':'+row.item:row.lib?'a'+row.block+':'+row.idx:'';return ssMainIndex[key]===undefined?-1:ssMainIndex[key];
 }
 function ssNavSelectionContext(){
@@ -110,7 +111,8 @@ function ssSelectionScroll(){
   if(ssSelectOwner===ssMainSelect){
     if(view==='playlist')firstRow=firstRowT=clampPx(firstRow+delta,PL_MAXPX);
     else if(view==='songs')songsScroll=songsScrollT=clampPx(songsScroll+delta,SONGS_MAXPX);
-    else if(view==='search')searchScroll=searchScrollT=clampPx(searchScroll+delta,SEARCH_MAXPX);else return;repaintMain();
+    else if(view==='search')searchScroll=searchScrollT=clampPx(searchScroll+delta,SEARCH_MAXPX);
+    else if(typeof ssIsPersonal==='function'&&ssIsPersonal(view))ssPersonalScroll=ssPersonalScrollT=clampPx(ssPersonalScroll+delta,SS_PERSONAL_MAX);else return;repaintMain();
   }else if(ssSelectOwner===ssNavSelect){navScroll=navScrollT=clampPx(navScroll+delta,NAV_MAX);repaintNav();}
   else{ssQueueScroll=ssQueueScrollT=clampPx(ssQueueScroll+delta,SS_QUEUE_MAX);repaintQueue();}
   ssSelectionRefreshGeometry();ssSelectOwner.move(mx,my);
@@ -142,6 +144,7 @@ function ssDrawSelection(gr){
   ssSelectionDirty=false;
   ssSelectionRefreshGeometry();
   var info=view==='playlist'?ssPlaylistInfo(plman.ActivePlaylist):null,key=view==='playlist'?'pl:'+(info?info.guid:plman.ActivePlaylist):view==='artist'?view+':'+viewArtist:view==='search'?view+':'+searchQuery:view;
+  if(typeof ssIsPersonal==='function'&&ssIsPersonal(view))key=ssPersonalSelectionKey();
   if(key!==ssSelectionContextKey){ssMainRows=[];ssMainSelect.setContext({kind:'track',key:key,items:[],rows:[]});}
   var p=ssSelectOwner&&ssSelectOwner.preview(),lifting=p&&p.mode==='reorder';
   for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i],at=ssMainRowIndex(h);if(ssMainSelect.isSelected(at))gr.FillRoundRect(h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,lifting&&ssSelectOwner===ssMainSelect?COL.elev:ssAccent(28));}
@@ -154,7 +157,7 @@ function ssDrawSelection(gr){
 function ssSelectionPayload(row){
   ssMainSelectionContext();var index=ssMainRowIndex(row);
   if(!ssMainSelect.isSelected(index)){ssMainSelect.start({index:index,x:row.x0+1,y:row.y0+1});ssMainSelect.end(row.x0+1,row.y0+1);}
-  var indices=ssMainSelect.selectedIndices(),selected=indices.map(function(i){return ssMainRows[i];}),args={tracks:selected.map(function(r){return ssTrackID(r.h);})};
+  var indices=ssMainSelect.selectedIndices(),selected=indices.map(function(i){return ssMainRows[i];}),args={tracks:selected.map(function(r){return r.track_id||ssTrackID(r.h);})};
   if(row.pl!==undefined){var info=ssPlaylistInfo(row.pl);if(info){args.playlist_guid=info.guid;args.items=selected.map(function(r){return r.item;});}}
   return args;
 }
@@ -170,6 +173,13 @@ function ssBatchTrackMenu(row,x,y){
   for(var i=0;i<lists.length;i++)(function(p){if(isHiddenPl(p.name)||!p.writable||p.index===row.pl)return;copy.push({label:p.name,run:function(){transfer(p.guid,false,false);}});move.push({label:p.name,run:function(){transfer(p.guid,true,false);}});})(lists[i]);
   var extra=[{label:'已选择 '+args.tracks.length+' 首歌曲',disabled:true},{label:'添加到歌单',children:copy},{label:'移动到歌单',disabled:!canMove,children:move},{label:'加入待播队列',run:function(){ssSend('queue_add',args);}},{separator:true}];
   if(canMove)extra.splice(4,0,{label:'从此歌单移除所选歌曲',run:function(){ssSend('tracks_remove',args);}});
+  if(typeof ssPersonalSet==='function'){
+    extra.push({label:'收藏所选歌曲',run:function(){ssPersonalSet('favorites',args.tracks,true);}});
+    extra.push({label:'取消收藏所选歌曲',run:function(){ssPersonalSet('favorites',args.tracks,false);}});
+    extra.push({label:'添加到稍后听',run:function(){ssPersonalSet('later',args.tracks,true);}});
+    extra.push({label:'从稍后听移除',run:function(){ssPersonalSet('later',args.tracks,false);}});
+    extra.push({separator:true});
+  }
   ssOpenNativeMenu('context',args,x,y,extra);repaintAll();return true;
 }
-function ssEnqueueRow(row){var h=row.pl!==undefined?getItems(row.pl)[row.item]:row.songs?songsTracks[row.ti].h:row.srch?searchTrks[row.idx].h:row.lib?artistAlbums[row.block].tracks[row.idx].handle:null;if(h){rightTab='queue';ssSend('queue_add',{tracks:[ssTrackID(h)],play:true});repaintAll();}}
+function ssEnqueueRow(row){var h=row.pl!==undefined?getItems(row.pl)[row.item]:row.songs?songsTracks[row.ti].h:row.srch?searchTrks[row.idx].h:row.lib?artistAlbums[row.block].tracks[row.idx].handle:null,id=row.track_id||(h?ssTrackID(h):'');if(id){rightTab='queue';ssSend('queue_add',{tracks:[id],play:true});repaintAll();}}

@@ -15,12 +15,15 @@ node tests/playlist_play_tests.js
 node tests/all_songs_play_tests.js
 node tests/footer_marquee_tests.js
 node tests/scroll_preferences_tests.js
+node tests/personal_ui_tests.js
 .\.venv\Scripts\python.exe -m unittest discover -s tests -p 'test*install.py' -v
 python -m unittest discover -s tests -p test_switch_mode.py
 python -m unittest discover -s tests -p test_update_apply.py
 ```
 
 原生测试覆盖轮次完整性、去重、偏好方向、持久化、焦点策略和更新包选择。主题测试覆盖坐标、草稿、布局、滚动、多选及菜单行为。安装测试检查界面保留、备份、回滚及路径范围。
+
+`build.ps1 -TestsOnly` 同时运行个人记录模型测试，覆盖独立播放事件、实际时长、分页、去重、保留期限、事务式加载和未知版本保护。`personal_ui_tests.js` 检查页面请求、过期响应、当前进度合并、跨来源入队、成员标记预取与整数像素布局。安装测试验证个人记录升级保留及备份恢复。
 
 网络和音频检查分别运行：
 
@@ -49,6 +52,8 @@ python -m unittest discover -s tests -p test_update_apply.py
 `host_drag_frames.py` 自行启停独立副本，在 2560×1440 离屏位图上测量歌曲浮层帧耗时、刷新请求派发延迟和整页重建次数。它直接调用脚本鼠标回调，不发送系统鼠标输入；测量结果保留在本地 `build/drag-frames-acceptance.json`。
 
 `host_scroll_frames.py` 在独立副本内检查每格滚轮距离、可见行边界和真实 `on_paint` 回调耗时；等待启动与封面预热后再测，不在计时回调中额外绘制第二帧。它不模拟系统鼠标输入，数据保存在本地 `build/scroll-frames-acceptance.json`。
+
+`host_personal.py` 自行启停空输出副本，使用项目生成的 WAV 检查历史、暂停与 seek、自然结束与手动切歌、重复播放、保存失败恢复、重启持久化和未知版本文件保护。`host_personal_ui.py` 通过完整 JSplitter 回调与真实 SDK 句柄检查三个页面、分页、收藏／稍后听、跨来源入队与不同窗口尺寸的裁切。两者完成后还原原有个人数据和调度存储，不更改音频文件。
 
 ## 发布检查
 

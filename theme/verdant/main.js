@@ -24,7 +24,7 @@
 
 // the key is `features`, not `options` -- without features.drag_n_drop the panel is never
 // registered as an OLE drop target, so no on_drag_* fires
-window.DefineScript('Verdant 中文 · 智能随机', { author:'superziper / Smart Shuffle contributors', version:'1.0.14', features:{ drag_n_drop:true, grab_focus:true } });
+window.DefineScript('Verdant 中文 · 智能随机', { author:'superziper / Smart Shuffle contributors', version:'1.0.15', features:{ drag_n_drop:true, grab_focus:true } });
 var DLGC_WANTALLKEYS=0x0004;   // capture ALL keys; applied only in Search view (see applyKeyMode)
 var DLGC_WANTCHARS=0x0080;     // capture character keys only -- enough for Space = play/pause
 
@@ -48,6 +48,7 @@ include('data/art.js');
 include('data/library.js');
 include('data/playback.js');
 include('data/smartshuffle.js');
+include('data/personal.js');
 include('data/output.js');
 include('data/lyrics.js');
 include('data/discovery.js');
@@ -76,6 +77,7 @@ include('views/playlist.js');
 include('views/home.js');
 include('views/artist.js');
 include('views/songs.js');
+include('views/personal.js');
 include('views/search.js');
 include('views/queue.js');
 include('views/bar.js');

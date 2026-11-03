@@ -1,0 +1,18 @@
+/* Actual JSplitter personal pages and SDK commands, no desktop input. */
+(function(){
+ var result={ok:false,checks:[]},oldView=view,oldWidth=W,oldHeight=H,source='',ids=[],target='',deadline=Date.now()+20000;
+ function check(v,label){if(!v)throw Error(label);result.checks.push(label);}
+ function finish(error){if(error)result.error=String(error);try{ssCancelSelectionGesture();ssStopPersonal();view=oldView;W=oldWidth;H=oldHeight;layout(true);ssDropSceneImage();repaintAll();}catch(e){result.cleanup=String(e);}utils.WriteTextFile(fb.ProfilePath+'smartshuffle\\personal-ui-host-result.json',JSON.stringify(result),false);}
+ function frame(){var image=gdi.CreateImage(W,H),g=image.GetGraphics();try{on_paint(g);}finally{image.ReleaseGraphics(g);}if(typeof image.Dispose==='function')image.Dispose();}
+ function wait(test,next){try{if(Date.now()>deadline)throw Error('Personal UI wait timed out: '+view+' / '+ssPersonal.error+' / '+ssError);if(test()){next();return;}window.SetTimeout(function(){wait(test,next);},60);}catch(e){finish(e);}}
+ function played(){wait(function(){return ssState.now_id===target;},function(){try{check(ssState.source===source,'Personal play glyph queues an outside-source song without changing the source');ssOpenPersonal('history');wait(function(){return !ssPersonal.loading&&ssPersonal.items.some(function(r){return r.id===target;});},function(){try{frame();var event=ssPersonal.items.filter(function(r){return r.id===target;})[0];check(event.outcome==='playing','Native playback appears in the real history page');check(HB_TR.every(function(r){return Number.isInteger(r.rowH)&&Number.isInteger(r.rowY); }),'Personal rows remain pixel aligned');result.ok=true;finish();}catch(e){finish(e);}});}catch(e){finish(e);}});}
+ function play(){try{frame();var row=HB_TR[0];target=row.track_id;on_mouse_lbtn_down(row.pgx0+3,(row.y0+row.y1)/2);on_mouse_lbtn_up(row.pgx0+3,(row.y0+row.y1)/2);played();}catch(e){finish(e);}}
+ function pageTwo(){try{ssPersonalPage(1);wait(function(){return !ssPersonal.loading&&ssPersonal.offset===50&&ssPersonal.items.length===10;},function(){try{frame();check(ssPersonal.items.length===10,'The second native page contains the remaining ten favorites');check(ssState.source===source,'Page navigation does not switch the playback source');play();}catch(e){finish(e);}});}catch(e){finish(e);}}
+ function pageOne(){wait(function(){return !ssPersonal.loading&&ssPersonal.items.length===50;},function(){try{frame();check(ssPersonal.total===60&&HB_TR.length>0,'Favorite view loads one real native page, not the whole library');
+  for(var k=0;k<3;k++){W=[800,1180,2560][k];H=[650,780,1440][k];layout(true);ssDropSceneImage();frame();check(HB_TR.every(function(r){return r.y0>=R.main.y&&r.y1<=R.main.y+R.main.h;}),'Personal page remains clipped at width '+W);}
+  var action=HB_PERSONAL_ACTIONS.filter(function(h){return h.kind==='later';})[0];check(!!action,'The real row exposes a later-list action');on_mouse_lbtn_down((action.x0+action.x1)/2,(action.y0+action.y1)/2);on_mouse_lbtn_up((action.x0+action.x1)/2,(action.y0+action.y1)/2);
+  wait(function(){return ssState.personal.later_count===1&&!ssPersonal.loading;},function(){try{check(true,'Clicking a row action persists the native later membership');pageTwo();}catch(e){finish(e);}});
+ }catch(e){finish(e);}});}
+ function start(){wait(function(){return ssState&&ssState.personal&&fb.GetLibraryItems().Count>=60;},function(){try{source=ssState.source;var library=fb.GetLibraryItems();for(var i=0;i<60;i++)ids.push(ssTrackID(library[i]));ssPersonalSet('favorites',ids,true);wait(function(){return ssState.personal.favorites_count===60;},function(){ssOpenPersonal('favorites');pageOne();});}catch(e){finish(e);}});}
+ window.SetTimeout(start,120);
+})();

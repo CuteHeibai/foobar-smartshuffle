@@ -13,6 +13,7 @@ function drawNavRow(gr,y,h,on,hov,pi,name,sub){
 }
 function drawNav(gr){
   HB_PL=[];
+  if(typeof HB_PERSONAL!=='undefined')HB_PERSONAL=[];
   // top card: Home + Search as two wide icon buttons spanning the sidebar
   panelBg(gr,R.navTop,COL.base);
   var s=ssDensity,m=16*s, g=12*s, bh=54*s, iy=R.navTop.y+Math.round((R.navTop.h-bh)/2);
@@ -39,8 +40,9 @@ function drawNav(gr){
   var active=plman.ActivePlaylist, pls=visiblePlaylists();
   var footH=72*s, footTop=R.navLib.y+R.navLib.h-footH;   // pinned "add playlist" footer, always visible
   var pinY=R.navLib.y+48*s, pinH=58*s;
+  var personalH=typeof ssPersonalTitle==='function'?Math.max(25*s,Math.min(34*s,(R.navLib.h-footH-48*s-pinH-40*s)/3)):0;
   // scrollable playlist list (continuous pixel scroll), cropped just above the footer
-  var listTop=pinY+pinH+10*s, rh=58*s, cropY=footTop-6, viewH=cropY-listTop;
+  var listTop=pinY+pinH+personalH*3+10*s, rh=58*s, cropY=footTop-6, viewH=Math.max(0,cropY-listTop);
   var contentH=pls.length*rh, maxPx=Math.max(0,contentH-viewH);
   NAV_MAX=maxPx;
   navScroll=clampPx(navScroll,maxPx); navScrollT=clampPx(navScrollT,maxPx);
@@ -74,6 +76,18 @@ function drawNav(gr){
   tL(gr,'音乐库',FONT.lib,COL.text2,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
   drawNavRow(gr,pinY,pinH,view==='songs',hv(R.navLib.x,pinY,R.navLib.x+R.navLib.w,pinY+pinH),-1,'全部歌曲',fmtNum(libCount())+' 首歌曲');
   HB_ALLSONGS={x0:R.navLib.x,y0:pinY,x1:R.navLib.x+R.navLib.w,y1:pinY+pinH};
+  if(personalH){
+    var kinds=['history','favorites','later'],summary=ssState&&ssState.personal||{};
+    for(var p=0;p<kinds.length;p++){
+      var kind=kinds[p],py=pinY+pinH+p*personalH,on=view===kind,hot=hv(R.navLib.x,py,R.navLib.x+R.navLib.w,py+personalH);
+      if(on||hot)gr.FillRoundRect(R.navLib.x+8,py,R.navLib.w-16,personalH-2,5,5,on?COL.rowActive:COL.rowHover);
+      var count=summary[kind==='history'?'history_count':kind==='favorites'?'favorites_count':'later_count']||0;
+      var tx=R.navLib.x+20*s,tw=Math.max(1,R.navLib.w-76*s);
+      tL(gr,ssPersonalTitle(kind),FONT.pl,on?COL.green:COL.text2,tx,py,tw,personalH);
+      tR(gr,fmtNum(count),FONT.plSub,COL.text3,R.navLib.x+R.navLib.w-54*s,py,34*s,personalH);
+      HB_PERSONAL.push({x0:R.navLib.x+8,y0:py,x1:R.navLib.x+R.navLib.w-8,y1:py+personalH,kind:kind});
+    }
+  }
   gr.DrawLine(R.navLib.x+16,listTop-6,R.navLib.x+R.navLib.w-16,listTop-6,1,COL.line);
   drawScrollbarN(gr,R.navLib.x+R.navLib.w-9,listTop,viewH,navScroll,maxPx,viewH,contentH,hv(R.navLib.x,R.navLib.y,R.navLib.x+R.navLib.w,R.navLib.y+R.navLib.h)||drag==='scrolln');
   drawAddPlaylist(gr,footTop,footH);

@@ -73,6 +73,17 @@ class FullInstallRestoreTests(unittest.TestCase):
             source = Path(__file__).resolve().parents[1] / 'scripts' / name
             write(self.payload / 'control' / name, source.read_bytes())
 
+    def test_personal_library_survives_upgrade_and_is_restored_with_the_profile(self):
+        data = self.profile / 'smartshuffle/personal.json'
+        before = b'{"version":1,"favorites":["kept"]}'
+        write(data, before)
+        backup = install(self.payload, self.root, with_eslyric=False)
+        self.assertEqual(data.read_bytes(), before)
+        self.assertEqual((backup / 'original/profile/smartshuffle/personal.json').read_bytes(), before)
+        write(data, b'{"version":1,"favorites":["changed"]}')
+        restore(backup)
+        self.assertEqual(data.read_bytes(), before)
+
     def test_initial_restore_removes_generated_integration_state(self):
         backup = install(self.payload, self.root, with_eslyric=False)
         self.assertTrue((self.profile / 'smartshuffle/integration/baseline.json').exists())

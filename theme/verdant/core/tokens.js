@@ -74,6 +74,7 @@ var GLYPH = {
   play:chr(0xE768), pause:chr(0xE769), prev:chr(0xE892), next:chr(0xE893),
   shuffle:chr(0xE8B1), repeat:chr(0xE8EE), repeat1:chr(0xE8ED), volume:chr(0xE767),
   search:chr(0xE721), home:chr(0xE80F), add:chr(0xE710), more:chr(0xE712), clock:chr(0xE823),
+  heart:chr(0xEB51),heartFilled:chr(0xEB52),
   cmin:chr(0xE921), cmax:chr(0xE922), crestore:chr(0xE923), cclose:chr(0xE8BB)
 };
 var CH_DOT=chr(0xB7), CH_BULL=chr(0x2022);
@@ -135,6 +136,8 @@ var ICONS={
  add:"<path d='M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z'/>",
  more:"<path d='M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm12 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'/>",
  clock:"<path d='M11.99 2A10 10 0 1 0 22 12 10 10 0 0 0 11.99 2zM12 20a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/>",
+ heart:"<path fill-rule='evenodd' d='M12 21.2 3.2 12.6C-2.1 7.3 5.8-.7 12 5.4 18.2-.7 26.1 7.3 20.8 12.6ZM12 18.4l7.4-7.2C23.3 7.3 17.5 1.5 13.4 5.6L12 7l-1.4-1.4C6.5 1.5.7 7.3 4.6 11.2Z'/>",
+ heartFilled:"<path d='M12 21.2 3.2 12.6C-2.1 7.3 5.8-.7 12 5.4 18.2-.7 26.1 7.3 20.8 12.6Z'/>",
  expand:"<path d='M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z'/>",
  compress:"<path d='M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z'/>",
  mic:"<path d='M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z'/>",

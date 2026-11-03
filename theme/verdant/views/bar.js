@@ -79,8 +79,16 @@ function drawBar(gr){
   var cs=Math.round(64*s), cx=Math.round(16*s), cy=by+(M.barH-cs)/2;
   drawCover(gr,cx,cy,cs,5,NP,'np');
   var tx=cx+cs+14*s;
-  ssDrawFooterTitle(gr,npTitleStr,FONT.npTitle,COL.text,tx,by+26*s,Math.max(20,R.barInfoW-tx-12*s),20*s);
-  tL(gr,npArtistStr,FONT.npArtist,COL.text2,tx,by+50*s,Math.max(20,R.barInfoW-tx-12*s),18*s);
+  var personalSpace=NP&&typeof ssPersonalNow==='function'?56*s:0;
+  ssDrawFooterTitle(gr,npTitleStr,FONT.npTitle,COL.text,tx,by+26*s,Math.max(20,R.barInfoW-tx-12*s-personalSpace),20*s);
+  tL(gr,npArtistStr,FONT.npArtist,COL.text2,tx,by+50*s,Math.max(20,R.barInfoW-tx-12*s-personalSpace),18*s);
+  if(personalSpace){
+    var summary=ssState&&ssState.personal||{},fx=R.barInfoW-54*s,fy=by+(M.barH-28*s)/2;
+    ssDrawPersonalHeart(gr,fx,fy,28*s,!!summary.now_favorite);
+    HB_CTRL.push({x0:fx,y0:fy,x1:fx+28*s,y1:fy+28*s,act:'favorite'});
+    drawIcon(gr,'clock',summary.now_later?COL.green:COL.text2,fx+28*s,fy,28*s,28*s,18*s);
+    HB_CTRL.push({x0:fx+28*s,y0:fy,x1:fx+56*s,y1:fy+28*s,act:'later'});
+  }
   // Anchor to the window, using actual side content rather than unused panel space.
   var prefX=W-R.barToolsW+6,modeW=R.barToolsW-114;
   var modeName=pbShuffle?'智能随机':(ssState&&ssState.order_name)||'顺序播放';

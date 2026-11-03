@@ -103,7 +103,7 @@ def _install(payload, target, with_eslyric=True, edition="full", restore_mode=No
     stamp = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).strftime("%Y%m%d-%H%M%S-%f")
     backup = target / "smartshuffle-backups" / stamp
     backup.mkdir(parents=True)
-    entries = [destination for _, destination in mapping] + ["profile/playlists-v2.0", "profile/smartshuffle/store.json", "profile/smartshuffle/features.json", "profile/smartshuffle/request.json", "profile/smartshuffle/state.json", "profile/smartshuffle/installation.json"]
+    entries = [destination for _, destination in mapping] + ["profile/playlists-v2.0", "profile/smartshuffle/store.json", "profile/smartshuffle/personal.json", "profile/smartshuffle/features.json", "profile/smartshuffle/request.json", "profile/smartshuffle/state.json", "profile/smartshuffle/installation.json"]
     if edition == "full":
         entries += ["profile/configuration/foo_uie_eslyric.dll.cfg", "profile/config.sqlite",
                     "profile/smartshuffle/integration", "profile/smartshuffle/integration-mode.json"]

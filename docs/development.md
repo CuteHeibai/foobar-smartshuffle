@@ -6,6 +6,7 @@
 | --- | --- |
 | `src/core.*` | 无宿主依赖的权重、相似度、轮次与序列化 |
 | `src/native.cpp` | foobar SDK 回调、队列、来源歌单、bridge v1 |
+| `src/personal_store.hpp` | 播放历史会话、收藏／稍后听、分页和持久化格式 |
 | `src/native_dialogs.*` | 独立二维偏好窗口、更新窗口 |
 | `src/updater.hpp`、`src/update_policy.hpp` | 后台 HTTPS 检查、版本和安装包选择 |
 | `src/scanner.*`、`analyzer/` | foobar 解码、片段抽取、本地声学分析与信息索引 |
@@ -48,6 +49,24 @@ Windows x64，Visual Studio 2022 的 C++ v143 工具集，Windows SDK 10.0.22621
 常用操作：`state`、`open`、`preview`、`apply`、`cancel`、`restart`、`scan_pause`、`playback_mode`。独立窗口入口为 `native_preferences`；更新操作为 `update_check`、`update_open`、`update_config`。新增命令应由原生层校验参数、曲目身份及过期状态。
 
 更新检查完全在后台进行，结果经 UI 线程的 tick 消费。详见 [更新机制](updates.md)。
+
+### 个人记录
+
+完整版启用历史记录，主题提供播放历史、收藏、稍后听页面；独立插件版不增加这些页面。数据保存在 `profile/smartshuffle/personal.json`，格式版本为 1，曲目标识沿用 RawPath 加子曲目。安装器升级不覆盖此文件，备份／恢复包含其原始内容。不能把该文件打进发行包。
+
+常规状态的 `personal` 只有 revision、三个计数、当前曲目的收藏／稍后听标记、错误信息、历史启用状态及一条当前播放事件。当前事件的 listened 会变化，但不会每次增加 revision。主题合并同 event_id 的进度，不重新请求整页；新增／结束事件和成员变更才使分页与标记缓存失效。
+
+| 命令 | 参数与结果 |
+| --- | --- |
+| `personal_list` | kind 为 history／favorites／later，offset 默认 0、limit 默认 50，上限 100；返回 response.personal 的 items、total、offset、revision |
+| `personal_flags` | tracks 为最多 256 个曲目标识；返回每首的 favorite／later 布尔标记 |
+| `personal_set` | kind 为 favorites／later，tracks 为最多 1024 个曲目标识，value 为布尔值；省略 value 只允许单曲并由原生层切换 |
+
+个人页面复用 `queue_add` 和原生上下文菜单，不把 JSON 元数据伪造为 SDK 句柄。浏览不切换来源；列表爱心标记使用有界预取，避免逐行滚动触发跨脚本查询和整页重绘。
+
+历史按播放事件记录，保留 90 天、最多 10,000 条。实际收听时长来自单调时钟的未暂停间隔，不累加 seek 的位置变化；有效收听门槛为 60 秒与半曲时长的较小值。自然结束与手动跳过依据 SDK 回调和启动命令区分，不能用接近总时长推断。重新启动会把未结束会话标记为 interrupted，不计算停机时间。
+
+持久化由单个后台写任务提交，活动会话每 15 秒保存进度；退出前收尾并等待写入。保存失败保留内存数据并延后重试。未知版本或损坏文件向界面报告错误并保留原文件，禁止静默清空或用空数据覆盖。
 
 ## 默认窗口与布局
 
