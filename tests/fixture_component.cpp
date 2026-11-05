@@ -135,6 +135,7 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         DestroyWindow(languageDialog);languageDialog=nullptr;
     }
     else if(op=="status"){
+        r["paused"]=playback_control::get()->is_paused();
         r["playing"]=playback_control::get()->is_playing();r["position"]=playback_control::get()->playback_get_position();r["playing_playlist"]=pm->get_playing_playlist();r["queue"]=pm->queue_get_count();r["names"]=json::array();
         for(size_t i=0;i<pm->get_playlist_count();++i){pfc::string8 n;pm->playlist_get_name(i,n);r["names"].push_back({{"index",i},{"name",n.c_str()},{"count",pm->playlist_get_item_count(i)},{"lock_mask",pm->playlist_lock_get_filter_mask(i)},{"auto",autoplaylist_manager::get()->is_client_present(i)}});}
     }

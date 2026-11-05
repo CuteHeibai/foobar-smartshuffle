@@ -76,4 +76,16 @@ test('real application callbacks play cards and header before selection, navigat
   c.on_mouse_lbtn_up(170,220);assert.equal(menus,1);assert.equal(h.writes.length,0);
   c.on_mouse_lbtn_up(60,70);assert.equal(c.view,'playlist');assert.equal(c.plman.ActivePlaylist,1);assert.equal(h.writes.length,0);
 });
+test('transport button and Space share the native smart-start path instead of starting the source first row',()=>{
+ const h=harness(),c=h.c;const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+ Object.assign(c.window,{Width:1180,Height:780,GetProperty:(k,d)=>d,Repaint(){},RepaintRect(){}});
+ vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
+ Object.assign(c,{ssModal:false,ssPopup:null,ctxMenu:null,confirmDel:null,dupPrompt:null,rgPrompt:null,sgMenuOpen:false,plSortMenuOpen:false,vizMenuOpen:false,renameEdit:null,view:'playlist'});
+ c.fb.PlayOrPause=()=>{throw Error('transport must start from the engine remaining order');};
+ c.doCtrl('play');assert.equal(h.writes.at(-1).op,'play_pause');
+ // Resolve the first bridge flight, so the second request is observable.
+ c.ssFlight=null;c.on_char(32);assert.equal(h.writes.length,2);assert.equal(h.writes.at(-1).op,'play_pause');
+ c.ssFlight=null;c.view='search';c.searchQuery='a';c.searchScroll=c.searchScrollT=0;c.on_char(32);
+ assert.equal(c.searchQuery,'a ');assert.equal(h.writes.length,2,'typing a space in search cannot start playback');
+});
 console.log(passed+' playlist playback checks passed');

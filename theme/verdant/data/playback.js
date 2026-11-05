@@ -22,6 +22,7 @@ var ROUTE='__verdant_np__', SHUF='__smartshuffle__';
 function isHiddenPl(nm){ return nm===SHUF||nm===ROUTE||nm==='__smartshuffle_library__'; }
 function playlistOfName(nm){ for(var i=0;i<plman.PlaylistCount;i++) if(plman.GetPlaylistName(i)===nm) return i; return -1; }
 function sameHandle(a,b){ return !!(a&&b&&a.Path===b.Path&&a.SubSong===b.SubSong); }
+function ssPlayOrPause(){ssSend('play_pause');}
 // A playlist action resumes its native saved round; row actions remain explicit track choices.
 function playPlaylist(pl){
   if(pl<0||pl>=plman.PlaylistCount) return false;

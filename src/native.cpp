@@ -626,6 +626,18 @@ public:
                 remove_owned_queue();pm->queue_flush();for(auto i:order){auto& v=user[i];if(v.m_playlist<pm->get_playlist_count()&&v.m_item<pm->playlist_get_item_count(v.m_playlist))pm->queue_add_item_playlist(v.m_playlist,v.m_item);else pm->queue_add_item(v.m_handle);}
             }else throw std::runtime_error("未知待播队列");
         }
+        else if(op=="play_pause"){
+            auto pc=playback_control::get();auto pm=playlist_manager::get();
+            if(pc->is_playing()||!enabled){pc->play_or_pause();return;}
+            // A stopped transport has no explicit track choice. Start the saved
+            // smart round instead of letting the host choose the source's row 0.
+            if(source.empty())select_source(pm->get_active_playlist());
+            remove_owned_queue();
+            if(pm->queue_get_count()){pc->next();return;}
+            auto pi=index_of_source();
+            if(pi>=pm->get_playlist_count()||internal(pi))throw std::runtime_error("请先选择一个可播放的歌单");
+            play_source_playlist(pi);
+        }
         else if(op=="play_playlist"){
             auto pm=playlist_manager_v5::get();
             size_t pi=req.contains("playlist_guid")?edit_playlist(req):req.at("playlist").get<size_t>();

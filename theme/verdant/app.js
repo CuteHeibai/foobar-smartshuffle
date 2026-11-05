@@ -319,7 +319,7 @@ function computeSearch(){
 function doCtrl(act){
   if(act==='favorite')ssPersonalNow('favorites');
   else if(act==='later')ssPersonalNow('later');
-  else if(act==='play') fb.PlayOrPause();
+  else if(act==='play') ssPlayOrPause();
   else if(act==='next') ssSend('next');
   else if(act==='prev') ssSend('previous');
   else if(act==='playback_mode'||act==='shuffle'||act==='repeat') ssShowPlaybackModes(Math.max(8,W-320),R.barY-80);
@@ -578,7 +578,7 @@ function on_char(code){
      not reach playback from underneath one either. */
   if(code===32 && !ctxMenu && !confirmDel && !dupPrompt && !rgPrompt &&
      !sgMenuOpen && !plSortMenuOpen && !vizMenuOpen){
-    try{ fb.PlayOrPause(); }catch(e){}
+    try{ ssPlayOrPause(); }catch(e){}
   }
 }
 function ssWheelStep(){return Math.max(20,Math.round(WHEEL_PX*ssDensity));}
