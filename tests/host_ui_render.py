@@ -15,7 +15,7 @@ try:
     result=json.loads(result_file.read_text(encoding='utf-8'));assert result['ok'],result
     sys.path.insert(0,str(ROOT/'scripts'))
     from bridge import Bridge
-    bridge=Bridge(profile);state=bridge.wait(lambda s:s.get('pid')==process.pid and s.get('theme',{}).get('version')=='1.0.16')
+    bridge=Bridge(profile);state=bridge.wait(lambda s:s.get('pid')==process.pid and s.get('theme',{}).get('version')=='1.0.17')
     context=result['context'];guid=next(p['guid'] for p in state['playlists'] if p['index']==context['playlist'])
     reply=bridge.request('menu_open',kind='context',playlist_guid=guid,items=context['items'],tracks=context['tracks'])
     assert reply['response']['ok'] and reply['response']['menu']['selected_count']==2,reply['response']

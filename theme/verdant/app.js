@@ -724,4 +724,4 @@ drpSync();         // make foo_verdant agree with the Discord property before an
 
 ssLoadArtists();ssStart();
 ssStartCovers();
-console.log('Smart Shuffle Chinese Verdant 1.0.16 ready');
+console.log('Smart Shuffle Chinese Verdant 1.0.17 ready');
