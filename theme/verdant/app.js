@@ -291,12 +291,7 @@ function playArtistTrack(block,idx){
 }
 function getSearchIdx(){
   if(searchIdx)return searchIdx;
-  var list=fb.CreateHandleList(),seen={},library=libItems(),i,p;
-  function add(handles){if(!handles)return;for(var k=0;k<handles.Count;k++){
-    var handle=handles[k],id=handle.Path+'|'+handle.SubSong;if(seen[id])continue;seen[id]=true;list.Add(handle);
-  }}
-  add(library);
-  for(p=0;p<plman.PlaylistCount;p++)if(!isHiddenPl(plName(p)))try{add(plman.GetPlaylistItems(p));}catch(e){}
+  var list=ssCatalogHandles(),i;
   var out=[];
   if(list.Count){
     var titles=TF.title.EvalWithMetadbs(list),artists=TF.artist.EvalWithMetadbs(list),albums=TF.album.EvalWithMetadbs(list),lengths=TF.len.EvalWithMetadbs(list),ly=[];
@@ -667,7 +662,7 @@ function on_script_unload(){
 }
 function invalidateLibrary(){
   ssSearchCatalog='';ssSearchQuery='';ssSearchRequest='';
-  artistList=null; artistTracksMap=null; artistCandCache={}; coverPickCache={}; warmed={}; searchIdx=null; searchQ2=null;
+  ssInvalidateCatalog(); coverPickCache={}; warmed={}; searchIdx=null; searchQ2=null;
   songsIdx=null; songsRows=null; songsTracks=null; libCovCache=null; libCount_=-1;
   libItems_=null; libTFCache={};   // everything above is derived from these
   rgStat=null; rgScanFailed=false;
@@ -675,9 +670,9 @@ function invalidateLibrary(){
   gates={}; rowGate={}; shelfHandles=null; artsGating=false;   // every section re-gates
 }
 function libChanged(){ invalidateLibrary(); artCardCache={}; artCardN=0; repaintAll(); }
-function on_library_items_added(){ libChanged(); }
+function on_library_items_added(handles){ libChanged();ssQueueMedia(handles||libItems(),false,true); }
 function on_library_items_removed(){ libChanged(); }
-function on_library_items_changed(){ libChanged(); }
+function on_library_items_changed(handles){ libChanged();if(handles)ssQueueMedia(handles,true,true); }
 
 /* ------------------------- playback callbacks ------------------------- */
 function on_playback_new_track(){
@@ -701,7 +696,7 @@ function on_volume_change(){ repaintBar(); }
 // ReplayGain can also be switched from foobar's own Playback menu -- keep the pill honest
 function on_replaygain_mode_changed(){ repaintMain(); }
 // rgStat included: a ReplayGain scan lands as a tag write, so this is how the pill learns it finished
-function on_metadb_changed(handles,fromhook){ if(fromhook) return;ssInvalidateSearch(); invalidateItems(); albKeyCache={}; hueCache={}; artistCandCache={}; coverPickCache={}; songsIdx=null; songsRows=null; songsTracks=null; rgStat=null; updateNP(); repaintAll(); }
+function on_metadb_changed(handles,fromhook){ if(fromhook) return;ssInvalidateSearch(); ssInvalidateCatalog(); invalidateItems(); albKeyCache={}; hueCache={}; artistCandCache={}; coverPickCache={}; songsIdx=null; songsRows=null; songsTracks=null; rgStat=null; updateNP(); repaintAll(); }
 /* A switch changes which playlist is ACTIVE, not what any playlist contains -- and every cache
    invalidateItems() drops is keyed by playlist index, so none of them went stale here. Dropping
    them meant each switch re-derived covers and re-ran the art gates against an artCache that had
@@ -709,9 +704,17 @@ function on_metadb_changed(handles,fromhook){ if(fromhook) return;ssInvalidateSe
    caches that genuinely depend on playlist CONTENT are still cleared by the callbacks that mean
    content changed (items added/removed/reordered, playlists changed). */
 function on_playlist_switch(){ firstRow=firstRowT=0; repaintAll(); }
-function on_playlists_changed(){ ssInvalidateSelections();ssInvalidateSearch();invalidateItems(); repaintAll(); }
-function on_playlist_items_added(pl){ ssInvalidateSelections();ssInvalidateSearch();invalidateItems(); if(dupWatch && dupWatch.pl===pl) scheduleDupScan(); repaintAll(); }
-function on_playlist_items_removed(){ ssInvalidateSelections();ssInvalidateSearch();invalidateItems(); repaintAll(); }
+function on_playlists_changed(){ ssInvalidateSelections();ssInvalidateSearch();ssInvalidateCatalog();invalidateItems(); repaintAll(); }
+function on_playlist_items_added(pl){
+  ssInvalidateSelections();ssInvalidateSearch();invalidateItems();
+  if(!isHiddenPl(plName(pl))){
+    ssInvalidateCatalog();
+    ssQueueMedia(plman.GetPlaylistItems(pl),false,true);
+  }
+  if(dupWatch&&dupWatch.pl===pl)scheduleDupScan();
+  repaintAll();
+}
+function on_playlist_items_removed(pl){ ssInvalidateSelections();ssInvalidateSearch();invalidateItems();if(!(pl>=0&&pl<plman.PlaylistCount)||!isHiddenPl(plName(pl)))ssInvalidateCatalog();repaintAll(); }
 function on_playlist_items_reordered(){ ssInvalidateSelections();invalidateItems(); repaintAll(); }
 function on_item_focus_change(){ repaintAll(); }
 
@@ -724,4 +727,4 @@ drpSync();         // make foo_verdant agree with the Discord property before an
 
 ssLoadArtists();ssStart();
 ssStartCovers();
-console.log('Smart Shuffle Chinese Verdant 1.0.17 ready');
+console.log('Smart Shuffle Chinese Verdant 1.0.18 ready');

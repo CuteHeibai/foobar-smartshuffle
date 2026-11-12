@@ -28,6 +28,13 @@ function ssAcceptMenu(done,state){
   var result=state.response&&state.response.menu;
   ssPopup.token=result?result.token:'';
   var extras=ssPopup.extra||[];
+  if(result&&done.kind==='context'&&typeof ssResolveMediaTracks==='function'){
+    var ids=done.tracks&&done.tracks.length?done.tracks:result.track_id?[result.track_id]:[];
+    try{
+      var handles=ssResolveMediaTracks(ids);
+      if(handles.Count)extras=[{label:'补齐封面和歌手资料',run:function(){ssRefreshMedia(handles);}}].concat(extras);
+    }catch(e){console.log('Smart Shuffle metadata menu: '+String(e));}
+  }
   if(result&&result.track_id)(function(id){extras=extras.concat([{label:'将歌曲文件移到回收站…',run:function(){ssRecyclePrepare(id);}},{separator:true}]);})(result.track_id);
   ssPopup.levels=[{items:result?extras.concat(result.items):[{label:(state.response&&state.response.message)||'菜单不可用',disabled:true}],scroll:0,selected:-1}];
 }

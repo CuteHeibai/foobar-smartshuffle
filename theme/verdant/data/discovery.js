@@ -5,7 +5,11 @@ function ssInvalidateSearch(){searchIdx=null;searchQ2=null;ssSearchCatalog='';ss
 function ssLoadArtists(){
   try{ssArtists=JSON.parse(utils.ReadTextFile(SS_ROOT+'artists.json',65001).replace(/^\uFEFF/,''));}catch(e){ssArtists={};}
   ssArtistImages={};artCardCache={};artCardN=0;
-  artistList=null;artistTracksMap=null;artistCandCache={};ssInvalidateSearch();
+  artistList=null;artistTracksMap=null;artistCandCache={};
+  if(typeof searchQ2!=='undefined'&&searchQ2){
+    var hits=new Set(searchTrks.map(function(t){return t.artist;}));
+    searchArts=getArtistList().filter(function(a){return hits.has(a.name)||a.name.toLowerCase().indexOf(searchQ2)>=0;}).slice(0,24);
+  }
 }
 function ssArtistName(name){var r=ssArtists[name];return r&&r.verified?r.name:name;}
 function ssArtistRecord(name){return ssArtists[name]&&ssArtists[name].verified?ssArtists[name]:null;}
@@ -27,19 +31,38 @@ function ssDrawArtistAvatar(gr,x,y,size,name){
     var font=ssFitFont(gr,ssScriptFont(letters,FONT.title),box,letters,box);tC(gr,letters,font,RGB(255,255,255),x+pad,y+pad,box,box);
   }
 }
-var ssArtistAutoRequest='',ssArtistAutoName='',ssArtistAutoStatus={};
-function ssArtistAuto(name){
-  var albums=[],mbids=[];
-  for(var i=0;i<artistAlbums.length;i++){
-    if(artistAlbums[i].album)albums.push(artistAlbums[i].album);
-    try{
-      var raw=fb.TitleFormat('%musicbrainz_artistid%').EvalWithMetadb(artistAlbums[i].handle);
-      var ids=String(raw).match(/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/ig)||[];
-      for(var j=0;j<ids.length;j++)if(mbids.indexOf(ids[j])<0)mbids.push(ids[j]);
-    }catch(e){}
+var ssArtistAutoRequest='',ssArtistAutoQueue=new Map(),ssArtistAutoSeen=new Map(),ssArtistIDFormat=null,ssAlbumArtistIDFormat=null;
+function ssQueueArtistAuto(name,album,handle,refresh){
+  if(!name||name==='?'||name==='未知歌手'||!name.trim())return;
+  var record=ssArtistRecord(name);
+  if(!refresh&&record&&record.portrait)return;
+  var seen=ssArtistAutoSeen.get(name),job=ssArtistAutoQueue.get(name);
+  if(!job)job={albums:seen?seen.albums.slice():[],mbids:seen?seen.mbids.slice():[],refresh:false,readyAt:Date.now()+450};
+  var albumsBefore=job.albums.length,idsBefore=job.mbids.length;
+  if(album&&album!=='未知专辑'&&job.albums.length<3&&job.albums.indexOf(album)<0)job.albums.push(album);
+  if(handle){
+    if(!ssArtistIDFormat)ssArtistIDFormat=fb.TitleFormat('[%musicbrainz_artistid%]');
+    if(!ssAlbumArtistIDFormat)ssAlbumArtistIDFormat=fb.TitleFormat('[%musicbrainz_albumartistid%]');
+    var artistIDs=name===TF.artist.EvalWithMetadb(handle)?ssArtistIDFormat:ssAlbumArtistIDFormat;
+    var ids=String(artistIDs.EvalWithMetadb(handle)).match(/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/ig)||[];
+    for(var id of ids){id=id.toLowerCase();if(job.mbids.indexOf(id)<0)job.mbids.push(id);}
   }
-  ssArtistAutoName=name;ssArtistAutoStatus[name]='正在联网核验…';
-  ssArtistAutoRequest=ssSend('metadata',{task:'artist_auto',name:name,albums:albums.slice(0,3),mbids:mbids});
+  if(seen&&!refresh&&albumsBefore===job.albums.length&&idsBefore===job.mbids.length)return;
+  if(refresh){job.refresh=true;job.readyAt=0;}
+  ssArtistAutoQueue.set(name,job);
+  ssStartMediaTimer();
+}
+function ssPumpArtistAuto(){
+  for(var pair of ssArtistAutoQueue){
+    var name=pair[0],job=pair[1],record=ssArtistRecord(name);
+    if(job.readyAt>Date.now())continue;
+    ssArtistAutoQueue.delete(name);
+    if(!job.refresh&&record&&record.portrait)continue;
+    ssArtistAutoSeen.set(name,job);
+    ssArtistAutoRequest=ssSend('metadata',{task:'artist_auto',name:name,albums:job.albums,mbids:job.mbids});
+    return true;
+  }
+  return false;
 }
 function ssArtistLookup(name,x,y){
   ssArtistRaw=name;ssArtistAction='artist_lookup';
@@ -88,8 +111,8 @@ function ssAcceptDiscovery(state){
   var tasks=state.metadata||{},search=tasks.search,automatic=tasks.artist_auto;
   if(automatic&&automatic.id===ssArtistAutoRequest&&!automatic.pending){
     ssArtistAutoRequest='';
-    if(automatic.ok&&automatic.result.artist){ssArtistAutoStatus[ssArtistAutoName]='已联网核验';ssLoadArtists();}
-    else ssArtistAutoStatus[ssArtistAutoName]=automatic.ok?'存在同名歌手，待确认':'网络暂不可用，使用本地缓存';
+    if(automatic.ok&&automatic.result.artist)ssLoadArtists();
+    else if(!automatic.ok)console.log('Smart Shuffle artist lookup: '+(automatic.error||'failed'));
   }
   if(search&&search.id===ssSearchRequest&&!search.pending){
     ssSearchRequest='';ssSearchBusy=false;

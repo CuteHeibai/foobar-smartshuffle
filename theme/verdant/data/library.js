@@ -33,14 +33,43 @@ function libTF(field){
   libTFCache[field]=out; return out;
 }
 
-/* ------------------------- library-backed artist list ------------------------- */
+/* Local catalog includes user playlists as well as the monitored library. */
+var ssCatalog=null,ssCatalogByID=null,ssCatalogArtists=null;
+function ssInvalidateCatalog(){
+  ssCatalog=null;ssCatalogByID=null;ssCatalogArtists=null;artistList=null;artistTracksMap=null;artistCandCache={};
+}
+function ssCatalogHandles(){
+  if(ssCatalog)return ssCatalog;
+  var list=fb.CreateHandleList(),byID=new Map();
+  function add(handles){
+    if(!handles)return;
+    for(var i=0;i<handles.Count;i++){
+      var h=handles[i],key=ssTrackID(h);
+      if(byID.has(key))continue;
+      byID.set(key,h);list.Add(h);
+    }
+  }
+  add(libItems());
+  for(var p=0;p<plman.PlaylistCount;p++)if(!isHiddenPl(plName(p)))try{add(plman.GetPlaylistItems(p));}catch(e){}
+  ssCatalogByID=byID;
+  return ssCatalog=list;
+}
+function ssCatalogHandle(id){
+  ssCatalogHandles();return ssCatalogByID.get(id);
+}
+function ssCatalogArtistNames(){
+  if(!ssCatalogArtists){var handles=ssCatalogHandles();ssCatalogArtists=handles.Count?TF.artistName.EvalWithMetadbs(handles):[];}
+  return ssCatalogArtists;
+}
+
+/* ------------------------- catalog artist list ------------------------- */
 var artistList=null, artistTracksMap=null, artistCandCache={};
 function getArtistList(){
   if(artistList) return artistList;
-  var lib=libItems();
+  var lib=ssCatalogHandles();
   var out=[]; artistTracksMap={};
   if(lib && lib.Count){
-    var names=libTF('artistName'), seen={};
+    var names=ssCatalogArtistNames(), seen={};
     for(var i=0;i<names.length;i++){
       var nm=names[i]; if(!nm||!ssArtistRecord(nm)) continue;
       if(!artistTracksMap[nm]) artistTracksMap[nm]=[];
@@ -79,10 +108,10 @@ function artistCover(name,fallback){
 function artistCoverReady(name,fallback){ return coverPick('ar|'+name,artistCands(name,fallback),1).done; }
 function loadArtist(name){
   viewArtist=name; artScroll=0; artistAlbums=[];
-  var lib=libItems();
-  if(!lib || !lib.Count) return;
-  var arts=libTF('artistName'), albs=libTF('album'),
-      titles=libTF('title'), lens=libTF('len'), yrs=libTF('year');
+  var lib=ssCatalogHandles();
+  if(!lib.Count) return;
+  var arts=ssCatalogArtistNames(),albs=TF.album.EvalWithMetadbs(lib),
+      titles=TF.title.EvalWithMetadbs(lib),lens=TF.len.EvalWithMetadbs(lib),yrs=TF.year.EvalWithMetadbs(lib);
   var map={}, order=[];
   for(var i=0;i<arts.length;i++){
     if(arts[i]!==name) continue;
@@ -91,7 +120,7 @@ function loadArtist(name){
     map[al].tracks.push({title:titles[i], dur:lens[i], handle:lib[i]});
   }
   for(var j=0;j<order.length;j++) artistAlbums.push(map[order[j]]);
-  ssArtistAuto(name);
+  for(var k=0;k<artistAlbums.length&&k<3;k++)ssQueueArtistAuto(name,artistAlbums[k].album,artistAlbums[k].handle,true);
 }
 
 /* ---- "All Songs" library view: one index of every library track (built once, invalidated by

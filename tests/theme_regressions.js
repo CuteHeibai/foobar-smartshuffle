@@ -283,12 +283,100 @@ test('actual mouse callback and paint dispatcher bypass main rendering between s
 });
 
 
-test('every artist opening requests silent identity verification without showing a popup',()=>{
- const h=harness(),c=h.c;h.load('data/discovery.js');c.artistAlbums=[{album:'Album',handle:{}}];c.fb.TitleFormat=()=>({EvalWithMetadb:()=>'?'});c.ssShowPopup=()=>{throw Error('automatic lookup must stay silent');};
- c.ssArtistAuto('Name');const first=c.ssArtistAutoRequest;assert.equal(h.writes.at(-1).task,'artist_auto');assert.equal(h.writes.at(-1).name,'Name');
- c.ssArtistAuto('Name');assert.notEqual(c.ssArtistAutoRequest,first);assert.equal(c.ssArtistAutoStatus.Name,'正在联网核验…');
+function metadataHarness(){
+ const h=harness(),c=h.c,library=[],playlists=[[],[]];
+ const list=items=>Object.assign([...items],{Count:items.length,Add(item){this.push(item);this.Count++;}});
+ const format=key=>({EvalWithMetadb:t=>t[key]||'',EvalWithMetadbs:ts=>Array.from(ts,t=>t[key]||'')});
+ c.fb.CreateHandleList=()=>list([]);c.fb.GetLibraryItems=()=>list(library);c.fb.GetNowPlaying=()=>null;c.fb.TitleFormat=()=>format('mbid');
+ c.TF={artist:format('artist'),artistName:format('artist'),album:format('album')};
+ Object.assign(c.plman,{PlaylistCount:2,GetPlaylistName:i=>['Music','__smartshuffle__'][i],GetPlaylistItems:i=>list(playlists[i]),GetPlaybackQueueContents:()=>[]});
+ Object.assign(c,{SS_ROOT:'P:\\smartshuffle\\',artInFlight:0,artCache:{},ssSelectOwner:null,
+   ssAppearanceMenuItems:()=>[],artWarmRepaint(){},dupWatch:null});
+ c.utils.GetAlbumArtAsyncV2=()=>({then(resolve){resolve(null);}});
+ h.load('data/playback.js');h.load('data/library.js');h.load('data/discovery.js');h.load('data/covers.js');
+ const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+ vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
+ function finish(request,result){
+   c.ssFlight=null;
+   const state={metadata:{[request.task]:{id:request.id,ok:true,result}}};
+   c.ssAcceptDiscovery(state);c.ssAcceptCovers(state);
+ }
+ return {...h,library,playlists,list,finish};
+}
+test('opening an artist schedules silent verification again after the earlier job finishes',()=>{
+ const h=metadataHarness(),c=h.c;
+ c.ssShowPopup=()=>{throw Error('automatic lookup must stay silent');};
+ c.ssQueueArtistAuto('Name','Album',null,true);c.ssCoverStep();
+ const first=h.writes.at(-1);assert.equal(first.task,'artist_auto');assert.equal(first.name,'Name');
+ h.finish(first,{needs_review:true});
+ c.ssQueueArtistAuto('Name','Album',null,true);c.ssCoverStep();
+ assert.notEqual(h.writes.at(-1).id,first.id);
+});
+test('new playlist tracks get artwork and artist lookups without a restart and the track menu can retry',()=>{
+ const h=metadataHarness(),c=h.c;
+ const newTrack={RawPath:'file://D:/new.flac',Path:'D:/new.flac',SubSong:0,artist:'New Artist',album:'New Album'};
+ h.playlists[1].push(newTrack);c.on_playlist_items_added(1);c.ssCoverStep();
+ assert.equal(h.writes.length,0,'managed playlist is excluded');
+ h.playlists[0].push(newTrack);c.on_playlist_items_added(0);
+ c.ssCoverStep();h.advance(500);c.ssCoverStep();
+ const artist=h.writes.at(-1);assert.equal(artist.task,'artist_auto');assert.equal(artist.name,'New Artist');
+ assert.equal(c.getArtistList().length,0,'an unresolved artist stays off the list');
+ h.finish(artist,{needs_review:true});c.ssCoverStep();
+ const cover=h.writes.at(-1);assert.equal(cover.task,'covers');assert.equal(cover.rows[0].path,newTrack.Path);
+ h.finish(cover,{covers:[]});c.ssCoverStep();
+ const other={RawPath:'file://D:/other.flac',Path:'D:/other.flac',SubSong:0,artist:'Other Artist',album:'Other Album'};
+ h.library.push(other);c.ssInvalidateCatalog();c.libItems_=null;
+ c.ssOpenNativeMenu('main',{root:'view'},0,0);
+ assert.ok(!c.ssPopup.extra.some(item=>item.label==='补齐封面和歌手资料'));
+ c.ssFlight=null;
+ c.ssOpenNativeMenu('context',{tracks:[c.ssTrackID(newTrack)]},0,0);
+ c.ssAcceptMenu(c.ssFlight,{response:{menu:{token:'context',items:[{label:'转换',command:1}]}}});
+ const options=c.ssPopup.levels[0].items;
+ const refresh=options.find(item=>item.label==='补齐封面和歌手资料');assert.ok(refresh);
+ assert.ok(options.some(item=>item.command===1));
+ c.ssFlight=null;refresh.run();
+ assert.deepEqual(Array.from(c.ssCoverRows,item=>item.handle.Path),[newTrack.Path]);
+ c.ssCoverStep();h.advance(500);c.ssCoverStep();
+ const retry=h.writes.at(-1);assert.equal(retry.task,'artist_auto');assert.notEqual(retry.id,artist.id);
+ c.utils.ReadTextFile=()=>JSON.stringify({'New Artist':{verified:true}});
+ h.finish(retry,{artist:{verified:true}});
+ assert.deepEqual(Array.from(c.getArtistList(),a=>a.name),['New Artist']);
+});
+test('library additions schedule work and stopping an idle queue preserves the startup pass',()=>{
+ const h=metadataHarness(),c=h.c;
+ const track={RawPath:'file://D:/new.flac',Path:'D:/new.flac',SubSong:0,artist:'Name',album:'Album'};
+ c.ssStartCovers();
+ c.ssCoverStep();
+ assert.notEqual(c.ssCoverStartup,0);
+ h.library.push(track);c.on_library_items_added(h.list([track]));
+ c.ssCoverStep();h.advance(500);c.ssCoverStep();
+ assert.equal(h.writes.at(-1).name,'Name');
 });
 
+test('unresolved artists retry with new evidence while current search hits survive verification',()=>{
+ const h=metadataHarness(),c=h.c;
+ c.ssQueueArtistAuto('Name','First',null,false);
+ h.advance(500);c.ssCoverStep();
+ const original=h.writes.at(-1);h.finish(original,{needs_review:true});
+ const mbid='11223344-5566-7788-99aa-bbccddeeff00';
+ c.ssQueueArtistAuto('Name','Second',{artist:'Name',mbid},false);
+ h.advance(500);c.ssCoverStep();
+ const retry=h.writes.at(-1);
+ assert.deepEqual(retry.albums,['First','Second']);assert.deepEqual(retry.mbids,[mbid]);
+ const hit={artist:'Name',snippet:'Matching lyric'};
+ c.searchQ2='matching lyric';c.searchTrks=[hit];
+ c.utils.ReadTextFile=()=>JSON.stringify({Name:{verified:true}});
+ h.finish(retry,{artist:{verified:true}});
+ assert.equal(c.searchQ2,'matching lyric');assert.equal(c.searchTrks[0],hit);
+});
+test('context menu preserves native commands when selected IDs have no available handle',()=>{
+ const h=metadataHarness(),c=h.c;
+ c.ssOpenNativeMenu('context',{track_id:'file://D:/absent.flac|0'},0,0);
+ c.ssAcceptMenu(c.ssFlight,{response:{menu:{token:'context',track_id:'file://D:/absent.flac|0',items:[{label:'转换',command:1}]}}});
+ const options=c.ssPopup.levels[0].items;
+ assert.ok(!options.some(item=>item.label==='补齐封面和歌手资料'));
+ assert.ok(options.some(item=>item.command===1));
+});
 
 test('context menus stay open after mouse leaves and close on outside click',()=>{
  const h=harness(),c=h.c;c.ssShowPopup([{label:'Tagging'}],10,40,'native',true);c.ssPopup.root='';c.ssPopup.levels[0].rect={x:10,y:40,w:230,h:100};
@@ -303,7 +391,7 @@ test('a valid GdiBitmap without Dispose remains available for artist rendering',
 });
 test('artist lists contain only confirmed records while all song handles remain intact',()=>{
  const h=harness(),c=h.c;h.load('data/discovery.js');h.load('data/library.js');
- const handles={Count:3,0:{Path:'a'},1:{Path:'b'},2:{Path:'c'}};c.libItems=()=>handles;c.libTF=()=>['One','Unknown','Two'];c.ssArtists={One:{verified:true},Two:{verified:true}};
+ const handles={Count:3,0:{Path:'a'},1:{Path:'b'},2:{Path:'c'}};c.ssCatalogHandles=()=>handles;c.ssCatalogArtistNames=()=>['One','Unknown','Two'];c.ssArtists={One:{verified:true},Two:{verified:true}};
  const artists=c.getArtistList();assert.deepEqual(Array.from(artists,a=>a.name),['One','Two']);assert.equal(handles.Count,3);
  c.utils.ReadTextFile=()=>JSON.stringify({Two:{verified:true}});c.ssLoadArtists();assert.equal(c.artistList,null);assert.deepEqual(Array.from(c.getArtistList(),a=>a.name),['Two']);
 });
@@ -348,9 +436,14 @@ test('playback menu hides redundant native random modes and keeps four choices',
  assert.deepEqual(Array.from(c.ssPopup.levels[0].items.slice(0,4),i=>i.label),['智能随机（每轮全覆盖）','顺序播放','列表循环','单曲循环']);assert.equal(c.ssPopup.levels[0].items.length,10);
 });
 test('startup cover filter skips real artwork and groups missing tracks for one album lookup',()=>{
- const h=harness(),c=h.c;h.load('data/covers.js');c.artInFlight=0;c.ssSelectOwner=null;c.ssDragging=false;c.ssCoverRow=t=>({id:t.id,path:t.id,subsong:0,artist:'Artist',album:'Album',album_artist:'Artist'});
- c.ssCoverRows=[{id:'existing'},{id:'a'},{id:'b'}];let row=0;c.utils.GetAlbumArtAsyncV2=()=>({then(fn){fn(row++===0?{image:{}}:{image:null});}});c.ssCoverStep();c.ssCoverStep();c.ssCoverStep();
- const req=h.writes.at(-1);assert.equal(req.task,'covers');assert.equal(req.refresh_missing,true);assert.deepEqual(Array.from(req.rows,r=>r.id),['a','b']);assert.equal(c.ssCoverAt,3);
+ const h=metadataHarness(),c=h.c;
+ c.ssArtists.Artist={verified:true,portrait:'artist.jpg'};
+ const tracks=['existing','a','b'].map(id=>({RawPath:'file://'+id,Path:id,SubSong:0,artist:'Artist',album:'Album'}));
+ let row=0;c.utils.GetAlbumArtAsyncV2=()=>({then(fn){fn(row++===0?{image:{}}:{image:null});}});
+ c.ssQueueMedia(h.list(tracks),false,false);
+ for(let i=0;i<4;i++)c.ssCoverStep();
+ const req=h.writes.at(-1);assert.equal(req.task,'covers');assert.equal(req.refresh_missing,true);
+ assert.deepEqual(Array.from(req.rows,r=>r.path),['a','b']);assert.equal(row,3);
 });
 test('Chinese menu labels preserve native command identity and user-defined text',()=>{
  const h=harness(),c=h.c;c.utils.ReadTextFile=()=>fs.readFileSync(path.join(root,'locale/zh-CN.json'),'utf8');h.load('ui/localization.js');assert.equal(c.ssMenuLabel('&Convert...\tCtrl+X'),'转换…');assert.equal(c.ssMenuLabel('My preset'),'My preset');
