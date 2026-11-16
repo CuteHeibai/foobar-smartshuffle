@@ -5,7 +5,7 @@ function test(name,fn){try{fn();console.log('PASS '+name);passed++;}catch(e){con
 function harness(){
   const writes=[],draws=[];
   const gr=new Proxy({CalcTextWidth(){return 60;},FillEllipse(){draws.push('play');}},{get:(o,k)=>o[k]||(()=>{})});
-  const c={console,Date,Math,JSON,isFinite,fb:{ProfilePath:'P:\\'},utils:{WriteTextFile(p,s){writes.push(JSON.parse(s));}},window:{},
+  const c={console,Date,Math,JSON,isFinite,RGB:()=>0,fb:{ProfilePath:'P:\\'},utils:{WriteTextFile(p,s){writes.push(JSON.parse(s));}},window:{},
     pbShuffle:true,VOL_CEIL:0,ssDensity:1,SS_APPEARANCE:'dark',HB_SONGS_PLAY:null,
     COL:{base:1,green:2,onAccent:3,text:4,text2:5,greenHover:6},FONT:{},M:{cpad:24,artSz:160},SHEAD:260,
     hv:()=>true,hit:(list,x,y)=>list.find(h=>x>=h.x0&&x<=h.x1&&y>=h.y0&&y<=h.y1),inRect:(x,y,h)=>x>=h.x0&&x<=h.x1&&y>=h.y0&&y<=h.y1,repaintAll(){},drawIcon(){},ssHeaderBoxes:()=>({eyeY:0,eyeH:20,titleY:22,titleH:50,metaY:80,metaH:20}),
@@ -17,7 +17,7 @@ function harness(){
     plman:{ExecutePlaylistDefaultAction(){throw Error('All Songs must use native source scheduling');}},
   };
   vm.createContext(c);const load=p=>vm.runInContext(fs.readFileSync(path.join(root,p),'utf8'),c);
-  load('data/smartshuffle.js');load('data/playback.js');return {c,writes,gr,draws,load};
+  load('core/corners.js');load('core/util.js');load('data/smartshuffle.js');load('data/playback.js');return {c,writes,gr,draws,load};
 }
 test('All Songs sends one bounded native library command in smart and native modes',()=>{
   for(const smart of [true,false]){
@@ -31,13 +31,13 @@ test('All Songs sends one bounded native library command in smart and native mod
 test('empty All Songs cannot dispatch playback',()=>{
   const h=harness();h.c.songsTracks=[];assert.equal(h.c.playLibrary(),false);assert.equal(h.writes.length,0);
 });
-test('All Songs header draws a distinct play target over the library cover at both densities',()=>{
+test('All Songs header draws a distinct play target below the library cover at both densities',()=>{
   for(const [s,width] of [[1,900],[1,600],[.75,675],[.75,450]]){
     const h=harness();h.load('views/songs.js');h.c.ssDensity=s;
     h.c.drawSongs(h.gr,{x:0,y:0,w:width,h:100});
     const box=h.c.HB_SONGS_PLAY;assert.ok(box&&box.label&&box.library);assert.ok(box.x1-box.x0>=32&&box.y1-box.y0>=32);
-    assert.ok(box.x0>=24&&box.x1<=24+160&&box.y0>=44*s&&box.y1<=44*s+160);
-    assert.ok(h.draws.indexOf('play')>h.draws.indexOf('cover'),'play overlays the existing library cover');
+    assert.equal(box.x0,24);assert.ok(box.y0>16*s+Math.min(160,Math.round(168*s)));
+    assert.ok(h.draws.indexOf('play')>h.draws.indexOf('cover'),'play follows the existing library cover');
     const group=h.c.HB_SG;assert.ok(box.x1<=group.x0||box.x0>=group.x1||box.y1<=group.y0||box.y0>=group.y1,'play cannot overlap grouping controls');
   }
 });
@@ -63,6 +63,16 @@ test('real application callbacks dispatch the All Songs header before selection 
   assert.equal(h.writes.length,0,'ending a song selection over the header cannot play the library');
   c.ssSelectionDown=c.ssSelectionUp=()=>false;c.on_mouse_lbtn_down(120,120);c.on_mouse_lbtn_up(700,400);
   assert.equal(h.writes.length,0,'release outside cancels a library play press');
+  let searchPlays=0;
+  c.view='search';c.HB_TR=[{x0:150,y0:100,x1:600,y1:150,pgx0:150,pgx1:184,srch:true,idx:0}];
+  c.searchTrks=[{reason:''}];c.ssPlaySearchHit=()=>{searchPlays++;};c.repaintAll=()=>{};
+  c.utils.IsKeyPressed=key=>key===17;
+  c.on_mouse_lbtn_down(166,124);c.on_mouse_lbtn_up(166,124);
+  assert.equal(searchPlays,0,'Ctrl-click on a play glyph stays a selection gesture');
+  c.utils.IsKeyPressed=()=>false;
+  c.on_mouse_lbtn_down(166,124);c.on_mouse_lbtn_up(166,124);
+  assert.equal(searchPlays,1,'the same glyph plays on an unmodified click');
+
 });
 
 test('artist page play sends all albums in page order and preserves subsong identity',()=>{
@@ -78,11 +88,11 @@ test('artist page play sends all albums in page order and preserves subsong iden
 
 function artistHarness(){
   const h=harness(),c=h.c;
-  h.load('views/artist.js');
+  h.load('views/cards.js');h.load('views/artist.js');
   Object.assign(c,{view:'artist',viewArtist:'Artist',viewAlbum:'',artScroll:0,artScrollT:0,HB_CARD:[],SS_ARTIST_HB:null,HB_ARTIST_PLAY:null,
     coverCol:()=>0,ssDrawArtistAvatar(){},ssArtistName:String,drawRounded(){},ssRowHover:()=>false,tR(){},
     ssBeginViewport:(key,gr)=>({gr,finish(){}}),drawScrollbar(){},clampPx:(value,max)=>Math.max(0,Math.min(value,max))});
-  return {h,c,gr:{FillGradRect(){},FillSolidRect(){},FillRoundRect(){},FillEllipse(){}}};
+  return {h,c,gr:{FillGradRect(){},FillSolidRect(){},FillPolygon(){},FillEllipse(){}}};
 }
 test('artist play button stays clear of the artist information link and disappears with no songs',()=>{
   const {c,gr}=artistHarness();
@@ -96,13 +106,15 @@ test('artist play button stays clear of the artist information link and disappea
 test('long single-album artist pages scroll to their final track with clipped hit targets',()=>{
   const {c,gr}=artistHarness(),bounds={x:0,y:0,w:390,h:350};
   c.artistAlbums=[{id:'A',named:true,album:'Album',tracks:Array.from({length:32},(_,i)=>({title:'Track '+i}))}];
+  let viewportTop; const viewport=c.ssBeginViewport;
+  c.ssBeginViewport=(key,graphics,x,y,w,h)=>{viewportTop=y;return viewport(key,graphics,x,y,w,h);};
   c.drawArtist(gr,bounds);
   assert.ok(c.SS_COLLECTION_SCROLL_MAX>1000);
   assert.ok(c.HB_CARD.some(a=>a.kind==='album'&&a.id==='A'));
   c.artScroll=c.artScrollT=c.SS_COLLECTION_SCROLL_MAX;
   c.HB_CARD=[];c.drawArtist(gr,bounds);
   assert.equal(c.HB_TR.at(-1).idx,31);
-  assert.ok(c.HB_TR.every(row=>row.y0>=174&&row.y1<=350));
+  assert.ok(c.HB_TR.every(row=>row.y0>=viewportTop&&row.y1<=bounds.y+bounds.h));
 });
 test('collection scrolling never changes the cached artwork size limit',()=>{
   const {h,c,gr}=artistHarness();

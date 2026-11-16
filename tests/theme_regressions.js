@@ -14,7 +14,7 @@ function harness(){
     panelBg(){},roundBottom(){},tL(){},tC(){},repaintBar(){},repaintQueue(){},ssHideLyrics(){},ssSyncLyricPanel(){},
     drawIcon(){},drawCover(){},vol2pos(){return 0;},clamp01:x=>x,fmtTime(){return '';},tR(){},
     hit:(rows,x,y)=>rows.find(r=>x>=r.x0&&x<=r.x1&&y>=r.y0&&y<=r.y1)||null,
-  };vm.createContext(c);
+  };vm.createContext(c);vm.runInContext(fs.readFileSync(path.join(root,'core/corners.js'),'utf8'),c);
   function load(file){const p=path.join(root,file);if(fs.existsSync(p))vm.runInContext(fs.readFileSync(p,'utf8'),c);}
   load('data/smartshuffle.js');load('ui/motion.js');load('ui/menus.js');load('ui/layout.js');load('ui/files.js');load('ui/hover.js');load('ui/selection.js');load('data/selection_host.js');
   return {c,load,writes,paints:()=>paints,advance(ms){now+=ms;},flush(){now+=200;const jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
@@ -148,7 +148,7 @@ test('splitter drags coalesce geometry updates and save the constrained width',(
   const {h,c,props}=layoutHarness();let hidden=0;c.ssHideLyrics=()=>hidden++;
   assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),true);
   for(let i=0;i<100;i++)c.ssResizeMove(260+i,120);
-  assert.equal(c.R.navW,210);h.flush();assert.ok(c.R.navW>300);assert.equal(hidden,1);
+  assert.equal(c.R.navW,240);h.flush();assert.equal(c.R.navW,280);assert.equal(hidden,1);
   c.ssResizeEnd(359,120);assert.equal(props.get(c.SS_WIDTH_KEYS.nav),c.R.navW);assert.equal(c.ssResizing,null);
   c.ssModal=true;assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),false);
 });
@@ -205,7 +205,7 @@ test('window resizing scales real font sizes, row heights and covers while retai
   const {h,c}=layoutHarness();c.gdi={Font:(name,size,style)=>({name,size,style})};h.load('core/tokens.js');
   c.ssWidths.nav=290;c.W=850;c.H=600;c.layout();const small={font:c.FONT.rowTitle.size,row:c.M.rowH,cover:c.M.artSz,scale:c.ssDensity};
   c.W=1800;c.H=1100;c.layout();assert.ok(c.FONT.rowTitle.size>small.font);assert.ok(c.M.rowH>small.row);assert.ok(c.M.artSz>small.cover);assert.ok(c.ssDensity>small.scale);
-  assert.equal(c.ssWidths.nav,290);assert.equal(c.R.navW,290);
+  assert.equal(c.ssWidths.nav,290);assert.equal(c.R.navW,280);
 });
 test('recycle action requires a matching preparation and explicit confirmation; cancel never applies',()=>{
   const h=harness(),c=h.c;c.ssRecyclePrepare('file://D:/music/song.flac|0');
@@ -227,7 +227,7 @@ test('4K song hover coalesces 100 moves and restores only the old and new rows',
   c.HB_TR=[{x0:100,y0:100,x1:2800,y1:160},{x0:100,y0:160,x1:2800,y1:220}];
   c.window.RepaintRect=(...r)=>invalid.push(r);c.ssSceneImage={};c.ssSceneW=c.W;c.ssSceneH=c.H;
   c.drawMain=()=>{throw Error('hover must never rebuild song list');};
-  const gr={DrawImage(...r){blits.push(r);},FillRoundRect(){},FillSolidRect(){}};
+  const gr={DrawImage(...r){blits.push(r);},FillPolygon(){},FillSolidRect(){}};
   c.ssPaintRowHover(gr,false);blits.length=0;
   for(let i=0;i<100;i++){c.my=170;c.ssRequestRowHover();}
   assert.equal(invalid.length,0);h.flush();assert.equal(invalid.length,2);
@@ -244,15 +244,15 @@ test('partial scene copy is bounded to its dirty panel',()=>{
 
 
 
-test('text uses subpixel antialiasing on opaque surfaces and keeps ellipsis alignment',()=>{
+test('bitmap text uses grayscale antialiasing and keeps ellipsis alignment',()=>{
  const h=harness(),c=h.c,draws=[],hints=[];c.gdi={Font:(n,s)=>({n,s})};h.load('core/tokens.js');
  const gr={CalcTextHeight:()=>22,SetTextRenderingHint:v=>hints.push(v),DrawString:(...v)=>draws.push(v),GdiDrawText(){throw Error('ClearType on a bitmap is unsupported');}};
  c.tL(gr,'中文 & 日本語',c.FONT.pl,1,1.2,2.5,100,20);c.tR(gr,'Right',c.FONT.pl,1,0,0,100,20);
- assert.deepEqual(hints,[5,5]);assert.equal(draws[0][0],'中文 & 日本語');assert.equal((draws[0][7]>>>20)&15,3);assert.equal((draws[1][7]>>>28)&15,2);
+ assert.deepEqual(hints,[3,3]);assert.equal(draws[0][0],'中文 & 日本語');assert.equal((draws[0][7]>>>20)&15,3);assert.equal((draws[1][7]>>>28)&15,2);
 });
 test('new playlist footer has separated measured lines at normal and enlarged density',()=>{
  const h=harness(),c=h.c,lines=[];h.load('views/nav.js');c.R.navLib={x:0,y:0,w:260,h:700};c.hv=()=>false;c.navDropHover=false;c.strokeRound=()=>{};c.lineH=(g,f)=>f==='primary'?25:22;c.FONT={pl:'primary',plSub:'sub'};c.tL=(g,t,f,col,x,y,w,h)=>lines.push({t,y,h});
- const gr={FillEllipse(){},FillRoundRect(){}};
+ const gr={FillEllipse(){},FillPolygon(){}};
  for(const density of [1,1.25]){lines.length=0;c.ssDensity=density;c.drawAddPlaylist(gr,600,72*density);if(lines.length===2)assert.ok(lines[0].y+lines[0].h<lines[1].y);}
 });
 test('late background search results never replace newer input and lyrics retain snippets',()=>{
@@ -263,7 +263,7 @@ test('late background search results never replace newer input and lyrics retain
 });
 test('artist cards use verified names and their own portraits, never album covers',()=>{
  const h=harness(),c=h.c,calls=[];h.load('views/cards.js');c.ssDrawArtistAvatar=(...args)=>calls.push(args.at(-1));c.ssArtistName=()=> 'Verified';c.ssArtistRecord=()=>({verified:true});c.tC=(g,t)=>calls.push(t);c.artistCover=()=>{throw Error('album cover is not an artist portrait');};
- c.paintArtistCard({FillRoundRect(){}},0,0,160,{name:'Original'},false);assert.deepEqual(calls,['Original','Verified','歌手']);
+ c.paintArtistCard({FillPolygon(){}},0,0,160,{name:'Original'},false);assert.deepEqual(calls,['Original','Verified','歌手']);
 });
 
 
@@ -384,7 +384,7 @@ test('context menus stay open after mouse leaves and close on outside click',()=
 });
 test('a valid GdiBitmap without Dispose remains available for artist rendering',()=>{
  const h=harness(),c=h.c;h.load('data/discovery.js');let drawn=0;
- const graphics={SetInterpolationMode(){},DrawImage(){}};const bitmap={Width:120,Height:80};
+ const graphics={SetInterpolationMode(){},FillSolidRect(){},DrawImage(){}};const bitmap={Width:120,Height:80};
  c.gdi={Image:()=>bitmap,CreateImage:()=>({GetGraphics:()=>graphics,ReleaseGraphics(){},ApplyMask(){}})};
  c.circleMask=()=>({});c.coverCol=()=>1;c.ssArtists.Name={verified:true,name:'Name',portrait:'local.jpg'};
  c.ssDrawArtistAvatar({DrawImage(){drawn++;},FillEllipse(){}},0,0,64,'Name');assert.equal(drawn,1);assert.ok(c.ssArtistImages['Name|64']);

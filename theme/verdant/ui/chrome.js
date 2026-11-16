@@ -32,7 +32,7 @@ function strokeRound(gr,x,y,w,h,rad,lw,col){
   var i=lw/2, sw=w-lw, sh=h-lw;
   if(sw<=0 || sh<=0) return;
   var a=Math.min(rad,sw/2,sh/2);
-  gr.DrawRoundRect(x+i,y+i,sw,sh,a,a,lw,col);
+  ssStrokeContinuousRect(gr,x+i,y+i,sw,sh,a,a,lw,col);
 }
 /* Draggable pixel scrollbar, hidden until its section is hovered. Thumb size comes from
    viewport vs content height, position from scrollPx/maxPx. Each scrollable view calls this
@@ -85,9 +85,9 @@ function setScrollH(x){   // free pixel scrolling; target set with it so the eas
 /* ------------------------- paint ------------------------- */
 /* FillRoundRect rasterises an antialiased path over the panel's whole area -- ~1.7Mpx for the
    main panel, on every repaint of every panel, and it showed up as ~8ms of each frame that no
-   content loop accounted for. A flat fill plus the four pre-rendered corner stamps buildCorners
-   already makes is visually identical (straight edges have nothing to antialias) and far cheaper.
-   The stamps are black, which is correct because every panel sits on the black canvas. */
+   content loop accounted for. A flat fill plus four cached corner stamps avoids that cost, while retaining the
+   same continuous corners as the controls and cover masks.
+   The stamps use the surrounding canvas color. */
 function panelBg(gr,r,c){
   var rad=M.radius; if(!CORN) CORN=buildCorners(rad);
   gr.FillSolidRect(r.x,r.y,r.w,r.h,c);
@@ -103,7 +103,7 @@ function buildCorners(rad){
   for(key in specs){
     var im=gdi.CreateImage(rad,rad), g=im.GetGraphics(); g.FillSolidRect(0,0,rad,rad,COL.black); im.ReleaseGraphics(g);
     var mk=gdi.CreateImage(rad,rad), mg=mk.GetGraphics();
-    mg.FillSolidRect(0,0,rad,rad,RGB(0,0,0)); mg.SetSmoothingMode(2); mg.FillEllipse(specs[key][0],specs[key][1],rad*2,rad*2,RGB(255,255,255));
+    mg.FillSolidRect(0,0,rad,rad,RGB(0,0,0)); mg.SetSmoothingMode(2); ssFillContinuousRect(mg,specs[key][0],specs[key][1],rad*2,rad*2,rad,rad,RGB(255,255,255));
     mk.ReleaseGraphics(mg); im.ApplyMask(mk); q[key]=im;
   }
   return q;
@@ -125,11 +125,11 @@ function modalPanel(gr,cw,ch,cy){
   gr.FillSolidRect(0,0,W,H,COL.scrim);
   var cx=Math.round((W-cw)/2);
   gr.FillSolidRect(cx+4,cy+6,cw,ch,COL.shadow);
-  gr.FillRoundRect(cx,cy,cw,ch,12,12,COL.hover);
+  ssFillContinuousRect(gr,cx,cy,cw,ch,12,12,COL.hover);
   return cx;
 }
 function dlgBtn(gr,x,y,w,h,label,col,hcol,txt){
-  gr.FillRoundRect(x,y,w,h,20,20,hv(x,y,x+w,y+h)?hcol:col);
+  ssFillContinuousRect(gr,x,y,w,h,20,20,hv(x,y,x+w,y+h)?hcol:col);
   tC(gr,label,FONT.pl,txt,x,y,w,h);
   return {x0:x,y0:y,x1:x+w,y1:y+h};
 }
@@ -140,7 +140,7 @@ function drawOverlays(gr){
     var rw=Math.min(420,W-40), rhh=196, ry0=Math.round((H-rhh)/2), rx0=modalPanel(gr,rw,rhh,ry0);
     tL(gr,'重命名歌单',FONT.sect,COL.text,rx0+28,ry0+22,rw-56,26);
     var ix=rx0+28, iyf=ry0+64, iw=rw-56, ih=46;
-    gr.FillRoundRect(ix,iyf,iw,ih,6,6,COL.input);
+    ssFillContinuousRect(gr,ix,iyf,iw,ih,6,6,COL.input);
     var tw3=gr.CalcTextWidth(renameEdit.text,FONT.pl);
     tL(gr,renameEdit.text,FONT.pl,COL.text,ix+14,iyf,iw-28,ih);
     if(caretOn){ var cxr=ix+14+Math.min(iw-30,tw3)+2; gr.FillSolidRect(cxr,iyf+Math.round((ih-20)/2),2,20,COL.text); }
@@ -161,10 +161,10 @@ function drawOverlays(gr){
     var h=ctxMenu.items.length*ih+pad*2;
     var mnx=Math.max(10,Math.min(ctxMenu.x,W-iw-10)), mny=Math.max(10,Math.min(ctxMenu.y,H-h-10));
     gr.FillSolidRect(mnx+3,mny+4,iw,h,COL.shadow);       // soft shadow
-    gr.FillRoundRect(mnx,mny,iw,h,8,8,COL.popupAlt);
+    ssFillContinuousRect(gr,mnx,mny,iw,h,8,8,COL.popupAlt);
     for(i=0;i<ctxMenu.items.length;i++){
       var iy=mny+pad+i*ih; it=ctxMenu.items[i];
-      if(hv(mnx,iy,mnx+iw,iy+ih)) gr.FillRoundRect(mnx+4,iy,iw-8,ih,5,5,ssInk(20));
+      if(hv(mnx,iy,mnx+iw,iy+ih)) ssFillContinuousRect(gr,mnx+4,iy,iw-8,ih,5,5,ssInk(20));
       tL(gr,it.label,FONT.pl,it.danger?COL.dangerHover:COL.text,mnx+16,iy,iw-24,ih);
       CTX_HB.push({x0:mnx,y0:iy,x1:mnx+iw,y1:iy+ih,act:it.act});
     }
@@ -220,7 +220,7 @@ function drawTitleBar(gr){
    the All Songs group-by; items are [label,value] pairs and the menu is drawn last so it
    floats over the track list. ---- */
 function drawDropPill(gr,x,y,w,h,label,open){
-  if(open||hv(x,y,x+w,y+h)) gr.FillRoundRect(x,y,w,h,6,6,COL.rowHover);
+  if(open||hv(x,y,x+w,y+h)) ssFillContinuousRect(gr,x,y,w,h,6,6,COL.rowHover);
   tL(gr,label,FONT.pl,COL.text,x+8,y,w-40,h);
   drawIcon(gr,'chevron',COL.text2,x+w-24,y+(h-18)/2,18,18,16);
   return {x0:x,y0:y,x1:x+w,y1:y+h};
@@ -230,10 +230,10 @@ function drawDropMenu(gr,anchor,items,cur,minW){
   if(!anchor) return out;
   var bw=Math.max(minW,anchor.x1-anchor.x0), ih=40, bx=anchor.x1-bw, iy=anchor.y1+6, bh=items.length*ih+10;
   gr.FillSolidRect(bx+3,iy+4,bw,bh,COL.shadow);
-  gr.FillRoundRect(bx,iy,bw,bh,8,8,COL.popupAlt);
+  ssFillContinuousRect(gr,bx,iy,bw,bh,8,8,COL.popupAlt);
   for(var i=0;i<items.length;i++){
     var ry=iy+5+i*ih;
-    if(hv(bx,ry,bx+bw,ry+ih)) gr.FillRoundRect(bx+4,ry,bw-8,ih,5,5,ssInk(20));
+    if(hv(bx,ry,bx+bw,ry+ih)) ssFillContinuousRect(gr,bx+4,ry,bw-8,ih,5,5,ssInk(20));
     tL(gr,items[i][0],FONT.pl,(items[i][1]===cur)?COL.green:COL.text,bx+18,ry,bw-30,ih);
     out.push({x0:bx,y0:ry,x1:bx+bw,y1:ry+ih,v:items[i][1]});
   }
@@ -241,7 +241,7 @@ function drawDropMenu(gr,anchor,items,cur,minW){
 }
 
 function drawSortDirBtn(gr,x,y,w,h){
-  gr.FillRoundRect(x,y,w,h,h/2,h/2,hv(x,y,x+w,y+h)?COL.buttonHover:COL.pill);
+  ssFillContinuousRect(gr,x,y,w,h,h/2,h/2,hv(x,y,x+w,y+h)?COL.buttonHover:COL.pill);
   drawIcon(gr,plSortDir==='asc'?'sortAsc':'sortDesc',COL.text,x,y,w,h,18);
   HB_PLSORTDIR={x0:x,y0:y,x1:x+w,y1:y+h};
 }

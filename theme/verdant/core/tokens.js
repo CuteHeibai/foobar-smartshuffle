@@ -17,7 +17,7 @@ function ssAccent(a){return ssAlpha(COL.green,a);}
 function ssPalette(mode){
   if(mode==='light')return {
     black:RGB(244,245,247),base:RGB(255,255,255),elev:RGB(246,247,249),hover:RGB(235,236,240),
-    text:RGB(16,17,19),text2:RGB(98,101,107),text3:RGB(147,150,156),
+    text:RGB(18,18,18),text2:RGB(89,89,89),text3:RGB(112,112,112),
     green:RGB(10,110,240),greenC:RGB(10,110,240),greenHover:RGB(0,92,214),
     rowHover:RGBA(16,17,19,10),rowActive:RGBA(10,110,240,18),line:RGB(228,230,234),seekbg:RGB(219,222,227),
     splitter:RGB(228,230,234),gridLine:RGBA(16,17,19,40),gridAxis:RGBA(16,17,19,80),
@@ -30,7 +30,7 @@ function ssPalette(mode){
   };
   return {
     black:RGB(15,16,18),base:RGB(22,23,26),elev:RGB(30,31,35),hover:RGB(40,42,47),
-    text:RGB(245,246,248),text2:RGB(160,163,170),text3:RGB(120,124,132),
+    text:RGB(246,246,246),text2:RGB(166,166,166),text3:RGB(137,137,137),
     green:RGB(64,156,255),greenC:RGB(64,156,255),greenHover:RGB(100,180,255),
     rowHover:RGBA(255,255,255,14),rowActive:RGBA(64,156,255,26),
     line:RGB(48,50,55),splitter:RGB(48,50,55),gridLine:RGBA(255,255,255,26),gridAxis:RGBA(255,255,255,64),seekbg:RGB(62,65,72),
@@ -43,7 +43,7 @@ function ssPalette(mode){
   };
 }
 var COL=ssPalette(SS_APPEARANCE);
-var M = { pad:8, gap:10, navW:210, queueW:300, barH:84, navTopH:84, rowH:50, cardTextH:52, radius:6, cpad:24, headH:280, artSz:200 };
+var M = { pad:8, gap:10, navW:240, queueW:300, barH:84, navTopH:58, rowH:50, cardTextH:52, radius:6, cpad:24, headH:280, artSz:200 };
 var PALETTE=[RGB(105,75,68),RGB(108,95,78),RGB(130,74,85),RGB(81,91,101),RGB(133,108,76),RGB(102,105,87),RGB(119,93,100),RGB(95,107,111),RGB(115,87,66),RGB(94,86,91)];
 
 /* ------------------------- fonts (create once) -------------------------
@@ -56,14 +56,15 @@ var SS_FONT_META=[],SS_FIT_FONTS=[],SS_SCRIPT_FONTS={};
 function gf(name,sz,style){var size=Math.max(1,Math.round(sz*UISCALE)),font=gdi.Font(name,size,style||0);SS_FONT_META.push({font:font,name:name,size:size,style:style||0});return font;}
 function F(sz,bold){ return gf(bold?'Inter Medium':'Inter', sz, 0); }
 function ssCreateFonts(){return {
-  lib:F(15,1), pl:F(13,1), plSub:F(11,0),
-  eyebrow:F(11,1), title:F(28,1), meta:F(13,0),
+  // Page 28; sections 20/16; body 14; supporting text 12. Medium is reserved for hierarchy.
+  lib:F(16,1), pl:F(14,0), plSub:F(12,0),
+  eyebrow:F(12,1), title:F(28,1), meta:F(12,0),
   rowTitle:F(14,0), rowArtist:F(12,0), rowNum:F(13,0), rowCell:F(13,0), head:F(12,1),
-  tab:F(16,1), sect:F(15,1), qName:F(13,0), qArtist:F(11,0),
+  tab:F(16,1), sect:F(16,1), qName:F(14,0), qArtist:F(12,0),
   npTitle:F(15,0), npArtist:F(12,0), time:F(12,0),
   icon:gf('Segoe MDL2 Assets',15), iconBtn:gf('Segoe MDL2 Assets',18),
   navIco:gf('Segoe MDL2 Assets',24), cap:gf('Segoe MDL2 Assets',10),
-  menu:F(12), card:F(14,1), sect2:F(20,1),
+  menu:F(12), card:F(14,0), sect2:F(20,1),
   searchTxt:F(16),
   lyric:F(18,1), fsLyric:F(30,1),
   fsSrc:F(13),
@@ -109,12 +110,21 @@ function ssFitFont(gr,font,height,text,width){
   if(SS_FIT_FONTS.length>=192)SS_FIT_FONTS=[];SS_FIT_FONTS.push({base:font,height:limit,key:key,font:f});return f;
 }
 function ssScriptFont(text,font){
-  var name=/[\u3040-\u30ff]/.test(text)?'Yu Gothic UI':/[\u2e80-\u9fff\uff00-\uffef]/.test(text)?'Microsoft YaHei UI':null;if(!name)return font;
+  var name=/[\u2e80-\u9fff\uff00-\uffef]/.test(text)?'Microsoft YaHei UI':null;if(!name)return font;
   var meta=null;for(var i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
-  if(!meta||meta.name===name)return font;var key=name+'|'+meta.size+'|'+meta.style;if(!SS_SCRIPT_FONTS[key]){var f=gdi.Font(name,meta.size,meta.style);SS_FONT_META.push({font:f,name:name,size:meta.size,style:meta.style});SS_SCRIPT_FONTS[key]=f;}return SS_SCRIPT_FONTS[key];
+  if(!meta||meta.name===name)return font;
+  var style=meta.name==='Inter Medium'?1:meta.style,key=name+'|'+meta.size+'|'+style;
+  if(!SS_SCRIPT_FONTS[key]){
+    var f=gdi.Font(name,meta.size,style);
+    SS_FONT_META.push({font:f,name:name,size:meta.size,style:style});
+    SS_SCRIPT_FONTS[key]=f;
+  }
+  return SS_SCRIPT_FONTS[key];
 }
 function ssText(gr,s,f,c,x,y,w,h,align,ellipsis){
-  if(w<=0||h<=0)return;s=String(s);gr.SetTextRenderingHint(5);f=ssFitFont(gr,ssScriptFont(s,f),h);
+  if(w<=0||h<=0)return;
+  // AntiAliasGridFit uses grayscale coverage, including in offscreen viewport bitmaps.
+  s=String(s);gr.SetTextRenderingHint(3);f=ssFitFont(gr,ssScriptFont(s,f),h);
   gr.DrawString(String(s),f,c,Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)),
     (align<<28)|(1<<24)|((ellipsis?3:0)<<20)|0x1000);
 }

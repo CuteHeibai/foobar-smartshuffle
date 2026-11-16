@@ -9,6 +9,7 @@ function exitFullscreen(){ fsMode=false; vizMenuOpen=false; stopViz(); repaintAl
 function setFsView(v){ fsView=v; vizMenuOpen=false; if(v==='viz') startViz(); else stopViz(); if(v==='lyrics'){ loadLyrics(); lySnap=true; } repaintAll(); }
 function doFsAct(act){
   if(act==='exit') exitFullscreen();
+  else if(act==='browse'){view='songs';songsScroll=songsScrollT=0;exitFullscreen();}
   else if(act==='lyrics') setFsView(fsView==='lyrics'?'default':'lyrics');
   else if(act==='viz') setFsView(fsView==='viz'?'default':'viz');
 }
@@ -175,7 +176,7 @@ function fsMiniNP(gr){   // small cover + title + artist, top-left (lyrics/viz v
     var lw=gr.CalcTextWidth(lbl,FONT.fsSrc);
     tL(gr,src,FONT.fsSrcName,COL.text,64+lw,20,Math.max(0,W/2-lw),20);   // bold: the playlist name
   }
-  drawRounded(gr,64,78,s,6,NP,'np');
+  if(NP)drawRounded(gr,64,78,s,6,NP,'np');else ssDrawIdleRecord(gr,64,78,s);
   tL(gr,npTitleStr||'尚未播放',FONT.sect2,COL.text,64+s+18,84,W/2,26);
   tL(gr,npArtistStr,FONT.qName,COL.text2,64+s+18,116,W/2,20);
 }
@@ -189,15 +190,19 @@ function ssFsDefaultGeometry(width,bot){
 function drawFsDefault(gr,bot){
   var m=ssFsDefaultGeometry(W,bot);
   if(!NP){
-    // idle: a quiet poster rather than a half-screen placeholder block
-    var ps=Math.round(Math.min(180,H*.22)), pcx=Math.round(W/2), pty=Math.round(H*0.30);
-    ssDrawIdleRecord(gr,pcx-ps/2,pty,ps);
-    tC(gr,'还没有正在播放的歌曲',FONT.sect2,COL.text,0,pty+ps+28,W,30);
-    tC(gr,'从音乐库选一首，或导入本地文件',FONT.pl,COL.text2,0,pty+ps+60,W,22);
-    var bw=128,bx=Math.round(W/2-bw/2),by2=pty+ps+104;
-    gr.FillRoundRect(bx,by2,bw,34,17,17,COL.green);
-    tC(gr,'选择音乐',FONT.pl,COL.onPlay,bx,by2,bw,34);
-    HB_FS.push({x0:bx,y0:by2,x1:bx+bw,y1:by2+34,act:'exit'});
+    var titleY=Math.max(18,Math.round((bot-100)/2));
+    tC(gr,'尚未播放',FONT.sect2,COL.text,0,titleY,W,32);
+    var bw=128,bx=Math.round(W/2-bw/2),by2=titleY+48;
+    var fill=hv(bx,by2,bx+bw,by2+36)?COL.greenHover:COL.green;
+    ssFillContinuousRect(gr,bx,by2,bw,36,9,9,fill);
+    tC(gr,'浏览音乐库',FONT.pl,COL.onPlay,bx,by2,bw,36);
+    HB_FS.push({x0:bx,y0:by2,x1:bx+bw,y1:by2+36,act:'browse'});
+    var exitX=W-Math.min(62,Math.round(W*.075))-106,exitY=24;
+    var exitHot=hv(exitX,exitY,exitX+106,exitY+32);
+    if(exitHot)ssFillContinuousRect(gr,exitX,exitY,106,32,7,7,COL.rowHover);
+    drawIcon(gr,'compress',COL.text2,exitX,exitY,24,32,16);
+    tL(gr,'退出全屏',FONT.pl,COL.text2,exitX+28,exitY,78,32);
+    HB_FS.push({x0:exitX,y0:exitY,x1:exitX+106,y1:exitY+32,act:'exit'});
     return;
   }
   drawRounded(gr,m.x,m.y,m.size,5,NP,'np');
@@ -355,26 +360,29 @@ function drawVizBand(gr){
   drawVizBody(gr,VIZ_TOP,bot);
 }
 function drawFsBar(gr){
-  var playing=fb.IsPlaying&&!fb.IsPaused, by=H-150;
-  var sbX=72, sbW=W-144, sbY=by+30;
-  var len=fb.PlaybackLength, pos=(drag==='seek')?dragFrac:(len>0?fb.PlaybackTime/len:0);
-  var rail=ssInk(55);
-  HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,4,rail,pos);
-  tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text2,sbX-54,sbY-6,46,16);
-  tL(gr,fmtTime(len),FONT.time,COL.text2,sbX+sbW+8,sbY-6,46,16);
-  var cxC=Math.round(W/2), cy=by+86, pb=56, pbx=cxC-pb/2, pby=cy-pb/2;
-  ctrlBtn(gr,'shuffle',cxC-150,cy,pbShuffle,'shuffle');
-  ctrlBtn(gr,'prev',cxC-84,cy,false,'prev');
-  gr.FillEllipse(pbx,pby,pb,pb,COL.play);
-  drawIcon(gr,playing?'pause':'play',COL.onPlay,pbx,pby,pb,pb,Math.round(pb*0.5));
-  HB_CTRL.push({x0:pbx,y0:pby,x1:pbx+pb,y1:pby+pb,act:'play'});
-  ctrlBtn(gr,'next',cxC+84,cy,false,'next');
-  ctrlBtn(gr,pbRepeat===2?'repeat1':'repeat',cxC+150,cy,pbRepeat>0,'repeat');
-  fsIcon(gr,'equalizer',fsView==='viz'?COL.green:COL.text2,72,cy-13,26,'viz');
-  fsIcon(gr,'mic',fsView==='lyrics'?COL.green:COL.text2,114,cy-13,26,'lyrics');
+  var by=H-150,rail=ssInk(55),cxC=Math.round(W/2),cy=by+86;
+  if(NP){
+    var sbX=72,sbW=W-144,sbY=by+30,len=fb.PlaybackLength;
+    var pos=(drag==='seek')?dragFrac:(len>0?fb.PlaybackTime/len:0);
+    if(len>0)HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,4,rail,pos);
+    tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text2,sbX-54,sbY-6,46,16);
+    tL(gr,fmtTime(len),FONT.time,COL.text2,sbX+sbW+8,sbY-6,46,16);
+    var pb=56,pbx=cxC-pb/2,pby=cy-pb/2;
+    ctrlBtn(gr,'prev',cxC-84,cy,false,'prev');
+    gr.FillEllipse(pbx,pby,pb,pb,COL.play);
+    drawIcon(gr,fb.IsPlaying&&!fb.IsPaused?'pause':'play',COL.onPlay,pbx,pby,pb,pb,Math.round(pb*0.5));
+    HB_CTRL.push({x0:pbx,y0:pby,x1:pbx+pb,y1:pby+pb,act:'play'});
+    ctrlBtn(gr,'next',cxC+84,cy,false,'next');
+  }
+  var inset=Math.min(72,Math.round(W*.075));
+  ctrlBtn(gr,'shuffle',NP?cxC-150:inset+18,cy,pbShuffle,'shuffle');
+  ctrlBtn(gr,pbRepeat===2?'repeat1':'repeat',NP?cxC+150:inset+60,cy,pbRepeat>0,'repeat');
+  fsIcon(gr,'equalizer',fsView==='viz'?COL.green:COL.text2,NP?72:inset+96,cy-13,26,'viz');
+  fsIcon(gr,'mic',fsView==='lyrics'?COL.green:COL.text2,NP?114:inset+138,cy-13,26,'lyrics');
   var rx=W-72;
-  fsIcon(gr,'compress',COL.text2,rx-26,cy-13,26,'exit');
-  var volW=120, volX=rx-26-46-volW, volY=cy-2;
+  var idle=!NP&&fsView==='default';
+  if(!idle)fsIcon(gr,'compress',COL.text2,rx-26,cy-13,26,'exit');
+  var volW=idle?Math.min(120,Math.max(42,W-356)):120,volX=rx-(idle?18:72)-volW,volY=cy-2;
   drawIcon(gr,'volume',COL.text2,volX-32,cy-12,24,24,20);
   HB_VOL=drawTrackBar(gr,volX,volY,volW,4,rail,clamp01(vol2pos(fb.Volume)));
 }
@@ -386,7 +394,7 @@ function drawFullscreen(gr){
   if(fsView==='lyrics') drawFsLyrics(gr,bot);
   else if(fsView==='viz') drawFsViz(gr,bot);
   else {
-    var src=npPlaylistSrc();
+    var src=NP?npPlaylistSrc():null;
     if(src){ tL(gr,'正在播放歌单',FONT.fsSrc,COL.text2,72,54,W-144,18); tL(gr,src,FONT.sect,COL.text,72,76,W-144,28); }
     drawFsDefault(gr,bot);
   }

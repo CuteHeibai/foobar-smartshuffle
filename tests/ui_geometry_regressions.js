@@ -11,11 +11,11 @@ function context(){
  DLGC_WANTCHARS:128,ssModal:false,ssPopup:null,ssResizeMove:()=>false,ssPopupMove:()=>false,ssPointerMove:()=>false,ssPopupWheel:()=>false,
  ssSend(){},ssOutputError:'',ssError:'',vol2pos:()=>.5,ssPlaylistInfo:()=>null};vm.createContext(c);
  function load(file){vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),c);}
- load('core/tokens.js');load('core/util.js');load('ui/motion.js');load('ui/hover.js');load('ui/viewport.js');load('ui/selection.js');load('data/selection_host.js');
+ load('core/tokens.js');load('core/util.js');load('core/corners.js');load('ui/motion.js');load('ui/hover.js');load('ui/viewport.js');load('ui/selection.js');load('data/selection_host.js');
  function app(){let text=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(text.slice(0,text.lastIndexOf('\nlayout();')),c);c.dupPrompt=c.rgPrompt=null;c.sgMenuOpen=c.plSortMenuOpen=c.vizMenuOpen=false;}
  return {c,load,app,advance(ms){now+=ms;},tick(ms){now+=ms;c.scrollTick();},flush(){let jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
 }
-function graphics(){return {SetTextRenderingHint(){},SetSmoothingMode(){},SetInterpolationMode(){},CalcTextHeight:(s,f)=>f.Size*1.3,CalcTextWidth:(s,f)=>Array.from(String(s)).length*f.Size*.9,DrawString(){},DrawImage(){},FillSolidRect(){},FillRoundRect(){},FillEllipse(){},DrawEllipse(){},DrawLine(){},DrawRect(){}};}
+function graphics(){return {SetTextRenderingHint(){},SetSmoothingMode(){},SetInterpolationMode(){},CalcTextHeight:(s,f)=>f.Size*1.3,CalcTextWidth:(s,f)=>Array.from(String(s)).length*f.Size*.9,DrawString(){},DrawImage(){},FillSolidRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},FillEllipse(){},DrawEllipse(){},DrawLine(){},DrawRect(){}};}
 test('large fonts stay inside each supplied text box at 200 percent scale',()=>{
  const {c}=context(),draws=[],g=graphics();g.DrawString=(s,f,col,x,y,w,h)=>draws.push({s,f,x,y,w,h});
  c.tL(g,'大标题',c.FONT.title,1,10,10,180,26);c.tL(g,'副标题',c.FONT.meta,1,10,40,180,18);
@@ -64,7 +64,7 @@ test('scroll damping depends on elapsed time rather than callback count',()=>{
 test('repeated interaction paints never accumulate selection opacity on untouched rows',()=>{
  const h=context(),c=h.c;h.app();c.view='songs';c.R={main:{x:0,y:0,w:500,h:200},queue:{x:510,y:0,w:300,h:200}};c.HB_TR=[0,1,2].map(i=>({songs:true,ti:i,x0:0,x1:500,y0:i*50,y1:(i+1)*50}));c.HB_Q=[];c.songsTracks=[0,1,2].map(i=>({h:{Path:'t'+i,SubSong:0}}));c.ssMainSelectionContext();
  c.ssMainSelect.start({index:0,x:10,y:10});c.ssMainSelect.end(10,10);c.ssMainSelect.start({index:1,x:10,y:60,shift:true});c.ssMainSelect.end(10,60);c.ssSceneImage={};c.mx=10;c.my=125;
- let alpha=[0,0,0];const g=graphics();g.DrawImage=(im,x,y,w,ht)=>{for(let i=0;i<3;i++)if(y<=i*50&&y+ht>i*50)alpha[i]=0;};g.FillRoundRect=(x,y,w,ht)=>{for(let i=0;i<3;i++)if(y<=i*50&&y+ht>i*50)alpha[i]++;};
+ let alpha=[0,0,0];const g=graphics();g.DrawImage=(im,x,y,w,ht)=>{for(let i=0;i<3;i++)if(y<=i*50&&y+ht>i*50)alpha[i]=0;};g.FillPolygon=(color,mode,points)=>{const ys=points.filter((_,i)=>i%2);for(let i=0;i<3;i++)if(Math.min(...ys)<=i*50&&Math.max(...ys)>i*50)alpha[i]++;};
  function paint(){if(c.ssPaintInteractions)c.ssPaintInteractions(g);else{c.ssPaintRowHover(g,true);c.ssDrawSelection(g);}}
  paint();let first=alpha.slice();for(let i=0;i<8;i++)paint();assert.deepEqual(alpha,first,'each overlay must start from clean scene pixels');
 });
@@ -103,7 +103,7 @@ test('Chinese and Japanese text share YaHei UI while English retains Inter',()=>
  const {c}=context(),g=graphics(),draws=[],hints=[];g.SetTextRenderingHint=v=>hints.push(v);g.DrawString=(s,f)=>draws.push({s,f});
  c.tL(g,'歌曲列表',c.FONT.rowTitle,1,0,0,200,32);c.tL(g,'English song',c.FONT.rowTitle,1,0,40,200,32);
  c.tL(g,'夜に駆ける',c.FONT.rowTitle,1,0,80,200,32);
- assert.equal(draws[0].f.Name,'Microsoft YaHei UI');assert.equal(draws[1].f.Name,'Inter');assert.equal(draws[2].f.Name,draws[0].f.Name);assert.equal(draws[2].f.Size,draws[0].f.Size);assert.deepEqual(hints,[5,5,5]);
+ assert.equal(draws[0].f.Name,'Microsoft YaHei UI');assert.equal(draws[1].f.Name,'Inter');assert.equal(draws[2].f.Name,draws[0].f.Name);assert.equal(draws[2].f.Size,draws[0].f.Size);assert.deepEqual(hints,[3,3,3]);
 });
 test('scene restore copies align source and destination to whole pixels',()=>{
  const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[{x0:10.2,y0:49.3,x1:480.8,y1:99.3}];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=40;c.my=70;let copies=[];const g=graphics();g.DrawImage=(im,...args)=>copies.push(args);c.ssPaintInteractions(g);assert.ok(copies.length);assert.ok(copies.every(args=>args.every(Number.isInteger)));

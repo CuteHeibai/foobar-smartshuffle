@@ -55,15 +55,15 @@ function ssDrawPopup(gr){
     if(x+width>W-8)x=d?Math.max(8,previous.x-width-4):W-width-8;
     x=Math.max(8,x);y=Math.max(TBH+4,Math.min(y,H-height-8));
     level.max=Math.max(0,total-height);level.scroll=Math.max(0,Math.min(level.scroll,level.max));level.rect={x:x,y:y,w:width,h:height};
-    gr.FillRoundRect(x+3,y+4,width,height,7,7,COL.shadow);
-    gr.FillRoundRect(x,y,width,height,7,7,COL.popup);strokeRound(gr,x,y,width,height,7,1,COL.line);
+    ssFillContinuousRect(gr,x+3,y+4,width,height,7,7,COL.shadow);
+    ssFillContinuousRect(gr,x,y,width,height,7,7,COL.popup);strokeRound(gr,x,y,width,height,7,1,COL.line);
     var rowY=y+pad-level.scroll,anchor=y;
     for(i=0;i<items.length;i++){
       var it=items[i],ih=it.separator?9:rh;
       if(rowY>=y+pad&&rowY+ih<=y+height-pad){
         if(it.separator)gr.FillSolidRect(x+10,rowY+4,width-20,1,COL.line);
         else{
-          if(level.selected===i||level.hover===i)gr.FillRoundRect(x+4,rowY,width-8,ih,4,4,COL.buttonHover);
+          if(level.selected===i||level.hover===i)ssFillContinuousRect(gr,x+4,rowY,width-8,ih,4,4,COL.buttonHover);
           if(it.checked)tC(gr,'✓',FONT.pl,COL.green,x+6,rowY,24,ih);
           tL(gr,ssMenuLabel(it.label),FONT.pl,it.disabled?COL.text3:COL.text,x+32,rowY,width-62,ih);
           if(it.children)tC(gr,'›',FONT.pl,COL.text2,x+width-27,rowY,20,ih);

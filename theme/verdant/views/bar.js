@@ -75,7 +75,7 @@ function ssDrawFooterTitle(gr,text,font,col,x,y,w,h){
   gr.DrawImage(m.image,x,y,w,h,m.offset,0,w,h);
 }
 function ssDrawIdleRecord(gr,x,y,size){
-  gr.FillRoundRect(x,y,size,size,6,6,COL.elev);
+  ssFillContinuousRect(gr,x,y,size,size,6,6,COL.elev);
   var d=Math.round(size*.44),ix=Math.round(x+(size-d)/2),iy=Math.round(y+(size-d)/2),dot=Math.max(2,Math.round(size*.07));
   gr.DrawEllipse(ix,iy,d,d,Math.max(1,Math.round(size*.035)),COL.text3);
   gr.FillEllipse(Math.round(x+(size-dot)/2),Math.round(y+(size-dot)/2),dot,dot,COL.text3);

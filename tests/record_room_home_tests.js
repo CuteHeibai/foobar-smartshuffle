@@ -1,15 +1,59 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),test=require('node:test');
 function harness(){
- const paints=[],layers=[],texts=[],c={ssDensity:1,M:{cpad:24,cardTextH:58,pad:8},FONT:{},COL:{},HB_CARD:[],HB_PLPLAY:[],homeScroll:0,homeScrollT:0,plScroll:0,plScrollT:0,drag:'',fb:{IsPlaying:false},shelfHandles:[],warmed:{},artistList:[],
- visiblePlaylists:()=>[],getAlbumCatalog:()=>({albums:Array.from({length:44},(_,i)=>({id:'album-'+i,album:'Album '+i,artist:'Artist '+i,handle:{i}}))}),ensureBuilt:()=>true,gateReady:()=>true,clampPx:(n,m)=>Math.max(0,Math.min(n,m)),hv:()=>false,ssArtistName:String,
- drawRounded:(gr,x,y,w)=>paints.push({gr,x,y,w}),tL:(gr,text)=>texts.push(text),tC(){},tR(){},drawScrollbar(){},drawScrollbarH(){},drawPlaylistCard(){},startWarmHome(){},
+ const paints=[],layers=[],texts=[],c={ssDensity:1,M:{cpad:24,cardTextH:58,pad:8},FONT:{},COL:{},HB_CARD:[],HB_PLPLAY:[],homeScroll:0,homeScrollT:0,plScroll:0,plScrollT:0,drag:'',NP:null,npTitleStr:'',npArtistStr:'',fb:{IsPlaying:false},shelfHandles:[],warmed:{},artistList:[],
+ visiblePlaylists:()=>[],getAlbumCatalog:()=>({albums:Array.from({length:44},(_,i)=>({id:'album-'+i,album:'Album '+i,artist:'Artist '+i,year:i===7?'2025':'',handle:{i}}))}),ensureBuilt:()=>true,gateReady:()=>true,clampPx:(n,m)=>Math.max(0,Math.min(n,m)),hv:()=>false,ssArtistName:String,
+ ssDrawIdleRecord(){},drawIcon(){},drawRounded:(gr,x,y,w)=>paints.push({gr,x,y,w}),tL:(gr,text)=>texts.push(text),tC(){},tR(){},drawScrollbar(){},drawScrollbarH(){},drawPlaylistCard(){},startWarmHome(){},
  ssBeginViewport:(key,gr,x,y,w,h)=>{const layer={key,x,y,w,h,gr:{FillRoundRect(){},FillSolidRect(){}},done:false};layers.push(layer);return {gr:layer.gr,finish(){layer.done=true;}};}};
- vm.createContext(c);for(const file of ['cards','home'])vm.runInContext(fs.readFileSync('theme/verdant/views/'+file+'.js','utf8'),c);
- return {c,paints,layers,texts,gr:{FillSolidRect(){},FillRoundRect(){},DrawLine(){}}};
+ vm.createContext(c);for(const file of ['../core/corners','cards','home'])vm.runInContext(fs.readFileSync('theme/verdant/views/'+file+'.js','utf8'),c);
+ return {c,paints,layers,texts,gr:{FillSolidRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},SetSmoothingMode(){},DrawLine(){}}};
 }
 test('home shows real album navigation when verified artist list is empty inside a clipped viewport',()=>{
  const {c,paints,layers,texts,gr}=harness(),r={x:240,y:40,w:900,h:750};c.drawHome(gr,r);
- const cards=c.HB_CARD.filter(a=>a.kind==='album');assert.ok(cards.length>=3);assert.equal(cards[0].id,'album-0');assert.equal(cards[0].y0,cards[1].y0);assert.ok(cards[0].x1<cards[1].x0);
- assert.equal(layers.length,1);assert.equal(layers[0].done,true);assert.ok(paints.every(a=>a.gr===layers[0].gr));assert.ok(cards.every(a=>a.y0>=layers[0].y&&a.y1<=r.y+r.h));assert.ok(texts.includes('44 张专辑'));
- c.homeScroll=c.homeScrollT=c.HOME_MAXROW;paints.length=0;c.drawHome(gr,r);assert.equal(c.HB_CARD.at(-1).id,'album-43');assert.ok(c.HB_CARD.every(a=>a.y0>=layers[1].y&&a.y1<=r.y+r.h));
+ const cards=c.HB_CARD.filter(a=>a.kind==='album');assert.ok(cards.length>=3);assert.equal(cards[0].id,'album-7');assert.equal(cards[0].y0,cards[1].y0);assert.ok(cards[0].x1<cards[1].x0);
+ assert.equal(layers.length,1);assert.equal(layers[0].done,true);assert.ok(paints.every(a=>a.gr===layers[0].gr));assert.ok(cards.every(a=>a.y0>=layers[0].y&&a.y1<=r.y+r.h));assert.ok(texts.includes('专辑选览'));
+ c.homeScroll=c.homeScrollT=c.HOME_MAXROW;paints.length=0;c.drawHome(gr,r);assert.equal(c.ssHomeAlbums.length,12);assert.equal(c.HB_CARD.at(-1).id,'album-11');assert.ok(c.HB_CARD.every(a=>a.y0>=layers[1].y&&a.y1<=r.y+r.h));
+});
+
+test('home primary control browses the library while stopped and resumes a paused track',()=>{
+ const {c,gr}=harness(),r={x:240,y:40,w:900,h:750};
+ let playCalls=0;
+ Object.assign(c,{view:'home',songsScroll:25,songsScrollT:25,repaintAll(){},ssPlayOrPause(){playCalls++;}});
+ c.drawHome(gr,r);
+ assert.equal(c.HB_HOME_CONTINUE.act,'browse');
+ c.ssActivateHomeAction(c.HB_HOME_CONTINUE);
+ assert.equal(c.view,'songs');assert.equal(c.songsScroll,0);assert.equal(playCalls,0);
+ Object.assign(c,{view:'home',NP:{},npTitleStr:'Paused track',npArtistStr:'Artist'});c.fb.IsPaused=true;
+ c.drawHome(gr,r);
+ assert.equal(c.HB_HOME_CONTINUE.act,'transport');
+ c.ssActivateHomeAction(c.HB_HOME_CONTINUE);
+ assert.equal(playCalls,1);
+});
+test('home grid reflows from six columns to four without changing cover size',()=>{
+ const {c,gr}=harness();c.ssDensity=1.05;
+ function grid(width){
+  c.drawHome(gr,{x:300,y:40,w:width,h:750});
+  const albums=c.HB_CARD.filter(card=>card.kind==='album'),first=albums[0];
+  return [albums.filter(card=>card.y0===first.y0).length,first.x1-first.x0];
+ }
+ assert.deepEqual(grid(1125),[6,165]);
+ assert.deepEqual(grid(799),[4,165]);
+});
+
+test('a short window keeps the primary action inside the main panel and clears old scroll targets',()=>{
+ const {c,gr}=harness(),r={x:182,y:40,w:350,h:95};
+ c.SB={};c.SBH={};c.drawHome(gr,r);
+ assert.ok(c.HB_HOME_CONTINUE.y1<=r.y+r.h);
+ assert.equal(c.HB_HOME_ALBUMS,null);assert.equal(c.HB_CARD.length,0);
+ assert.equal(c.SB,null);assert.equal(c.SBH,null);
+});
+
+test('the idle homepage leads with real covers and reserves the large cover for active tracks',()=>{
+ const {c,gr}=harness(),r={x:240,y:40,w:1125,h:750};
+ c.ssDensity=1.05;c.drawHome(gr,r);
+ const idleFirst=c.HB_CARD.find(card=>card.kind==='album');
+ assert.ok(idleFirst.y0-r.y<140);
+ Object.assign(c,{NP:{},npTitleStr:'Paused track',npArtistStr:'Artist'});c.fb.IsPaused=true;
+ c.drawHome(gr,r);
+ assert.equal(c.HB_HOME_CONTINUE.act,'transport');
+ assert.ok(c.HB_CARD.find(card=>card.kind==='album').y0>idleFirst.y0);
 });

@@ -12,7 +12,7 @@ function harness(enabled=true){
     getSearchIdx:()=>[],plman:{},rightTab:'lyrics',ssInteractionPainted:[],ssInteractionDamage:[],utils:{IsKeyPressed:()=>false},
   };
   vm.createContext(c);function load(file){const p=path.join(root,file);if(fs.existsSync(p))vm.runInContext(fs.readFileSync(p,'utf8'),c);}
-  load('data/personal.js');
+  load('core/corners.js');load('data/personal.js');
   if(typeof c.ssAcceptPersonal==='function')c.ssAcceptPersonal(null,{personal:c.ssState.personal});
   return {c,sent,load,tick(){const pending=[...timers.values()];timers.clear();pending.forEach(fn=>fn());},
     accept(r,personal,ok=true){c.ssAcceptPersonal(r,{personal:c.ssState.personal,response:{ok,personal}});}};

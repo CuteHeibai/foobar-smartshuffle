@@ -34,7 +34,7 @@ function drawPersonal(gr,r){
   tL(gr,String(p.total)+(history?' 次播放':' 首歌曲'),FONT.plSub,COL.text2,lx,subY+23*s,w,20*s);
   var bw=Math.min(82*s,Math.max(48*s,w*.23)),gap=8*s,fy=r.y+r.h-36*s;
   function pageButton(label,x,delta,enabled){
-    gr.FillRoundRect(x,fy,bw,28*s,5,5,enabled?COL.elev:COL.base);tC(gr,label,FONT.plSub,enabled?COL.text:COL.text3,x,fy,bw,28*s);
+    ssFillContinuousRect(gr,x,fy,bw,28*s,5,5,enabled?COL.elev:COL.base);tC(gr,label,FONT.plSub,enabled?COL.text:COL.text3,x,fy,bw,28*s);
     if(enabled)HB_PERSONAL_ACTIONS.push({x0:x,y0:fy,x1:x+bw,y1:fy+28*s,page:delta});
   }
   pageButton('上一页',lx,-1,!p.loading&&p.offset>0);pageButton('下一页',rx-bw,1,!p.loading&&p.offset+p.limit<p.total);
@@ -56,7 +56,7 @@ function drawPersonal(gr,r){
     var row=p.items[i],y=rowsTop+i*rh-Math.round(ssPersonalScroll);if(y>=cropY)break;
     var y0=Math.max(y,rowsTop),y1=Math.min(y+rh,cropY),handle=ssPersonalHandle(row.id),flag=ssPersonalFlag(row.id);
     ssDrawCachedRow(gr,'personal:'+view+':'+p.revision+':'+(row.event_id||row.id)+':'+i,r.x,y,r.w,rh,function(gr){
-      var hov=ssRowHover(lx,y0,rx,y1);if(hov)gr.FillRoundRect(lx-6*s,y,w+12*s,rh,4,4,COL.rowHover);
+      var hov=ssRowHover(lx,y0,rx,y1);if(hov)ssFillContinuousRect(gr,lx-6*s,y,w+12*s,rh,4,4,COL.rowHover);
       if(hov)drawIcon(gr,'play',COL.text,lx,y,28*s,rh,14*s);else tR(gr,String(p.offset+i+1),FONT.rowNum,COL.text2,lx,y,28*s,rh);
       // SDK handles are optional and never synthesized from JSON metadata.
       var cover=handle&&titleW>180*s?36*s:0,tx=titleX+(cover?cover+9*s:0),tw=titleW-(cover?cover+9*s:0);

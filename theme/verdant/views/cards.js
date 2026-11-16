@@ -22,8 +22,29 @@ function drawPlaylistCard(gr,x,y,w,i,clipL,clipR){
   if(cardHov && dx>=hx0 && dx+32<=hx1) drawDots(gr,dx,y+12,i);
   HB_CARD.push({x0:hx0,y0:y,x1:hx1,y1:y+h,kind:'pl',id:i});
 }
+function drawPlaylistShortcut(gr,x,y,w,h,i,clipL,clipR){
+  var left=Math.max(x,clipL),right=Math.min(x+w,clipR);if(right<=left)return;
+  var s=ssDensity,hot=hv(left,y,right,y+h),image=gdi.CreateImage(w,h),g=image.GetGraphics();
+  g.SetSmoothingMode(2);g.FillSolidRect(0,0,w,h,hot?COL.cardHover:COL.elev);
+  var cover=Math.round(36*s),pad=Math.round(10*s),playSize=Math.round(30*s),playX=x+w-pad-playSize;
+  drawPlCover(g,pad,Math.round((h-cover)/2),cover,4,i,plName(i));
+  var textX=pad+cover+Math.round(10*s),textW=w-textX-pad-playSize-Math.round(4*s);
+  tL(g,plName(i),FONT.pl,COL.text,textX,Math.round(10*s),textW,Math.round(24*s));
+  tL(g,plCount(i)+' 首歌曲',FONT.plSub,COL.text2,textX,Math.round(35*s),textW,Math.round(20*s));
+  image.ReleaseGraphics(g);gr.DrawImage(image,left,y,right-left,h,left-x,0,right-left,h);try{image.Dispose();}catch(e){}
+  if(playX>=left&&playX+playSize<=right){
+    var playY=y+Math.round((h-playSize)/2);
+    var button={x0:playX,y0:playY,x1:playX+playSize,y1:playY+playSize,pl:i,act:'playlist',focus:'play-'+i,label:'播放歌单'};
+    var playHot=hv(button.x0,button.y0,button.x1,button.y1)||ssHomeFocus===button.focus;
+    if(playHot)gr.FillEllipse(playX,playY,playSize,playSize,COL.rowHover);
+    drawIcon(gr,'play',playHot?COL.green:COL.text2,playX+1,playY,playSize,playSize,Math.round(playSize*.57));
+    ssHomeFocusRing(gr,button,playSize/2);
+    HB_PLPLAY.push(button);
+  }
+  HB_CARD.push({x0:left,y0:y,x1:right,y1:y+h,kind:'pl',id:i});
+}
 function paintArtistCard(gr,x,y,w,a,hov){
-  gr.FillRoundRect(x,y,w,w+M.cardTextH,8,8,hov?COL.cardHover:COL.elev);
+  ssFillContinuousRect(gr,x,y,w,w+M.cardTextH,8,8,hov?COL.cardHover:COL.elev);
   var cs=w-24;
   ssDrawArtistAvatar(gr,x+12,y+12,cs,a.name);
   tC(gr,ssArtistName(a.name),FONT.card,COL.text,x+12,y+cs+18,w-24,20);
@@ -78,10 +99,20 @@ function drawArtistCard(gr,x,y,w,a,clipTop,clipBot){
 }
 
 // Caller supplies a clipped bitmap viewport; hit targets use that same vertical band.
+// Drawer width changes the column count, while cover size follows window density.
+function ssAlbumGrid(width,scale,coverSize){
+  if(coverSize===undefined)coverSize=157;
+  var gap=Math.round(16*scale),size=Math.max(1,Math.min(width,Math.round(coverSize*scale)));
+  return {gap:gap,size:size,cols:Math.max(1,Math.floor((width+gap)/(size+gap)))};
+}
+function ssLibraryReadingWidth(width,scale){
+  var grid=ssAlbumGrid(width,scale);
+  return Math.max(1,Math.min(width,4*grid.size+3*grid.gap));
+}
 function drawLibraryAlbumCard(gr,x,y,w,album,clipTop,clipBot){
   var h=w+M.cardTextH,top=Math.max(y,clipTop),bottom=Math.min(y+h,clipBot);
   if(bottom<=top)return;
-  if(hv(x,top,x+w,bottom))gr.FillRoundRect(x,y,w,h,5,5,COL.cardHover);
+  if(hv(x,top,x+w,bottom))ssFillContinuousRect(gr,x,y,w,h,5,5,COL.cardHover);
   drawRounded(gr,x,y,w,4,album.handle,album.album);
   var gap=Math.round(8*ssDensity),titleH=Math.round(22*ssDensity),subH=Math.round(19*ssDensity);
   tL(gr,album.album,FONT.card,COL.text,x,y+w+gap,w,titleH);

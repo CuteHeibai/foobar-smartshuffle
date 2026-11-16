@@ -201,7 +201,7 @@ function rowCover(row){
 function drawCover(gr,x,y,sz,rad,h,seed,key){
   var img=h?getThumb(h,key||albKey(h),sz):null;
   if(img){ gr.DrawImage(img,x,y,sz,sz,0,0,img.Width,img.Height,0,255); }
-  else if(rad>0){ gr.FillRoundRect(x,y,sz,sz,rad,rad,coverCol(seed)); }
+  else if(rad>0){ ssFillContinuousRect(gr,x,y,sz,sz,rad,rad,coverCol(seed)); }
   else { gr.FillSolidRect(x,y,sz,sz,coverCol(seed)); }
 }
 /* dominant colour of an album's art, for header gradients (cached; falls back to placeholder) */
@@ -228,7 +228,7 @@ function circleMask(size){
 function roundMask(size,rad){
   var k='r'+size+'_'+rad; if(maskCache[k]) return maskCache[k];
   var m=gdi.CreateImage(size,size), g=m.GetGraphics();
-  g.FillSolidRect(0,0,size,size,RGB(255,255,255)); g.SetSmoothingMode(2); g.FillRoundRect(0,0,size,size,rad,rad,RGB(0,0,0));
+  g.FillSolidRect(0,0,size,size,RGB(255,255,255)); g.SetSmoothingMode(2); ssFillContinuousRect(g,0,0,size,size,rad,rad,RGB(0,0,0));
   m.ReleaseGraphics(g); maskCache[k]=m; return m;
 }
 function maskedArt(h,seed,size,mask,tag){
@@ -248,7 +248,7 @@ function drawCircle(gr,x,y,size,h,seed){
 function drawRounded(gr,x,y,size,rad,h,seed){
   var ri=maskedArt(h,seed,size,roundMask(size,rad),'r'+rad);
   if(ri) gr.DrawImage(ri,x,y,size,size,0,0,ri.Width,ri.Height,0,255);
-  else gr.FillRoundRect(x,y,size,size,rad,rad,coverCol(seed));
+  else ssFillContinuousRect(gr,x,y,size,size,rad,rad,coverCol(seed));
 }
 /* playlist cover: up to COVER_CANDS DISTINCT albums to choose from -- four of them WITH art make
    the 2x2 mosaic, otherwise the first one with art is shown alone. list/single stay what they
@@ -312,7 +312,7 @@ function plCoverReady(pi){
 /* Flat card: the cover is the card. A soft wash only appears on hover, so a resting
    shelf is type on paper instead of a matrix of grey panels. */
 function paintPlCard(gr,x,y,w,pi,hov){
-  if(hov) gr.FillRoundRect(x-8,y-8,w+16,w+M.cardTextH+12,12,12,COL.cardHover);
+  if(hov) ssFillContinuousRect(gr,x-8,y-8,w+16,w+M.cardTextH+12,12,12,COL.cardHover);
   drawPlCover(gr,x,y,w,8,pi,plName(pi));
   tL(gr,plName(pi),FONT.card,COL.text,x,y+w+10,w-(hov?26:0),20);
   tL(gr,plCount(pi)+' 首歌曲',FONT.plSub,COL.text2,x,y+w+32,w,16);

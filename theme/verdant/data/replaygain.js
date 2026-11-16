@@ -85,7 +85,7 @@ function drawRgPrompt(gr){
    applying them), so it can never claim to be on while doing nothing. */
 function drawNormalizePill(gr,x,y,w,h){
   var on=rgActive(), hot=hv(x,y,x+w,y+h);
-  if(hot) gr.FillRoundRect(x,y,w,h,6,6,COL.rowHover);
+  if(hot) ssFillContinuousRect(gr,x,y,w,h,6,6,COL.rowHover);
   var col=on?COL.green:COL.text2;
   drawIcon(gr,'equalizer',col,x+8,y+(h-18)/2,18,18,16);
   tL(gr,'音量均衡',FONT.pl,col,x+32,y,w-40,h);

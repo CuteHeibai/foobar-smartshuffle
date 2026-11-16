@@ -4,11 +4,12 @@
 
 // factored out so the blinking caret repaints just this strip (dirtySearch), not the whole view
 var SBOX_H=44, SBOX_TOP=26;   // box height + offset below R.main.y
-function searchBoxRect(){ var r=R.main, boxW=Math.min(520,r.w-M.cpad*2); return {x:r.x+M.cpad-2,y:r.y+SBOX_TOP-4,w:boxW+8,h:SBOX_H+8}; }
+function ssSearchWidth(r){return ssLibraryReadingWidth(r.w-M.cpad*2,ssDensity);}
+function searchBoxRect(){ var r=R.main, boxW=ssSearchWidth(r); return {x:r.x+M.cpad-2,y:r.y+SBOX_TOP-4,w:boxW+8,h:SBOX_H+8}; }
 function drawSearchBox(gr,r){
-  var x0=r.x+M.cpad, boxH=SBOX_H, boxY=r.y+SBOX_TOP, boxW=Math.min(520,r.w-M.cpad*2);
+  var x0=r.x+M.cpad, boxH=SBOX_H, boxY=r.y+SBOX_TOP, boxW=ssSearchWidth(r);
   gr.FillSolidRect(x0-2,boxY-4,boxW+8,boxH+8,COL.base);   // clean bg for partial repaints
-  gr.FillRoundRect(x0,boxY,boxW,boxH,boxH/2,boxH/2,COL.hover);
+  ssFillContinuousRect(gr,x0,boxY,boxW,boxH,boxH/2,boxH/2,COL.hover);
   var txtX=x0+48, txtW=boxW-(txtX-x0)-18;
   drawIcon(gr,'search',COL.text2,x0+16,boxY,22,boxH,18);
   var empty=!searchQuery.length, caretH=20, caretY=boxY+(boxH-caretH)/2, caretX;
@@ -27,7 +28,7 @@ function drawSearchBox(gr,r){
 function drawSearch(gr,r){
   HB_CARD=[]; HB_TR=[];
   computeSearch();
-  var pad=M.cpad, x0=r.x+pad, w=r.w-pad*2, i;
+  var pad=M.cpad, x0=r.x+pad, w=ssSearchWidth(r), i;
   var boxH=SBOX_H, boxY=r.y+SBOX_TOP;
   if(!searchQuery.length){
     drawSearchBox(gr,r);
@@ -41,10 +42,10 @@ function drawSearch(gr,r){
   }
   var top=boxY+boxH+26, cropY=r.y+r.h, viewH=cropY-top;
   // ---- measure the document, then clamp the scroll to it ----
-  var gap=16, cardW=176, cols=Math.max(2,Math.floor((w+gap)/(cardW+gap)));
+  var s=ssDensity,gap=Math.round(16*s),cardW=Math.round(300*s),cols=Math.max(1,Math.floor((w+gap)/(cardW+gap)));
   cardW=Math.floor((w-gap*(cols-1))/cols);
-  var cardH=cardW+M.cardTextH, rh=M.rowH, durW=64;
-  var artsH=searchArts.length?(42+Math.ceil(searchArts.length/cols)*(cardH+8)+18):0;
+  var cardH=Math.round(76*s), rh=M.rowH, durW=Math.round(54*s);
+  var artsH=searchArts.length?(Math.round(36*s)+Math.ceil(searchArts.length/cols)*(cardH+8)+Math.round(12*s)):0;
   var contentH=artsH+(searchTrks.length?(38+searchTrks.length*rh):0);
   var maxPx=Math.max(0,contentH-viewH);
   SEARCH_MAXPX=maxPx;
@@ -53,12 +54,18 @@ function drawSearch(gr,r){
   // ---- artists ----
   if(searchArts.length){
     tL(gr,'歌手',FONT.sect2,COL.text,x0,cy,w,28);
-    var gy=cy+42;
+    var gy=cy+Math.round(36*s);
     for(i=0;i<searchArts.length;i++){
       var ay=gy+Math.floor(i/cols)*(cardH+8);
       if(ay>=cropY) break;
       if(ay+cardH<=top) continue;
-      drawArtistCard(gr,x0+(i%cols)*(cardW+gap),ay,cardW,searchArts[i],top,cropY);
+      var ax=x0+(i%cols)*(cardW+gap),portrait=Math.round(64*s),artist=searchArts[i];
+      var ab={x0:ax,y0:Math.max(ay,top),x1:ax+cardW,y1:Math.min(ay+cardH,cropY),kind:'artist',id:artist.name};
+      if(hv(ab.x0,ab.y0,ab.x1,ab.y1))ssFillContinuousRect(gr,ax,ay,cardW,cardH,4,4,COL.rowHover);
+      ssDrawArtistAvatar(gr,ax,ay+Math.round(4*s),portrait,artist.name);
+      var atx=ax+portrait+Math.round(14*s),atw=Math.max(1,ax+cardW-atx-8);
+      tL(gr,ssArtistName(artist.name),FONT.card,COL.text,atx,ay,atw,cardH);
+      HB_CARD.push(ab);
     }
     cy+=artsH;
   }
@@ -71,18 +78,21 @@ function drawSearch(gr,r){
       if(ry>=cropY) break;
       if(ry+rh<=top) continue;
       var tr=searchTrks[i];
-      if(ssRowHover(r.x,Math.max(ry,top),r.x+r.w,Math.min(ry+rh,cropY))) gr.FillRoundRect(x0-8,ry,w+16,rh,4,4,COL.rowHover);
-      drawCover(gr,x0,ry+8,40,4,tr.h,tr.album||tr.title);
-      tL(gr,tr.title,FONT.rowTitle,COL.text,x0+52,ry+8,w-52-durW,20);
-      tL(gr,tr.snippet?('歌词 '+(tr.lyric_time!==null&&tr.lyric_time!==undefined?fmtTime(tr.lyric_time):'无时间轴')+' · '+tr.snippet):tr.artist+(tr.album?('  '+CH_BULL+'  '+tr.album):''),FONT.rowArtist,COL.text2,x0+52,ry+30,w-52-durW,16);
-      tR(gr,tr.len,FONT.rowCell,COL.text2,r.x+r.w-pad-durW,ry,durW,rh);
+      var hot=ssRowHover(x0-8,Math.max(ry,top),x0+w+8,Math.min(ry+rh,cropY));
+      if(hot)ssFillContinuousRect(gr,x0-8,ry,w+16,rh,4,4,COL.rowHover);
+      var playW=Math.round(36*s),artX=x0+playW,cs=Math.round(40*s),textX=artX+cs+Math.round(12*s);
+      drawIcon(gr,'play',hot?COL.text:COL.text2,x0,ry,playW,rh,14);
+      drawCover(gr,artX,ry+(rh-cs)/2,cs,4,tr.h,tr.album||tr.title);
+      var detail=tr.snippet?('歌词 '+(tr.lyric_time!==null&&tr.lyric_time!==undefined?fmtTime(tr.lyric_time):'无时间轴')+' · '+tr.snippet):[tr.artist,tr.album].filter(Boolean).join(' '+CH_DOT+' ');
+      ssDrawTrackLabels(gr,tr.title,detail,COL.text,textX,ry,x0+w-durW-textX,rh,s);
+      tR(gr,tr.len,FONT.rowCell,COL.text2,x0+w-durW,ry,durW,rh);
       var hy0=Math.max(ry,top), hy1=Math.min(ry+rh,cropY);   // clip the click target to the viewport
-      if(hy1>hy0) HB_TR.push({x0:x0-8,y0:hy0,x1:r.x+r.w-pad+8,y1:hy1,srch:true,idx:i});
+      if(hy1>hy0) HB_TR.push({x0:x0-8,y0:hy0,x1:x0+w+8,y1:hy1,srch:true,idx:i,pgx0:x0,pgx1:artX});
     }
   }
   // ---- mask the overflow, re-pin the search box, then the scrollbar ----
   gr.FillSolidRect(r.x,r.y,r.w,top-r.y,COL.base);
   gr.FillSolidRect(r.x,cropY,r.w,M.pad+2,COL.black);
   drawSearchBox(gr,r);
-  drawScrollbar(gr,x0+w+8,top,viewH,searchScroll,maxPx,viewH,contentH,hv(x0,top,x0+w+16,cropY)||drag==='scroll');
+  drawScrollbar(gr,r.x+r.w-10,top,viewH,searchScroll,maxPx,viewH,contentH,hv(r.x,top,r.x+r.w,cropY)||drag==='scroll');
 }

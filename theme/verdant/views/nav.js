@@ -5,7 +5,7 @@
 var HB_ARTISTS_NAV=null,HB_STATS_NAV=null;
 // one sidebar row: cover + name + subtitle. pi<0 draws the library mosaic instead of a playlist cover.
 function drawNavRow(gr,y,h,on,hov,pi,name,sub){
-  if(on||hov) gr.FillRoundRect(R.navLib.x+8,y,R.navLib.w-16,h-4,6,6,on?COL.rowActive:COL.rowHover);
+  if(on||hov) ssFillContinuousRect(gr,R.navLib.x+8,y,R.navLib.w-16,h-4,6,6,on?COL.rowActive:COL.rowHover);
   var s=ssDensity,cs=44*s, cx=R.navLib.x+16*s, cy=y+(h-cs)/2;
   if(pi>=0) drawPlCover(gr,cx,cy,cs,4,pi,name); else drawLibCover(gr,cx,cy,cs,4);
   var tx=cx+cs+12, tw=R.navLib.x+R.navLib.w-16-tx-((hov&&pi>=0)?26:0);   // leave room for the "..." button
@@ -21,12 +21,12 @@ function drawNav(gr){
   var bw=Math.floor((R.navTop.w-2*m-g)/2);
   var hx=R.navTop.x+m, sx2=hx+bw+g;
   var hon=(view==='home'), hhov=hv(hx,iy,hx+bw,iy+bh);
-  if(hon||hhov) gr.FillRoundRect(hx,iy,bw,bh,7,7,hon?COL.rowActive:COL.rowHover);
+  if(hon||hhov) ssFillContinuousRect(gr,hx,iy,bw,bh,7,7,hon?COL.rowActive:COL.rowHover);
   var isz=Math.round(17*s);drawIcon(gr,'home',hon?COL.text:COL.text2,hx+Math.round(11*s),iy+Math.round((bh-isz)/2),isz,isz,isz);
   tL(gr,'首页',FONT.pl,hon?COL.text:COL.text2,hx+Math.round(33*s),iy,bw-Math.round(40*s),bh);
   HB_HOME={x0:hx,y0:iy,x1:hx+bw,y1:iy+bh};
   var son=(view==='search'), shov=hv(sx2,iy,sx2+bw,iy+bh);
-  if(son||shov) gr.FillRoundRect(sx2,iy,bw,bh,7,7,son?COL.rowActive:COL.rowHover);
+  if(son||shov) ssFillContinuousRect(gr,sx2,iy,bw,bh,7,7,son?COL.rowActive:COL.rowHover);
   drawIcon(gr,'search',son?COL.text:COL.text2,sx2+Math.round(11*s),iy+Math.round((bh-isz)/2),isz,isz,isz);
   tL(gr,'搜索',FONT.pl,son?COL.text:COL.text2,sx2+Math.round(33*s),iy,bw-Math.round(40*s),bh);
   HB_SEARCH={x0:sx2,y0:iy,x1:sx2+bw,y1:iy+bh};
@@ -80,12 +80,12 @@ function drawNav(gr){
   var albumY=pinY+pinH,albumOn=view==='albums'||view==='album';
   HB_ALBUMS={x0:R.navLib.x+8,y0:albumY,x1:R.navLib.x+R.navLib.w-8,y1:albumY+albumH};
   if(albumOn||hv(HB_ALBUMS.x0,albumY,HB_ALBUMS.x1,albumY+albumH))
-    gr.FillRoundRect(HB_ALBUMS.x0,albumY,HB_ALBUMS.x1-HB_ALBUMS.x0,albumH-2,5,5,albumOn?COL.rowActive:COL.rowHover);
+    ssFillContinuousRect(gr,HB_ALBUMS.x0,albumY,HB_ALBUMS.x1-HB_ALBUMS.x0,albumH-2,5,5,albumOn?COL.rowActive:COL.rowHover);
   tL(gr,'专辑',FONT.pl,albumOn?COL.green:COL.text2,R.navLib.x+20*s,albumY,R.navLib.w-40*s,albumH);
   var extra=[{label:'歌手',on:view==='artist'||(view==='songs'&&songsGroup==='artist')},{label:'聆听统计',on:view==='stats'}];
   for(var e=0;e<extra.length;e++){
     var ey=albumY+albumH*(e+1),entry=extra[e],eb={x0:R.navLib.x+8,y0:ey,x1:R.navLib.x+R.navLib.w-8,y1:ey+albumH};
-    if(entry.on||hv(eb.x0,ey,eb.x1,eb.y1))gr.FillRoundRect(eb.x0,ey,eb.x1-eb.x0,albumH-2,5,5,entry.on?COL.rowActive:COL.rowHover);
+    if(entry.on||hv(eb.x0,ey,eb.x1,eb.y1))ssFillContinuousRect(gr,eb.x0,ey,eb.x1-eb.x0,albumH-2,5,5,entry.on?COL.rowActive:COL.rowHover);
     tL(gr,entry.label,FONT.pl,entry.on?COL.green:COL.text2,R.navLib.x+20*s,ey,R.navLib.w-40*s,albumH);
     if(e===0)HB_ARTISTS_NAV=eb;else HB_STATS_NAV=eb;
   }
@@ -93,7 +93,7 @@ function drawNav(gr){
     var kinds=['history','favorites','later'],summary=ssState&&ssState.personal||{};
     for(var p=0;p<kinds.length;p++){
       var kind=kinds[p],py=pinY+pinH+albumH+extraH+p*personalH,on=view===kind,hot=hv(R.navLib.x,py,R.navLib.x+R.navLib.w,py+personalH);
-      if(on||hot)gr.FillRoundRect(R.navLib.x+8,py,R.navLib.w-16,personalH-2,5,5,on?COL.rowActive:COL.rowHover);
+      if(on||hot)ssFillContinuousRect(gr,R.navLib.x+8,py,R.navLib.w-16,personalH-2,5,5,on?COL.rowActive:COL.rowHover);
       var count=summary[kind==='history'?'history_count':kind==='favorites'?'favorites_count':'later_count']||0;
       var tx=R.navLib.x+20*s,tw=Math.max(1,R.navLib.w-76*s);
       tL(gr,ssPersonalTitle(kind),FONT.pl,on?COL.green:COL.text2,tx,py,tw,personalH);
@@ -109,7 +109,7 @@ function drawNav(gr){
 function drawAddPlaylist(gr,footTop,footH){
   var s=ssDensity,bx=R.navLib.x+8, bw=R.navLib.w-16, bh=Math.min(footH-14,Math.round(44*s)), by=footTop+Math.round((footH-bh)/2);
   var hot=hv(bx,by,bx+bw,by+bh), drop=navDropHover;
-  if(drop||hot) gr.FillRoundRect(bx,by,bw,bh,7,7,drop?ssAccent(26):COL.rowHover);
+  if(drop||hot) ssFillContinuousRect(gr,bx,by,bw,bh,7,7,drop?ssAccent(26):COL.rowHover);
   var isz=Math.round(16*s), ax=bx+Math.round(12*s), ay=by+Math.round((bh-isz)/2);
   drawIcon(gr,'add',drop?COL.green:(hot?COL.text:COL.text2),ax,ay,isz,isz,isz);
   var tx=ax+isz+Math.round(10*s), tw=bx+bw-12-tx;

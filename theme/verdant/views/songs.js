@@ -15,21 +15,23 @@ function drawSongs(gr,r){
   gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,blend(artHue(cov.single,'__lib__'),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
   var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0), lx=r.x+M.cpad, ay=r.y+16*s, art=Math.min(M.artSz,Math.round(168*s));
   drawLibCover(gr,lx,ay,art,8);
+  var button=Math.max(32,Math.round(38*s)),barY=ay+art+Math.round(6*s),playSpace=0;
   if(songsTracks.length){
-    HB_SONGS_PLAY=drawPlaylistPlay(gr,lx+art-Math.round(46*s),ay+art-Math.round(46*s),Math.round(36*s),-1);
+    HB_SONGS_PLAY=drawPlaylistPlay(gr,lx,barY,button,-1);
+    playSpace=button+Math.round(10*s);
     HB_SONGS_PLAY.label='播放全部歌曲';HB_SONGS_PLAY.library=true;
   }
   // header text stops short of the pill column so the two can never collide on a narrow panel
-  var pgap=8, toolbarW=Math.max(2,r.w-M.cpad*2-pgap);
+  var pgap=8, toolbarW=Math.max(2,r.w-M.cpad*2-pgap-playSpace);
   var gpW=Math.min(232,Math.floor(toolbarW*.54)),nzW=Math.min(196,toolbarW-gpW);
-  var clX=lx,gpX=clX+nzW+pgap;
+  var clX=lx+playSpace,gpX=clX+nzW+pgap;
   var tx=lx+art+24, tw=compact?rx-tx:Math.max(1,rx-tx);
   var text=ssHeaderBoxes(art,false,s);
   tL(gr,'音乐库',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
   tL(gr,'全部歌曲',FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
   tL(gr,fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):''),FONT.meta,COL.text2,tx,ay+text.metaY,tw,text.metaH);
-  HB_RGNORM=drawNormalizePill(gr,clX,ay+art+6*s,nzW,38*s);
-  HB_SG=drawDropPill(gr,gpX,ay+art+6*s,gpW,38*s,'分组：'+labelOf(SONGS_GROUPS,songsGroup,'不分组'),sgMenuOpen);
+  HB_RGNORM=drawNormalizePill(gr,clX,barY,nzW,button);
+  HB_SG=drawDropPill(gr,gpX,barY,gpW,button,'分组：'+labelOf(SONGS_GROUPS,songsGroup,'不分组'),sgMenuOpen);
 
   if(!songsRows.length){
     tC(gr,'音乐库还是空的',FONT.sect,COL.text2,r.x,r.y+SHEAD+40,r.w,24);
@@ -43,7 +45,7 @@ function drawSongs(gr,r){
      ALBUM when flat, ARTIST when grouped by album, nothing when grouped by artist. */
   var flat=(g==='none'), tind=flat?0:(g==='both'?SG_IND*2:SG_IND);
   var showAlbum=flat&&!compact, showArtist=(g==='album');
-  var numW=flat?46:36, durW=64, cgap=16;   // index column fits the largest number it can hold
+  var numW=Math.round(36*s), durW=64, cgap=16;   // index column fits the largest number it can hold
   var numX=lx+tind, titleX=numX+numW+cgap;
   var colW=showAlbum?Math.round((rx-titleX-durW-cgap*2)*0.34):(showArtist?Math.round((rx-titleX-durW-cgap*2)*0.28):0);
   var colX=rx-durW-cgap-colW;
@@ -79,14 +81,13 @@ function drawSongs(gr,r){
       ssDrawCachedRow(gr,'song:'+row.ti,r.x,ry,r.w,gh,function(gr){
       var t=row.t, isPlaying=!!(NP && t.h && t.h.Path===NP.Path);
       var isHover=ssRowHover(lx-8,vy0,rx+8,vy1);
-      if(isHover) gr.FillRoundRect(lx-8,ry,rx-lx+16,gh,4,4,COL.rowHover);
+      if(isHover) ssFillContinuousRect(gr,lx-8,ry,rx-lx+16,gh,4,4,COL.rowHover);
       if(isHover) drawIcon(gr,'play',COL.text,numX,ry,numW,gh,14);
       else tR(gr,String(row.n),FONT.rowNum,isPlaying?COL.green:COL.text2,numX,ry,numW-8,gh);
       if(flat){
         var cs=40*s, cy=ry+(gh-cs)/2;
         drawCover(gr,titleX,cy,cs,3,t.h,t.album||t.title,t.artkey);
-        tL(gr,t.title,FONT.rowTitle,isPlaying?COL.green:COL.text,titleX+cs+12,ry+8*s,titleW-cs-12,20*s);
-        tL(gr,t.artist,FONT.rowArtist,COL.text2,titleX+cs+12,ry+30*s,titleW-cs-12,16*s);
+        ssDrawTrackLabels(gr,t.title,t.artist,isPlaying?COL.green:COL.text,titleX+cs+12,ry,titleW-cs-12,gh,s);
       } else {
         tL(gr,t.title,FONT.rowTitle,isPlaying?COL.green:COL.text,titleX,ry,titleW,gh);
       }
@@ -106,8 +107,8 @@ function drawSongs(gr,r){
       if(j>0 && !nest && ry+2>=rowsTop) gr.DrawLine(lx,ry+2,rx,ry+2,banner?2:1,COL.line);
       var hb0=Math.max(blockTop-(banner?0:4),rowsTop), hb1=vy1;
       var hHov=isArt && hb1>hb0 && hv(lx-8,hb0,rx+8,hb1);
-      if(banner) gr.FillRoundRect(lx-8,blockTop,rx-lx+16,blockH,8,8,hHov?COL.hover:COL.banner);
-      else if(hHov) gr.FillRoundRect(lx-8,blockTop-4,rx-lx+16,blockH+8,6,6,COL.rowHover);
+      if(banner) ssFillContinuousRect(gr,lx-8,blockTop,rx-lx+16,blockH,8,8,hHov?COL.hover:COL.banner);
+      else if(hHov) ssFillContinuousRect(gr,lx-8,blockTop-4,rx-lx+16,blockH+8,6,6,COL.rowHover);
       if(isArt) ssDrawArtistAvatar(gr,hx,hy,acs,row.label);
       else drawRounded(gr,hx,hy,acs,5,row.handle,row.seed);
       // text block centred against the artwork, running to the same right edge as the rows

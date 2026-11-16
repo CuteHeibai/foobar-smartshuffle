@@ -148,26 +148,26 @@ function skelCards(gr,x,y,w,h,cardW,gap){
   for(cy=y; cy<y+h; cy+=cardH+8){
     for(cx=x; cx+cardW<=x+w; cx+=cardW+gap){
       var ch=Math.min(cardH,y+h-cy); if(ch<24) break;
-      gr.FillRoundRect(cx,cy,cardW,ch,8,8,COL.elev);
-      if(ch>cs+12) gr.FillRoundRect(cx+12,cy+12,cs,cs,6,6,COL.banner);
+      ssFillContinuousRect(gr,cx,cy,cardW,ch,8,8,COL.elev);
+      if(ch>cs+12) ssFillContinuousRect(gr,cx+12,cy+12,cs,cs,6,6,COL.banner);
     }
   }
 }
 function skelRows(gr,x,y,w,h,rowH){
   for(var ry=y; ry<y+h; ry+=rowH){
     var rh=Math.min(rowH-8,y+h-ry); if(rh<14) break;
-    gr.FillRoundRect(x,ry,40,Math.min(40,rh),4,4,COL.elev);
-    gr.FillRoundRect(x+56,ry+4,Math.round(w*0.30),13,4,4,COL.elev);
-    gr.FillRoundRect(x+56,ry+23,Math.round(w*0.19),11,4,4,COL.skeleton);
+    ssFillContinuousRect(gr,x,ry,40,Math.min(40,rh),4,4,COL.elev);
+    ssFillContinuousRect(gr,x+56,ry+4,Math.round(w*0.30),13,4,4,COL.elev);
+    ssFillContinuousRect(gr,x+56,ry+23,Math.round(w*0.19),11,4,4,COL.skeleton);
   }
 }
 // header block (cover + title/meta bars) shared by the playlist and All Songs skeletons
 function drawViewSkeleton(gr,r){
   var lx=r.x+M.cpad, w=r.w-M.cpad*2, ay=r.y+44, art=M.artSz;
-  gr.FillRoundRect(lx,ay,art,art,8,8,COL.elev);
+  ssFillContinuousRect(gr,lx,ay,art,art,8,8,COL.elev);
   var tx=lx+art+24, tw=Math.max(120,w-art-24);
-  gr.FillRoundRect(tx,ay+34,Math.min(tw,420),44,6,6,COL.elev);
-  gr.FillRoundRect(tx,ay+94,Math.min(tw,260),18,4,4,COL.skeleton);
+  ssFillContinuousRect(gr,tx,ay+34,Math.min(tw,420),44,6,6,COL.elev);
+  ssFillContinuousRect(gr,tx,ay+94,Math.min(tw,260),18,4,4,COL.skeleton);
   var rowsTop=r.y+M.headH, cropY=r.y+r.h;
   if(cropY>rowsTop) skelRows(gr,lx,rowsTop,w,cropY-rowsTop,M.rowH);
   shimmer(gr,lx,ay,w,cropY-ay);   // one sweep for the whole view keeps header and rows in phase

@@ -135,9 +135,9 @@ function ssDrawDragOverlay(gr,p){
   if(!p.origin||!ssSceneImage)return;
   var source=p.origin,r=ssDragRect(p);
   if(!ssDragOverlay){var sx=Math.max(0,Math.floor(source.x0)),sy=Math.max(0,Math.floor(source.y0));ssDragOverlay={image:ssSceneImage.Clone(sx,sy,Math.min(r.w,W-sx),Math.min(r.h,H-sy))};}
-  gr.FillRoundRect(r.x+2,r.y+4,r.w,r.h,6,6,COL.shadow);
+  ssFillContinuousRect(gr,r.x+2,r.y+4,r.w,r.h,6,6,COL.shadow);
   gr.DrawImage(ssDragOverlay.image,r.x,r.y,r.w,r.h,0,0,r.w,r.h,0,248);
-  gr.DrawRoundRect(r.x+.5,r.y+.5,r.w-1,r.h-1,6,6,1,COL.line);
+  ssStrokeContinuousRect(gr,r.x+.5,r.y+.5,r.w-1,r.h-1,6,6,1,COL.line);
   if(p.indices.length>1){gr.FillEllipse(r.x+r.w-30,r.y+7,24,24,COL.text);tC(gr,String(p.indices.length),FONT.pl,COL.base,r.x+r.w-30,r.y+7,24,24);}
 }
 function ssDrawSelection(gr){
@@ -147,8 +147,8 @@ function ssDrawSelection(gr){
   if(typeof ssIsPersonal==='function'&&ssIsPersonal(view))key=ssPersonalSelectionKey();
   if(key!==ssSelectionContextKey){ssMainRows=[];ssMainSelect.setContext({kind:'track',key:key,items:[],rows:[]});}
   var p=ssSelectOwner&&ssSelectOwner.preview(),lifting=p&&p.mode==='reorder';
-  for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i],at=ssMainRowIndex(h);if(ssMainSelect.isSelected(at))gr.FillRoundRect(h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,lifting&&ssSelectOwner===ssMainSelect?COL.elev:ssAccent(28));}
-  if(lifting&&ssSelectOwner!==ssMainSelect&&p.origin){var rows=ssSelectContext.rows;for(i=0;i<rows.length;i++)if(rows[i].index===p.origin.index){var slot=rows[i];gr.FillRoundRect(slot.x0,slot.y0,slot.x1-slot.x0,slot.y1-slot.y0,4,4,COL.elev);break;}}
+  for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i],at=ssMainRowIndex(h);if(ssMainSelect.isSelected(at))ssFillContinuousRect(gr,h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,lifting&&ssSelectOwner===ssMainSelect?COL.elev:ssAccent(28));}
+  if(lifting&&ssSelectOwner!==ssMainSelect&&p.origin){var rows=ssSelectContext.rows;for(i=0;i<rows.length;i++)if(rows[i].index===p.origin.index){var slot=rows[i];ssFillContinuousRect(gr,slot.x0,slot.y0,slot.x1-slot.x0,slot.y1-slot.y0,4,4,COL.elev);break;}}
   if(!p)return;
   if(p.rect){var r=p.rect,w=r.x1-r.x0,h2=r.y1-r.y0;if(w>0&&h2>0){gr.FillSolidRect(r.x0,r.y0,w,h2,ssAccent(28));gr.DrawRect(r.x0,r.y0,w,h2,1,COL.green);}}
   if(p.indicator){var q=p.indicator;gr.DrawLine(q.x0,q.y,q.x1,q.y,2,COL.green);}

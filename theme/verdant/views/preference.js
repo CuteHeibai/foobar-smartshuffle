@@ -64,7 +64,7 @@ function ssHideLyrics(){
 }
 function ssButton(gr,x,y,w,h,label,act,enabled,primary){
   var hot=enabled&&hv(x,y,x+w,y+h),color=primary?(enabled?(hot?COL.greenHover:COL.green):COL.seekbg):(hot?COL.hover:COL.elev),radius=Math.min(6,h/2);
-  gr.FillRoundRect(x,y,w,h,radius,radius,color);
+  ssFillContinuousRect(gr,x,y,w,h,radius,radius,color);
   if(!primary)strokeRound(gr,x,y,w,h,radius,1,COL.line);
   tC(gr,label,FONT.pl,primary&&enabled?COL.onAccent:(enabled?COL.text:COL.text3),x,y,w,h);
   SS_HB.push({x0:x,y0:y,x1:x+w,y1:y+h,act:act,enabled:enabled});
@@ -85,7 +85,7 @@ function drawPreference(gr,staticOnly){
   SS_HB=[];
   var m=ssGeometry(W,H), x=m.x,y=m.y,w=m.w,h=m.h, gx=m.grid.x,gy=m.grid.y,size=m.grid.size;
   SS_GRID=m.grid;
-  gr.FillRoundRect(x,y,w,h,12,12,COL.base);
+  ssFillContinuousRect(gr,x,y,w,h,12,12,COL.base);
   strokeRound(gr,x,y,w,h,12,1,COL.line);
   tL(gr,'随机偏好',FONT.sect2,COL.text,x+24,y+18,w-48,34);
   tL(gr,ssPreferenceLabel()+'  ·  拖动绿球或按方向键微调',FONT.meta,COL.text2,x+24,y+60,w-48,28);
@@ -146,7 +146,7 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
   if(!ssState) return false;
   var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rows=priority.concat(list), rh=Math.max(42,Math.round(35*UISCALE));
   tL(gr,'接下来',FONT.pl,COL.text,x,qy,r.w-36,28); qy+=29;
-  tL(gr,pbShuffle?'本轮剩余 '+(ssState.remaining_count||0)+' 首':(!isHiddenPl(ssState.source_name)&&ssState.source_name)||'顺序播放',FONT.qArtist,COL.green,x,qy,r.w-36,24); qy+=30;
+  tL(gr,pbShuffle?'本轮剩余 '+(ssState.remaining_count||0)+' 首':(!isHiddenPl(ssState.source_name)&&ssState.source_name)||'顺序播放',FONT.qArtist,COL.text2,x,qy,r.w-36,24); qy+=30;
   var viewport=Math.max(0,bottom-qy);SS_QUEUE_MAX=Math.max(0,rows.length*rh-viewport);ssQueueScroll=clampPx(ssQueueScroll,SS_QUEUE_MAX);ssQueueScrollT=clampPx(ssQueueScrollT,SS_QUEUE_MAX);
   if(viewport<1)return true;
   var drawScroll=Math.round(ssQueueScroll),top=qy,start=Math.floor(drawScroll/rh),parentGr=gr,layer=ssBeginViewport('queue-list',gr,r.x,top,r.w,viewport);gr=layer.gr;qy-=drawScroll-start*rh;
@@ -154,8 +154,7 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
     var tr=rows[i],hb={x0:x-8,y0:Math.max(top,qy),x1:r.x+r.w-18,y1:Math.min(bottom,qy+rh),rowY:qy,rowH:rh};hb.track_id=tr.id;hb.scope=i<priority.length?'priority':pbShuffle?'remaining':'native';hb.queueIndex=i<priority.length?i:pbShuffle?i-priority.length:tr.item;if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}HB_Q.push(hb);
     var labelW=r.w-48;
     ssDrawCachedRow(gr,'queue:'+i+':'+tr.id,r.x,qy,r.w,rh,function(gr){
-    tL(gr,(i<priority.length?'优先 · ':'')+(tr.title||'未知曲目'),FONT.qName,COL.text,x,qy+3,labelW,Math.round(rh*.5)-3);
-    tL(gr,tr.artist||'',FONT.qArtist,COL.text2,x,qy+Math.round(rh*.53),labelW,Math.round(rh*.4));
+      ssDrawTrackLabels(gr,(i<priority.length?'优先 · ':'')+(tr.title||'未知曲目'),tr.artist||'',COL.text,x,qy,labelW,rh,ssDensity);
     });qy+=rh;
   }
   layer.finish();gr=parentGr;

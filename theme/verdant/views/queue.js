@@ -15,7 +15,7 @@ function qRowMeta(h){
 // hover cue + click target for one queue row; rows are rh apart so the boxes tile exactly
 function qRow(gr,r,x,qy,rh){
   var x0=x-8, y0=qy-6, x1=r.x+r.w-10, y1=qy+rh-6;
-  if(ssRowHover(x0,y0,x1,y1)) gr.FillRoundRect(x0,y0,x1-x0,y1-y0,6,6,COL.rowHover);
+  if(ssRowHover(x0,y0,x1,y1)) ssFillContinuousRect(gr,x0,y0,x1-x0,y1-y0,6,6,COL.rowHover);
   return {x0:x0,y0:y0,x1:x1,y1:y1};
 }
 // cover + title + artist, the layout every queue entry shares
@@ -59,8 +59,14 @@ function ssDrawQueueContent(gr){
   }
 
   var qy=r.y+70;
-  tL(gr,'正在播放',FONT.sect,COL.text,x,qy,r.w-36,24); qy+=36;
-  qEntry(gr,r,x,qy,48,6,NP,'np',undefined,npTitleStr||'尚未播放',npArtistStr,(fb.IsPlaying||fb.IsPaused)?COL.green:COL.text);
+  if(NP){
+    tL(gr,'正在播放',FONT.sect,COL.text,x,qy,r.w-36,24);
+    qy+=36;
+    qEntry(gr,r,x,qy,48,6,NP,'np',undefined,npTitleStr,npArtistStr,(fb.IsPlaying||fb.IsPaused)?COL.green:COL.text);
+  }else{
+    ssDrawIdleRecord(gr,x,qy,48);
+    tL(gr,'尚未播放',FONT.qName,COL.text2,x+60,qy,r.w-96,48);
+  }
   qy+=70;
 
   var rh=56, bottom=r.y+r.h-8, shown=0, qi;

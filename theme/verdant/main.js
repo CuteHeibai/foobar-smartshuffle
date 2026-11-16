@@ -40,6 +40,7 @@ var DLGC_WANTCHARS=0x0080;     // capture character keys only -- enough for Spac
 include('core/props.js');
 include('core/tokens.js');
 include('core/util.js');
+include('core/corners.js');
 include('core/tf.js');
 include('core/memory.js');
 include('core/jobs.js');

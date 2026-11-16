@@ -17,7 +17,7 @@ function harness(){
     CH_DOT:' · ',fmtDur:()=>'',drawDropPill:()=>({}),drawSortDirBtn(){},labelOf:()=>'',PL_SORTS:[],plSort:0,plSortMenuOpen:false,
     hit:(list,x,y)=>list.find(h=>x>=h.x0&&x<=h.x1&&y>=h.y0&&y<=h.y1),inRect:(x,y,h)=>x>=h.x0&&x<=h.x1&&y>=h.y0&&y<=h.y1,repaintAll(){},
   };
-  vm.createContext(c);const load=p=>vm.runInContext(fs.readFileSync(path.join(root,p),'utf8'),c);load('data/smartshuffle.js');load('data/playback.js');
+  vm.createContext(c);const load=p=>vm.runInContext(fs.readFileSync(path.join(root,p),'utf8'),c);load('core/corners.js');load('data/smartshuffle.js');load('data/playback.js');
   return {c,writes,gr,draws,load};
 }
 test('playlist action emits v1 GUID command in smart and native modes',()=>{

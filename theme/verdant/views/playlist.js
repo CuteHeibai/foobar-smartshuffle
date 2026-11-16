@@ -18,7 +18,7 @@ function drawPlaylist(gr,r){
   if(p.count>0)HB_PLAYLIST_PLAY=drawPlaylistPlay(gr,ax+art-52*s,ay+art-52*s,44*s,p.i);
   var addW=Math.min(136*s,r.w-art-48*s),addX=r.x+r.w-M.cpad-addW,addY=r.y+10*s;
   if(canEditPl(p.i)&&addW>82*s){
-    gr.FillRoundRect(addX,addY,addW,28*s,8,8,COL.elev);tC(gr,'＋ 添加文件夹',FONT.pl,COL.green,addX,addY,addW,28*s);
+    ssFillContinuousRect(gr,addX,addY,addW,28*s,8,8,COL.elev);tC(gr,'＋ 添加文件夹',FONT.pl,COL.green,addX,addY,addW,28*s);
     HB_PLADD_FOLDER={x0:addX,y0:addY,x1:addX+addW,y1:addY+28*s};
   }
   // sort pill + asc/desc button, right-aligned like the All Songs group pill; header text
@@ -60,7 +60,7 @@ function drawPlaylist(gr,r){
     var isMenuRow=!!(ctxMenu && ctxMenu.kind==='track' && ctxMenu.pl===p.i && ctxMenu.item===j);
     var isHover=ssRowHover(r.x,ry,r.x+r.w,ry+rh)||isMenuRow;
     ssDrawCachedRow(gr,'pl:'+p.i+':'+j+':'+d,r.x,ry,r.w,rh,function(gr){
-    if(isHover) gr.FillRoundRect(lx-8,ry,rx-lx+16,rh,4,4,isMenuRow?COL.rowActive:COL.rowHover);
+    if(isHover) ssFillContinuousRect(gr,lx-8,ry,rx-lx+16,rh,4,4,isMenuRow?COL.rowActive:COL.rowHover);
     var titleCol=isPlaying?COL.green:COL.text;
     if(isHover) drawIcon(gr,'play',COL.text,lx,ry,numW,rh,14);
     else tL(gr,String(d+1),FONT.rowNum,isPlaying?COL.green:COL.text2,lx,ry,numW,rh);
@@ -85,11 +85,11 @@ function drawPlaylist(gr,r){
   // the empty-state zone isn't on screen here, so outline the list itself as the target
   if(plDropHover){
     var iy=rowsTop-rh, ih=cropY-iy, ix=lx-12, iw=rx-lx+24, ir=Math.min(12,iw/2,ih/2);
-    gr.FillRoundRect(ix,iy,iw,ih,ir,ir,ssAccent(20));
+    ssFillContinuousRect(gr,ix,iy,iw,ih,ir,ir,ssAccent(20));
     strokeRound(gr,ix,iy,iw,ih,ir,2,COL.green);
     var lh=34, ly=iy+ih-lh-18, lw=Math.min(iw-32,pillW(gr,'拖入以添加到此歌单'));
     if(lw>=lh && ih>lh+36){                                  // radius is lh/2, so lw must clear it
-      gr.FillRoundRect(cxOf(ix,iw,lw),ly,lw,lh,lh/2,lh/2,COL.green);
+      ssFillContinuousRect(gr,cxOf(ix,iw,lw),ly,lw,lh,lh/2,lh/2,COL.green);
       tC(gr,'拖入以添加到此歌单',FONT.pl,COL.black,cxOf(ix,iw,lw),ly,lw,lh);
     }
   }
@@ -125,7 +125,7 @@ function drawPlEmpty(gr,r,top,bottom){
 function drawDropZone(gr,cx,top,availW,availH){
   var bw=Math.min(560,availW), bh=Math.min(260,availH-24);
   var bx=cx-Math.round(bw/2), by=top+Math.round((availH-bh)/2), rad=Math.min(14,bw/2,bh/2);
-  gr.FillRoundRect(bx,by,bw,bh,rad,rad,ssAccent(26));
+  ssFillContinuousRect(gr,bx,by,bw,bh,rad,rad,ssAccent(26));
   strokeRound(gr,bx,by,bw,bh,rad,2,COL.green);
   var iy=by+Math.round(bh/2)-40;
   drawIcon(gr,'add',COL.green,bx,iy,bw,34,34);
@@ -139,7 +139,7 @@ function drawPill(gr,x,y,w,label,primary){
   var hb={x0:x-3,y0:y-3,x1:x+w+3,y1:y+PILL_H+3};
   var g=hv(hb.x0,hb.y0,hb.x1,hb.y1)?2:0;
   var bx=x-g, by=y-g, bw=w+g*2, bh=PILL_H+g*2, rad=bh/2;
-  if(primary) gr.FillRoundRect(bx,by,bw,bh,rad,rad,COL.text);
+  if(primary) ssFillContinuousRect(gr,bx,by,bw,bh,rad,rad,COL.text);
   else strokeRound(gr,bx,by,bw,bh,rad,g?2:1,g?COL.text:COL.text2);
   tC(gr,label,FONT.pl,primary?COL.black:COL.text,bx,by,bw,bh);
   return hb;

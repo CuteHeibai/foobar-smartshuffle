@@ -436,7 +436,7 @@ function on_mouse_lbtn_up(x,y){
   if((t=hit(HB_TABS,x,y))){ssSetRightPane(t.tab,true);return;}
   if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act); return; }
   if(HB_HOME && inRect(x,y,HB_HOME)){ view='home'; repaintAll(); return; }
-  if(typeof HB_HOME_CONTINUE!=='undefined'&&view==='home'&&HB_HOME_CONTINUE&&inRect(x,y,HB_HOME_CONTINUE)){ssPlayOrPause();return;}
+  if(view==='home'&&typeof ssHomeActionAt==='function'&&(t=ssHomeActionAt(x,y))){ssActivateHomeAction(t);return;}
   if(typeof HB_ARTISTS_NAV!=='undefined'&&HB_ARTISTS_NAV&&inRect(x,y,HB_ARTISTS_NAV)){view='songs';setSongsGroup('artist');songsScroll=songsScrollT=0;repaintAll();return;}
   if(typeof HB_STATS_NAV!=='undefined'&&HB_STATS_NAV&&inRect(x,y,HB_STATS_NAV)){ssStatsOpen();return;}
   if(HB_SEARCH && inRect(x,y,HB_SEARCH)){ view='search'; repaintAll(); return; }
@@ -456,9 +456,9 @@ function on_mouse_lbtn_up(x,y){
   if((t=hit(HB_PL,x,y))){ plman.ActivePlaylist=t.i; firstRow=firstRowT=0; view='playlist'; repaintAll(); return; }
   if((t=hit(HB_Q,x,y)))return;
   /* Rows play on DOUBLE click -- see on_mouse_lbtn_dblclk. The exception is the play glyph that
-     replaces the track number on the hovered row: that is a button, and a button takes one click.
-     Rows that draw no glyph (search results, the artist page) carry no pg band and so ignore this. */
+     in the leading column: that is a button, and a button takes one click. */
   if((t=hit(HB_TR,x,y))){
+    if(utils.IsKeyPressed(17))return;
     if((t.srch&&searchTrks[t.idx].reason==='歌词')||(t.pgx1!==undefined && x>=t.pgx0 && x<t.pgx1)) playRow(t);
     return;
   }
@@ -482,7 +482,7 @@ function on_mouse_lbtn_dblclk(x,y){
 }
 function hoverSig(x,y){
   if(!fsMode){
-    if(typeof HB_HOME_CONTINUE!=='undefined'&&view==='home'&&HB_HOME_CONTINUE&&inRect(x,y,HB_HOME_CONTINUE))return 'home-continue';
+    if(view==='home'&&typeof ssHomeActionAt==='function'){var homeAction=ssHomeActionAt(x,y);if(homeAction)return homeAction.focus;}
     if(typeof HB_ARTISTS_NAV!=='undefined'&&HB_ARTISTS_NAV&&inRect(x,y,HB_ARTISTS_NAV))return 'artists-nav';
     if(typeof HB_STATS_NAV!=='undefined'&&HB_STATS_NAV&&inRect(x,y,HB_STATS_NAV))return 'stats-nav';
   }
@@ -581,7 +581,8 @@ function on_mouse_leave(){
   }
   hoverZoneKey='';
 }
-function on_key_down(key){ if(ssRecycleKey(key)||ssPopupKey(key)||ssKeyDown(key)) return; }
+function on_key_down(key){ if(ssRecycleKey(key)||ssPopupKey(key)||ssKeyDown(key)) return; if(typeof ssHomeKey==='function')ssHomeKey(key); }
+function on_focus(focused){if(!focused&&typeof ssHomeFocus!=='undefined'&&ssHomeFocus){ssHomeFocus='';if(view==='home')repaintMain();}}
 function on_char(code){
   if(ssPopup)return;
   if(ssModal) return;
@@ -632,8 +633,12 @@ function on_mouse_wheel(step){
   }
   if(mx<R.main.x || mx>=R.main.x+R.main.w) return;
   if(view==='home'){
-    if(my>=HOME_SHELF_Y0 && my<HOME_SHELF_Y1){ plScrollT=snapShelf(plScrollT-step*Math.max(ssWheelStep(),HOME_STRIDE||0)); startScrollAnim(); }   // shelf: eased glide onto a card boundary
-    else { homeScrollT=clampPx(homeScrollT-step*Math.round(ssWheelStep()*1.7),HOME_MAXROW); startScrollAnim(); }   // artists: bigger step, tall cards
+    if(HOME_PLMAX>0&&my>=HOME_SHELF_Y0&&my<HOME_SHELF_Y1){
+      var nextShelf=snapShelf(plScrollT-step*Math.max(ssWheelStep(),HOME_STRIDE||0));
+      if(nextShelf!==plScrollT){plScrollT=nextShelf;startScrollAnim();return;}
+    }
+    homeScrollT=clampPx(homeScrollT-step*Math.round(ssWheelStep()*1.7),HOME_MAXROW);
+    startScrollAnim();
     return;
   }
   else if(view==='stats'){ssStatsScrollT=clampPx(ssStatsScrollT-step*ssWheelStep(),ssStatsMax);startScrollAnim();return;}

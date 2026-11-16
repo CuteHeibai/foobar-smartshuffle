@@ -13,7 +13,7 @@ function drawStats(gr,r){
       var item=items[i],left=Math.round(x+i*(width+gap)),edge=Math.round(x+i*(width+gap)+width);
       var box={x0:left,y0:y,x1:edge,y1:y+buttonH};
       var hot=hv(left,y,edge,y+buttonH);
-      if(hot||(!plain&&!item.disabled))gr.FillRoundRect(left,y,edge-left,buttonH,5,5,item.active?COL.rowActive:hot?COL.rowHover:COL.elev);
+      if(hot||(!plain&&!item.disabled))ssFillContinuousRect(gr,left,y,edge-left,buttonH,5,5,item.active?COL.rowActive:hot?COL.rowHover:COL.elev);
       if(plain&&item.active)gr.FillSolidRect(left,y+buttonH-2,edge-left,2,COL.green);
       tC(gr,item.label,FONT.plSub,item.active?COL.green:COL.text2,left+2,y,Math.max(1,edge-left-4),buttonH);
       if(!item.disabled)HB_STATS.push(Object.assign(box,item));

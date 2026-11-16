@@ -18,10 +18,12 @@ function ssDrawArtistAvatar(gr,x,y,size,name){
   if(img===undefined){
     img=null;
     if(record&&record.portrait)try{
-      var source=gdi.Image(record.portrait),side=Math.min(source.Width,source.Height);
+      var source=gdi.Image(record.portrait),ratio=Math.min(size/source.Width,size/source.Height);
+      var dw=Math.round(source.Width*ratio),dh=Math.round(source.Height*ratio);
       img=gdi.CreateImage(size,size);var graphics=img.GetGraphics();graphics.SetInterpolationMode(7);
-      graphics.DrawImage(source,0,0,size,size,(source.Width-side)/2,(source.Height-side)/2,side,side);
-      img.ReleaseGraphics(graphics);img.ApplyMask(circleMask(size));
+      graphics.FillSolidRect(0,0,size,size,COL.elev);
+      graphics.DrawImage(source,Math.round((size-dw)/2),Math.round((size-dh)/2),dw,dh,0,0,source.Width,source.Height);
+      img.ReleaseGraphics(graphics);
     }catch(e){img=null;}
     if(Object.keys(ssArtistImages).length>120)ssArtistImages={};ssArtistImages[key]=img;
   }

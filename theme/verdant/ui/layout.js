@@ -45,7 +45,7 @@ function ssResponsiveMetrics(w,h){
   ssDensity=density;
   if(typeof SS_BASE_UI_SCALE!=='undefined')UISCALE=SS_BASE_UI_SCALE*density;
   if(typeof ssCreateFonts==='function'){SS_FONT_META=[];SS_FIT_FONTS=[];SS_SCRIPT_FONTS={};FONT=ssCreateFonts();LH_F=[];LH_V=[];}
-  var base={pad:8,gap:10,navW:210,queueW:300,barH:96,navTopH:84,rowH:50,cardTextH:52,radius:6};
+  var base={pad:8,gap:10,navW:240,queueW:300,barH:96,navTopH:58,rowH:50,cardTextH:52,radius:6};
   for(var key in base)M[key]=Math.round(base[key]*density);
   TBH=Math.round(32*UISCALE);CAPBW=Math.round(46*UISCALE);
   if(typeof SG_IND!=='undefined'){
@@ -64,11 +64,12 @@ function ssFitWidths(left,right,budget,minLeft,minRight){
   return {left:Math.round(left),right:Math.round(right)};
 }
 function ssLayoutWidths(w){
-  var mainMin=Math.min(330,Math.round(w*.36)),navMin=Math.min(156,Math.round(w*.18)),rightMin=Math.min(220,Math.round(w*.24));
-  var panes=ssFitWidths(ssWidths.nav||Math.min(M.navW,w*.19),ssWidths.right||Math.min(M.queueW,w*.27),w-M.gap*4-mainMin,navMin,rightMin);
+  var mainMin=Math.min(480,Math.round(w*.46)),navMin=Math.min(180,Math.round(w*.18)),rightMin=Math.min(220,Math.round(w*.24));
+  var navMax=Math.min(280,Math.round(w*.24)),navRequest=Math.min(ssWidths.nav||M.navW,navMax);
+  var panes=ssFitWidths(navRequest,ssWidths.right||Math.min(M.queueW,w*.27),w-M.gap*4-mainMin,navMin,rightMin);
   // Keep the saved request intact while a smaller window temporarily gives content priority.
   var showRight=ssRightOpen&&(ssRightForced||w>=1000*(typeof ssDensity==='number'?ssDensity:1));
-  if(!showRight){panes.right=0;panes.left=Math.round(Math.max(navMin,Math.min(ssWidths.nav||M.navW,w*.28)));}
+  if(!showRight){panes.right=0;panes.left=Math.round(Math.max(navMin,navRequest));}
   // Let the title use the left third as the window grows; reserve the middle for transport.
   var bar=ssFitWidths(w*.36,Math.min(300,w*.27),w-Math.min(310,w*.34),Math.min(180,w*.2),Math.min(260,w*.28));
   return {nav:panes.left,right:panes.right,info:bar.left,tools:bar.right};

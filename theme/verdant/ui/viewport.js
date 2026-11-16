@@ -12,7 +12,14 @@ function ssBeginViewport(key,parent,x,y,w,h){
 function ssTranslatedGraphics(target,x,y){
   var proxy={};
   function shifted(name,xi,yi){proxy[name]=function(){var args=Array.prototype.slice.call(arguments);args[xi]-=x;args[yi]-=y;return target[name].apply(target,args);};}
-  ['FillSolidRect','FillRoundRect','DrawRoundRect','FillEllipse','DrawEllipse','DrawRect','FillGradRect'].forEach(function(name){shifted(name,0,1);});
+  ['FillSolidRect','FillEllipse','DrawEllipse','DrawRect','FillGradRect'].forEach(function(name){shifted(name,0,1);});
+  function shiftedPoints(points){
+    var local=new Array(points.length);
+    for(var i=0;i<points.length;i+=2){local[i]=points[i]-x;local[i+1]=points[i+1]-y;}
+    return local;
+  }
+  proxy.FillPolygon=function(color,mode,points){return target.FillPolygon(color,mode,shiftedPoints(points));};
+  proxy.DrawPolygon=function(color,width,points){return target.DrawPolygon(color,width,shiftedPoints(points));};
   shifted('DrawImage',1,2);shifted('DrawString',3,4);shifted('GdiDrawText',3,4);
   proxy.DrawLine=function(x0,y0,x1,y1,width,col){return target.DrawLine(x0-x,y0-y,x1-x,y1-y,width,col);};
   ['CalcTextHeight','CalcTextWidth','MeasureString','SetTextRenderingHint','SetSmoothingMode','SetInterpolationMode'].forEach(function(name){proxy[name]=function(){return target[name].apply(target,arguments);};});
