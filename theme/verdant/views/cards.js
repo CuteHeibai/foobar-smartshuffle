@@ -16,10 +16,10 @@ function drawPlaylistCard(gr,x,y,w,i,clipL,clipR){
   if(im) gr.DrawImage(im,hx0,y,hx1-hx0,h,hx0-x,0,hx1-hx0,h);
   else paintPlCard(gr,x,y,w,i,cardHov);
   // Draw over the cached card without mutating its cover bitmap. Fully clipped buttons have no target.
-  var playSize=Math.round(44*ssDensity),playX=x+w-12*ssDensity-playSize,playY=y+w-12*ssDensity-playSize;
-  if(playX>=hx0&&playX+playSize<=hx1)HB_PLPLAY.push(drawPlaylistPlay(gr,playX,playY,playSize,i));
+  var playSize=Math.round(40*ssDensity),playX=x+w-14*ssDensity-playSize,playY=y+w-14*ssDensity-playSize;
+  if(playX>=hx0&&playX+playSize<=hx1){var pbh={x0:playX,y0:playY,x1:playX+playSize,y1:playY+playSize};if(cardHov)pbh=drawPlaylistPlay(gr,playX,playY,playSize,i);HB_PLPLAY.push(pbh);}
   var dx=x+w-32;
-  if(cardHov && dx>=hx0 && dx+32<=hx1) drawDots(gr,dx,y+(w-24)+16,i);
+  if(cardHov && dx>=hx0 && dx+32<=hx1) drawDots(gr,dx,y+12,i);
   HB_CARD.push({x0:hx0,y0:y,x1:hx1,y1:y+h,kind:'pl',id:i});
 }
 function paintArtistCard(gr,x,y,w,a,hov){

@@ -11,10 +11,10 @@ function drawHome(gr,r){
   cardW=Math.floor((w-gap*(cols-1))/cols);
   var cardH=cardW+M.cardTextH;
   // ---- geometry ----
-  var entryH=Math.round(62*ssDensity),shelfTitleY=r.y+entryH+18, shelfY=shelfTitleY+38;
+  var entryH=Math.round(64*ssDensity),shelfTitleY=r.y+Math.round(90*ssDensity),shelfY=shelfTitleY+Math.round(28*ssDensity);
   var pls=visiblePlaylists();
   var scardW=(pls.length>cols)?Math.floor((w-cols*gap)/(cols+0.4)):cardW, scardH=scardW+M.cardTextH;
-  var artTitleY=shelfY+scardH+(pls.length>cols?26:16), gy=artTitleY+42;   // album grid top
+  var artTitleY=shelfY+scardH+(pls.length>cols?Math.round(28*ssDensity):Math.round(20*ssDensity)), gy=artTitleY+Math.round(30*ssDensity);   // album grid top
   var cropY=r.y+r.h, rowStep=cardH+8, viewH=cropY-gy;
   var albums=getAlbumCatalog().albums;
   var shelfReady=ensureBuilt('shelfh',function(){ return shelfHandles!==null; },function(){ return shelfSteps(pls); })
@@ -41,13 +41,13 @@ function drawHome(gr,r){
 
   // ---- 2) shelf + section titles drawn ON TOP (covers the grid's top overflow) ----
   gr.FillSolidRect(r.x,r.y,r.w,gy-r.y,COL.base);
-  var buttonW=Math.min(Math.round(132*ssDensity),w*.35),buttonH=Math.round(34*ssDensity),buttonX=x0+w-buttonW,buttonY=r.y+Math.round(15*ssDensity);
+  var buttonW=Math.min(Math.round(124*ssDensity),w*.35),buttonH=Math.round(30*ssDensity),buttonX=x0+w-buttonW,buttonY=r.y+Math.round(10*ssDensity);
   HB_HOME_CONTINUE={x0:buttonX,y0:buttonY,x1:buttonX+buttonW,y1:buttonY+buttonH};
-  tL(gr,'唱片室',FONT.sect2,COL.text,x0,r.y+Math.round(10*ssDensity),Math.max(1,w-buttonW-16),Math.round(28*ssDensity));
-  tL(gr,albums.length+' 张专辑',FONT.plSub,COL.text2,x0,r.y+Math.round(37*ssDensity),Math.max(1,w-buttonW-16),Math.round(20*ssDensity));
-  gr.FillRoundRect(buttonX,buttonY,buttonW,buttonH,5,5,hv(buttonX,buttonY,buttonX+buttonW,buttonY+buttonH)?COL.rowActive:COL.elev);
-  tC(gr,fb.IsPlaying&&!fb.IsPaused?'暂停播放':'继续聆听',FONT.pl,COL.green,buttonX,buttonY,buttonW,buttonH);
-  tL(gr,'我的歌单',FONT.sect2,COL.text,x0,shelfTitleY,w,28);
+  tL(gr,'唱片室',FONT.title,COL.text,x0,r.y+Math.round(10*ssDensity),Math.max(1,w-buttonW-16),Math.round(40*ssDensity));
+  tL(gr,albums.length+' 张专辑',FONT.meta,COL.text2,x0,r.y+Math.round(50*ssDensity),Math.max(1,w-buttonW-16),Math.round(20*ssDensity));
+  if(hv(buttonX,buttonY,buttonX+buttonW,buttonY+buttonH))gr.FillRoundRect(buttonX,buttonY,buttonW,buttonH,6,6,COL.cardHover);
+  tC(gr,(fb.IsPlaying&&!fb.IsPaused?'暂停播放':'继续聆听')+' ›',FONT.pl,COL.green,buttonX,buttonY,buttonW,buttonH);
+  tL(gr,'我的歌单',FONT.sect,COL.text,x0,shelfTitleY,w,26);
   // continuous pixel scroll (same model as the album grid): start one card left of the viewport
   // so a partially-scrolled card still draws -- drawPlaylistCard clips it to [x0,rightEdge)
   var stride=scardW+gap, shelfW=Math.max(0,pls.length*stride-gap);
@@ -66,7 +66,7 @@ function drawHome(gr,r){
   HOME_SHELF_Y0=shelfY; HOME_SHELF_Y1=shelfY+scardH;
   var sbY=shelfY+scardH+6;
   drawScrollbarH(gr,x0,sbY,w,plScroll,HOME_PLMAX,w,shelfW,hv(x0,shelfY,rightEdge,sbY+10)||drag==='scrollh');
-  tL(gr,'音乐库中的专辑',FONT.sect2,COL.text,x0,artTitleY,w,28);
+  tL(gr,'音乐库中的专辑',FONT.sect,COL.text,x0,artTitleY,w,26);
 
   // ---- 3) album scrollbar (continuous, pixel) ----
   drawScrollbar(gr,x0+w+8,gy,viewH,homeScroll,maxPx,viewH,contentH,hv(x0,gy,x0+w+16,cropY)||drag==='scroll');

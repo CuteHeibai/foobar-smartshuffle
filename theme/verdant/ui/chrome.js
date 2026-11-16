@@ -220,9 +220,9 @@ function drawTitleBar(gr){
    the All Songs group-by; items are [label,value] pairs and the menu is drawn last so it
    floats over the track list. ---- */
 function drawDropPill(gr,x,y,w,h,label,open){
-  gr.FillRoundRect(x,y,w,h,h/2,h/2,(open||hv(x,y,x+w,y+h))?COL.buttonHover:COL.pill);
-  tL(gr,label,FONT.pl,COL.text,x+18,y,w-46,h);
-  drawIcon(gr,'chevron',COL.text2,x+w-32,y+(h-20)/2,20,20,18);
+  if(open||hv(x,y,x+w,y+h)) gr.FillRoundRect(x,y,w,h,6,6,COL.rowHover);
+  tL(gr,label,FONT.pl,COL.text,x+8,y,w-40,h);
+  drawIcon(gr,'chevron',COL.text2,x+w-24,y+(h-18)/2,18,18,16);
   return {x0:x,y0:y,x1:x+w,y1:y+h};
 }
 function drawDropMenu(gr,anchor,items,cur,minW){

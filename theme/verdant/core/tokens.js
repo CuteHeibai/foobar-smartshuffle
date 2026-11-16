@@ -16,34 +16,34 @@ function ssAccent(a){return ssAlpha(COL.green,a);}
 /* Historical green names remain aliases for the single record-room accent. */
 function ssPalette(mode){
   if(mode==='light')return {
-    black:RGB(232,229,223),base:RGB(250,248,244),elev:RGB(242,239,233),hover:RGB(232,227,220),
-    text:RGB(43,41,39),text2:RGB(91,85,80),text3:RGB(112,104,97),
-    green:RGB(132,48,66),greenC:RGB(132,48,66),greenHover:RGB(109,35,52),
-    rowHover:RGBA(67,52,43,12),rowActive:RGBA(132,48,66,23),line:RGB(198,190,180),seekbg:RGB(207,199,190),
-    splitter:RGB(198,190,180),gridLine:RGBA(91,75,66,55),gridAxis:RGBA(91,75,66,105),
-    popup:RGB(250,248,244),popupAlt:RGB(245,242,237),button:RGB(235,230,223),buttonHover:RGB(224,216,206),
-    input:RGB(239,235,229),banner:RGB(242,237,230),cardHover:RGB(235,229,221),skeleton:RGB(228,222,214),
-    pill:RGB(237,232,226),accentMuted:RGB(230,209,210),onAccent:RGB(255,251,246),onDanger:RGB(255,255,255),
-    danger:RGB(171,43,39),dangerHover:RGB(147,32,31),error:RGB(167,43,39),
-    shadow:RGBA(49,37,29,24),scrim:RGBA(49,37,29,62),modalScrim:RGBA(49,37,29,80),
-    play:RGB(132,48,66),onPlay:RGB(255,251,246)
+    black:RGB(244,245,247),base:RGB(255,255,255),elev:RGB(246,247,249),hover:RGB(235,236,240),
+    text:RGB(16,17,19),text2:RGB(98,101,107),text3:RGB(147,150,156),
+    green:RGB(10,110,240),greenC:RGB(10,110,240),greenHover:RGB(0,92,214),
+    rowHover:RGBA(16,17,19,10),rowActive:RGBA(10,110,240,18),line:RGB(228,230,234),seekbg:RGB(219,222,227),
+    splitter:RGB(228,230,234),gridLine:RGBA(16,17,19,40),gridAxis:RGBA(16,17,19,80),
+    popup:RGB(255,255,255),popupAlt:RGB(249,250,252),button:RGB(238,239,243),buttonHover:RGB(228,230,235),
+    input:RGB(242,243,246),banner:RGB(246,247,250),cardHover:RGB(242,243,246),skeleton:RGB(236,237,241),
+    pill:RGB(240,241,245),accentMuted:RGB(214,228,252),onAccent:RGB(255,255,255),onDanger:RGB(255,255,255),
+    danger:RGB(215,38,61),dangerHover:RGB(180,28,48),error:RGB(200,40,60),
+    shadow:RGBA(10,12,16,18),scrim:RGBA(10,12,16,54),modalScrim:RGBA(10,12,16,72),
+    play:RGB(10,110,240),onPlay:RGB(255,255,255)
   };
   return {
-    black:RGB(24,23,22),base:RGB(32,30,29),elev:RGB(40,37,35),hover:RGB(55,49,46),
-    text:RGB(245,239,231),text2:RGB(193,183,172),text3:RGB(158,147,137),
-    green:RGB(224,151,162),greenC:RGB(224,151,162),greenHover:RGB(239,174,183),
-    rowHover:RGBA(245,239,231,15),rowActive:RGBA(224,151,162,28),
-    line:RGB(74,66,60),splitter:RGB(74,66,60),gridLine:RGBA(227,213,199,30),gridAxis:RGBA(227,213,199,70),seekbg:RGB(90,79,71),
-    popup:RGB(43,39,36),popupAlt:RGB(49,44,40),button:RGB(57,50,45),buttonHover:RGB(71,61,54),
-    input:RGB(50,44,40),banner:RGB(43,38,34),cardHover:RGB(49,43,39),skeleton:RGB(46,40,36),
-    pill:RGB(45,39,35),accentMuted:RGB(88,57,62),onAccent:RGB(36,25,27),onDanger:RGB(255,255,255),
-    danger:RGB(190,65,57),dangerHover:RGB(209,78,69),error:RGB(242,158,141),
-    shadow:RGBA(0,0,0,100),scrim:RGBA(0,0,0,145),modalScrim:RGBA(0,0,0,180),
-    play:RGB(224,151,162),onPlay:RGB(36,25,27)
+    black:RGB(15,16,18),base:RGB(22,23,26),elev:RGB(30,31,35),hover:RGB(40,42,47),
+    text:RGB(245,246,248),text2:RGB(160,163,170),text3:RGB(120,124,132),
+    green:RGB(64,156,255),greenC:RGB(64,156,255),greenHover:RGB(100,180,255),
+    rowHover:RGBA(255,255,255,14),rowActive:RGBA(64,156,255,26),
+    line:RGB(48,50,55),splitter:RGB(48,50,55),gridLine:RGBA(255,255,255,26),gridAxis:RGBA(255,255,255,64),seekbg:RGB(62,65,72),
+    popup:RGB(30,31,35),popupAlt:RGB(36,38,43),button:RGB(44,46,52),buttonHover:RGB(54,57,64),
+    input:RGB(38,40,45),banner:RGB(32,34,39),cardHover:RGB(38,40,45),skeleton:RGB(36,38,43),
+    pill:RGB(36,38,43),accentMuted:RGB(40,60,90),onAccent:RGB(8,10,14),onDanger:RGB(255,255,255),
+    danger:RGB(255,69,58),dangerHover:RGB(255,95,84),error:RGB(255,120,110),
+    shadow:RGBA(0,0,0,110),scrim:RGBA(0,0,0,150),modalScrim:RGBA(0,0,0,185),
+    play:RGB(64,156,255),onPlay:RGB(255,255,255)
   };
 }
 var COL=ssPalette(SS_APPEARANCE);
-var M = { pad:8, gap:10, navW:210, queueW:300, barH:96, navTopH:84, rowH:50, cardTextH:52, radius:6, cpad:24, headH:280, artSz:200 };
+var M = { pad:8, gap:10, navW:210, queueW:300, barH:84, navTopH:84, rowH:50, cardTextH:52, radius:6, cpad:24, headH:280, artSz:200 };
 var PALETTE=[RGB(105,75,68),RGB(108,95,78),RGB(130,74,85),RGB(81,91,101),RGB(133,108,76),RGB(102,105,87),RGB(119,93,100),RGB(95,107,111),RGB(115,87,66),RGB(94,86,91)];
 
 /* ------------------------- fonts (create once) -------------------------
@@ -143,6 +143,8 @@ var ICONS={
  expand:"<path d='M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z'/>",
  compress:"<path d='M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z'/>",
  mic:"<path d='M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z'/>",
+ lyric:"<path d='M4 4h16v12h-7l-5 4v-4H4z'/>",
+ queue:"<path d='M3 6h11v2H3zm0 4h11v2H3zm0 4h7v2H3zm12-1 6 3.5-6 3.5z'/>",
  equalizer:"<path d='M10 20h4V4h-4zm-6 0h4v-8H4zm12-11v11h4V9z'/>",
  chevron:"<path d='M7 10l5 5 5-5z'/>",
  sortAsc:"<path d='M4 12l1.41 1.41L11 7.83V20h2V7.83l5.59 5.58L20 12l-8-8-8 8z'/>",

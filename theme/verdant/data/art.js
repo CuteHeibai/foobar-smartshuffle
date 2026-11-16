@@ -309,12 +309,13 @@ function plCoverReady(pi){
   for(i=0;i<c.list.length;i++){ h=c.list[i]; if(h && !artLoaded(albKey(h))) return false; }
   h=c.single; return !h || artLoaded(albKey(h));
 }
+/* Flat card: the cover is the card. A soft wash only appears on hover, so a resting
+   shelf is type on paper instead of a matrix of grey panels. */
 function paintPlCard(gr,x,y,w,pi,hov){
-  gr.FillRoundRect(x,y,w,w+M.cardTextH,8,8,hov?COL.cardHover:COL.elev);
-  var cs=w-24;
-  drawPlCover(gr,x+12,y+12,cs,6,pi,plName(pi));
-  tL(gr,plName(pi),FONT.card,COL.text,x+12,y+cs+18,w-24-(hov?26:0),20);
-  tL(gr,plCount(pi)+' 首歌曲',FONT.plSub,COL.text2,x+12,y+cs+40,w-24,16);
+  if(hov) gr.FillRoundRect(x-8,y-8,w+16,w+M.cardTextH+12,12,12,COL.cardHover);
+  drawPlCover(gr,x,y,w,8,pi,plName(pi));
+  tL(gr,plName(pi),FONT.card,COL.text,x,y+w+10,w-(hov?26:0),20);
+  tL(gr,plCount(pi)+' 首歌曲',FONT.plSub,COL.text2,x,y+w+32,w,16);
 }
 function renderPlCard(pi,w,hov){
   var im=null;

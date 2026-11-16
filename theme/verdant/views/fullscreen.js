@@ -189,12 +189,15 @@ function ssFsDefaultGeometry(width,bot){
 function drawFsDefault(gr,bot){
   var m=ssFsDefaultGeometry(W,bot);
   if(!NP){
-    ssDrawIdleRecord(gr,m.x,m.y,m.size);
-    tL(gr,'尚未播放',FONT.title,COL.text,m.textX,m.textY,m.textW,46);
-    var w=Math.min(118,m.textW),y=m.textY+58;
-    gr.FillRoundRect(m.textX,y,w,32,5,5,COL.elev);
-    tC(gr,'选择音乐',FONT.pl,COL.green,m.textX,y,w,32);
-    HB_FS.push({x0:m.textX,y0:y,x1:m.textX+w,y1:y+32,act:'exit'});
+    // idle: a quiet poster rather than a half-screen placeholder block
+    var ps=Math.round(Math.min(180,H*.22)), pcx=Math.round(W/2), pty=Math.round(H*0.30);
+    ssDrawIdleRecord(gr,pcx-ps/2,pty,ps);
+    tC(gr,'还没有正在播放的歌曲',FONT.sect2,COL.text,0,pty+ps+28,W,30);
+    tC(gr,'从音乐库选一首，或导入本地文件',FONT.pl,COL.text2,0,pty+ps+60,W,22);
+    var bw=128,bx=Math.round(W/2-bw/2),by2=pty+ps+104;
+    gr.FillRoundRect(bx,by2,bw,34,17,17,COL.green);
+    tC(gr,'选择音乐',FONT.pl,COL.onPlay,bx,by2,bw,34);
+    HB_FS.push({x0:bx,y0:by2,x1:bx+bw,y1:by2+34,act:'exit'});
     return;
   }
   drawRounded(gr,m.x,m.y,m.size,5,NP,'np');

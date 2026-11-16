@@ -8,9 +8,14 @@ function ctrlBtn(gr,name,cx,cyc,active,act,rad,isz){
   HB_CTRL.push({x0:cx-rad,y0:cyc-rad,x1:cx+rad,y1:cyc+rad,act:act});
 }
 // seek / volume track: filled progress on a dim rail, with a generously padded hitbox
-function drawTrackBar(gr,x,y,w,th,trackCol,pos){
+function drawTrackBar(gr,x,y,w,th,trackCol,pos,progCol){
   gr.FillSolidRect(x,y,w,th,trackCol);
-  if(pos>0) gr.FillSolidRect(x,y,Math.max(1,Math.round(w*pos)),th,COL.text);
+  var fw=Math.max(0,Math.round(w*pos)), col=progCol||COL.text;
+  if(fw>0) gr.FillSolidRect(x,y,fw,th,col);
+  var r=Math.max(3,Math.round(th*1.1)), cx=x+fw, cy=y+th/2;
+  gr.FillEllipse(cx-r,cy-r,r*2,r*2,col);
+  gr.FillEllipse(cx-r-2,cy-r-2,(r+2)*2,(r+2)*2,COL.base);
+  gr.FillEllipse(cx-r,cy-r,r*2,r*2,col);
   return {x0:x,y0:y-10,x1:x+w,y1:y+10+th,x:x,w:w};
 }
 function ssTransportLayout(w,left,right,s){
@@ -18,7 +23,7 @@ function ssTransportLayout(w,left,right,s){
   if(right-left>=half*2)center=Math.round(Math.max(left+half,Math.min(center,right-half)));
   else center=Math.round((left+right)/2);
   var room=Math.max(0,Math.min(center-left,right-center));
-  return {center:center,seekWidth:Math.max(24,Math.min(560*s,room*2-112*s))};
+  return {center:center,seekWidth:Math.max(24,Math.min(380*s,room*2-112*s))};
 }
 // A title owns only its text viewport. Cache the complete line on the footer's
 // opaque background, then copy a moving crop so glyphs can never reach controls.
@@ -70,14 +75,10 @@ function ssDrawFooterTitle(gr,text,font,col,x,y,w,h){
   gr.DrawImage(m.image,x,y,w,h,m.offset,0,w,h);
 }
 function ssDrawIdleRecord(gr,x,y,size){
-  gr.FillRoundRect(x,y,size,size,5,5,COL.elev);
-  var inset=size*.12,diameter=size-2*inset,center=size/2;
-  gr.FillEllipse(x+inset,y+inset,diameter,diameter,COL.text);
-  for(var r=.20;r<=.34;r+=.07){
-    gr.DrawEllipse(x+center-size*r,y+center-size*r,size*r*2,size*r*2,Math.max(1,size*.004),COL.text2);
-  }
-  gr.FillEllipse(x+size*.39,y+size*.39,size*.22,size*.22,COL.green);
-  gr.FillEllipse(x+size*.48,y+size*.48,size*.04,size*.04,COL.onAccent);
+  gr.FillRoundRect(x,y,size,size,6,6,COL.elev);
+  var d=Math.round(size*.44),ix=Math.round(x+(size-d)/2),iy=Math.round(y+(size-d)/2),dot=Math.max(2,Math.round(size*.07));
+  gr.DrawEllipse(ix,iy,d,d,Math.max(1,Math.round(size*.035)),COL.text3);
+  gr.FillEllipse(Math.round(x+(size-dot)/2),Math.round(y+(size-dot)/2),dot,dot,COL.text3);
 }
 function drawBar(gr){
   HB_CTRL=[];
@@ -99,40 +100,37 @@ function drawBar(gr){
     drawIcon(gr,'clock',summary.now_later?COL.green:COL.text2,fx+28*s,fy,28*s,28*s,18*s);
     HB_CTRL.push({x0:fx+28*s,y0:fy,x1:fx+56*s,y1:fy+28*s,act:'later'});
   }
-  // Anchor to the window, using actual side content rather than unused panel space.
-  var prefX=W-R.barToolsW+6,modeW=R.barToolsW-114;
-  var modeName=pbShuffle?'智能随机':(ssState&&ssState.order_name)||'顺序播放';
-  var gearC=by+50*s,fsx=W-46,volW=Math.min(104*s,R.barToolsW-110),volX=fsx-24-volW,volY=gearC-2*s;
-  var leftInk=Math.min(R.barInfoW,tx+Math.max(gr.CalcTextWidth(npTitleStr,FONT.npTitle),gr.CalcTextWidth(npArtistStr,FONT.npArtist))+12*s);
-  var rightInk=Math.min(volX-32,prefX+Math.max(0,(modeW-gr.CalcTextWidth(modeName+' ▾',FONT.pl))/2));
-  var transport=ssTransportLayout(W,leftInk,rightInk,s),cxC=transport.center;R.transport=transport;
-  var pcy=by+34*s, pb=(hv(cxC-27*s,by+7*s,cxC+27*s,by+61*s)?52:48)*s, pbx=cxC-pb/2, pby=pcy-pb/2;
-  ctrlBtn(gr,'prev',cxC-58*s,pcy,false,'prev',22*s,26*s);
+  // Transport sits between the now-playing block and a compact icon-only right cluster.
+  var s2=ssDensity, ry=by+Math.round(M.barH*0.46);
+  var fsx=W-Math.round(28*s2), qx=fsx-Math.round(44*s2), lx2=qx-Math.round(40*s2);
+  var volW=Math.min(Math.round(76*s2),Math.max(48,R.barToolsW-236)), volX=lx2-Math.round(30*s2)-volW, vix=volX-Math.round(30*s2);
+  var shx=vix-Math.round(42*s2);
+  var leftInk=Math.min(R.barInfoW,tx+Math.max(gr.CalcTextWidth(npTitleStr,FONT.npTitle),gr.CalcTextWidth(npArtistStr,FONT.npArtist))+12*s2);
+  var rightInk=shx-Math.round(30*s2);
+  var transport=ssTransportLayout(W,leftInk,rightInk,s2),cxC=transport.center;R.transport=transport;
+  var pcy=by+Math.round(M.barH*0.40), pb=(hv(cxC-27*s2,by+7*s2,cxC+27*s2,by+61*s2)?52:48)*s2, pbx=cxC-pb/2, pby=pcy-pb/2;
+  ctrlBtn(gr,'prev',cxC-58*s2,pcy,false,'prev',22*s2,26*s2);
   gr.FillEllipse(pbx,pby,pb,pb,COL.play);
   drawIcon(gr,playing?'pause':'play',COL.onPlay,pbx,pby,pb,pb,Math.round(pb*0.5));
   HB_CTRL.push({x0:pbx,y0:pby,x1:pbx+pb,y1:pby+pb,act:'play'});
-  ctrlBtn(gr,'next',cxC+58*s,pcy,false,'next',22*s,26*s);
-  var sbW=transport.seekWidth, sbX=cxC-sbW/2, sbY=by+74*s;
+  ctrlBtn(gr,'next',cxC+58*s2,pcy,false,'next',22*s2,26*s2);
+  var sbW=transport.seekWidth, sbX=cxC-sbW/2, sbY=by+Math.round(M.barH*0.76);
   var len=fb.PlaybackLength, pos=(drag==='seek')?dragFrac:(len>0?fb.PlaybackTime/len:0);
-  HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,5*s,COL.seekbg,pos);
-  tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text2,sbX-54*s,sbY-7*s,46*s,17*s);
-  tL(gr,fmtTime(len),FONT.time,COL.text2,sbX+sbW+10*s,sbY-7*s,46*s,17*s);
-  // right: volume + fullscreen
-  tC(gr,modeName+' ▾',FONT.pl,pbShuffle?COL.green:COL.text,prefX,by+4*s,modeW,30*s);
-  HB_CTRL.push({x0:prefX,y0:by+4*s,x1:prefX+modeW,y1:by+34*s,act:'playback_mode'});
-  tC(gr,'音频输出 ▾',FONT.plSub,COL.text2,W-106,by+4*s,100,30*s);
-  HB_CTRL.push({x0:W-106,y0:by+4*s,x1:W-6,y1:by+34*s,act:'output'});
-  var drawerW=Math.min(64*s,(R.barToolsW-20)/2),drawerY=by+69*s;
-  var drawerTabs=['lyrics','queue'];
-  for(var d=0;d<drawerTabs.length;d++){
-    var drawerTab=drawerTabs[d],dx=prefX+d*(drawerW+6*s),selected=typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab===drawerTab;
-    if(selected||hv(dx,drawerY,dx+drawerW,drawerY+23*s))gr.FillRoundRect(dx,drawerY,drawerW,23*s,4,4,selected?COL.rowActive:COL.rowHover);
-    tC(gr,d===0?'歌词':'队列',FONT.plSub,selected?COL.green:COL.text2,dx,drawerY,drawerW,23*s);
-    HB_CTRL.push({x0:dx,y0:drawerY,x1:dx+drawerW,y1:drawerY+23*s,act:drawerTab});
-  }
-  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,COL.error,prefX+2*(drawerW+6*s),drawerY,Math.max(1,R.barToolsW-2*(drawerW+6*s)-16),23*s);
-  drawIcon(gr,'expand',hv(fsx-8,gearC-16,fsx+30,gearC+16)?COL.text:COL.text2,fsx,gearC-13,26,26,22);
-  HB_CTRL.push({x0:fsx-8,y0:gearC-16,x1:fsx+30,y1:gearC+16,act:'fullscreen'});
-  drawIcon(gr,'volume',COL.text2,volX-32,gearC-13,26,26,22);
-  HB_VOL=drawTrackBar(gr,volX,volY,volW,5,COL.seekbg,clamp01(vol2pos(fb.Volume)));
+  HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,4*s2,COL.seekbg,pos,COL.green);
+  tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text3,sbX-Math.round(54*s2),sbY-Math.round(7*s2),Math.round(46*s2),Math.round(17*s2));
+  tL(gr,fmtTime(len),FONT.time,COL.text3,sbX+sbW+Math.round(10*s2),sbY-Math.round(7*s2),Math.round(46*s2),Math.round(17*s2));
+  drawIcon(gr,fsMode?'compress':'expand',hv(fsx-12*s2,ry-12*s2,fsx+12*s2,ry+12*s2)?COL.text:COL.text2,fsx-12*s2,ry-12*s2,24*s2,24*s2,20*s2);
+  HB_CTRL.push({x0:fsx-14*s2,y0:ry-14*s2,x1:fsx+14*s2,y1:ry+14*s2,act:'fullscreen'});
+  var qOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab==='queue';
+  drawIcon(gr,'queue',qOn?COL.green:COL.text2,qx-10*s2,ry-10*s2,20*s2,20*s2,17*s2);
+  HB_CTRL.push({x0:qx-14*s2,y0:ry-14*s2,x1:qx+14*s2,y1:ry+14*s2,act:'queue'});
+  var lOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab==='lyrics';
+  drawIcon(gr,'lyric',lOn?COL.green:COL.text2,lx2-10*s2,ry-10*s2,20*s2,20*s2,17*s2);
+  HB_CTRL.push({x0:lx2-14*s2,y0:ry-14*s2,x1:lx2+14*s2,y1:ry+14*s2,act:'lyrics'});
+  drawIcon(gr,'volume',hv(vix-10*s2,ry-10*s2,vix+10*s2,ry+10*s2)?COL.text:COL.text2,vix-10*s2,ry-10*s2,20*s2,20*s2,17*s2);
+  HB_CTRL.push({x0:vix-12*s2,y0:ry-12*s2,x1:vix+12*s2,y1:ry+12*s2,act:'output'});
+  drawIcon(gr,'shuffle',pbShuffle?COL.green:COL.text2,shx-10*s2,ry-10*s2,20*s2,20*s2,17*s2);
+  HB_CTRL.push({x0:shx-14*s2,y0:ry-14*s2,x1:shx+14*s2,y1:ry+14*s2,act:'playback_mode'});
+  HB_VOL=drawTrackBar(gr,volX,ry-Math.round(2*s2),volW,4*s2,COL.seekbg,clamp01(vol2pos(fb.Volume)));
+  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,COL.error,shx-Math.round(20*s2),ry+Math.round(14*s2),Math.max(1,fsx-shx+Math.round(40*s2)),Math.round(20*s2));
 }

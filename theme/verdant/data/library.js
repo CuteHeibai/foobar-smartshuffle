@@ -169,7 +169,7 @@ var SG_ART1=56, SG_ART2=44, SG_TGAP=18, SG_SLABP=10;
 var SG_H1=SG_GAP1+SG_ART1+SG_PADB1;                  // 92  top-level header
 var SG_H1B=SG_GAP1+SG_SLABP*2+SG_ART1+SG_PADB1;      // 112 artist banner (slab around artwork)
 var SG_H2=SG_GAP2+SG_ART2+SG_PADB2;                  // 68  nested header
-var SG_TRH=44, SHEAD=312, SG_CROP=96;
+var SG_TRH=44, SHEAD=248, SG_CROP=96;
 function getSongsIdx(){
   if(songsIdx) return songsIdx;
   var lib=libItems();

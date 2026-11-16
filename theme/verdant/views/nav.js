@@ -15,20 +15,20 @@ function drawNavRow(gr,y,h,on,hov,pi,name,sub){
 function drawNav(gr){
   HB_PL=[];
   if(typeof HB_PERSONAL!=='undefined')HB_PERSONAL=[];
-  // top card: Home + Search as two wide icon buttons spanning the sidebar
+  // top card: Home + Search as two compact tabs, same weight as the library rows below
   panelBg(gr,R.navTop,COL.base);
-  var s=ssDensity,m=16*s, g=12*s, bh=54*s, iy=R.navTop.y+Math.round((R.navTop.h-bh)/2);
+  var s=ssDensity,m=12*s, g=8*s, bh=34*s, iy=R.navTop.y+Math.round((R.navTop.h-bh)/2);
   var bw=Math.floor((R.navTop.w-2*m-g)/2);
   var hx=R.navTop.x+m, sx2=hx+bw+g;
   var hon=(view==='home'), hhov=hv(hx,iy,hx+bw,iy+bh);
-  if(hon||hhov) gr.FillRoundRect(hx,iy,bw,bh,10,10,hon?COL.rowActive:COL.rowHover);
-  drawIcon(gr,'home',hon?COL.text:COL.text2,hx,iy-8*s,bw,bh-8*s,23*s);
-  tC(gr,'首页',FONT.plSub,hon?COL.text:COL.text2,hx,iy+32*s,bw,22*s);
+  if(hon||hhov) gr.FillRoundRect(hx,iy,bw,bh,7,7,hon?COL.rowActive:COL.rowHover);
+  var isz=Math.round(17*s);drawIcon(gr,'home',hon?COL.text:COL.text2,hx+Math.round(11*s),iy+Math.round((bh-isz)/2),isz,isz,isz);
+  tL(gr,'首页',FONT.pl,hon?COL.text:COL.text2,hx+Math.round(33*s),iy,bw-Math.round(40*s),bh);
   HB_HOME={x0:hx,y0:iy,x1:hx+bw,y1:iy+bh};
   var son=(view==='search'), shov=hv(sx2,iy,sx2+bw,iy+bh);
-  if(son||shov) gr.FillRoundRect(sx2,iy,bw,bh,10,10,son?COL.rowActive:COL.rowHover);
-  drawIcon(gr,'search',son?COL.text:COL.text2,sx2,iy-8*s,bw,bh-8*s,23*s);
-  tC(gr,'搜索',FONT.plSub,son?COL.text:COL.text2,sx2,iy+32*s,bw,22*s);
+  if(son||shov) gr.FillRoundRect(sx2,iy,bw,bh,7,7,son?COL.rowActive:COL.rowHover);
+  drawIcon(gr,'search',son?COL.text:COL.text2,sx2+Math.round(11*s),iy+Math.round((bh-isz)/2),isz,isz,isz);
+  tL(gr,'搜索',FONT.pl,son?COL.text:COL.text2,sx2+Math.round(33*s),iy,bw-Math.round(40*s),bh);
   HB_SEARCH={x0:sx2,y0:iy,x1:sx2+bw,y1:iy+bh};
   // The canvas gap between the two cards is inside the region repaintNavAll invalidates but is
   // painted by neither of them -- it used to survive only because a full paint cleared the whole
@@ -37,7 +37,7 @@ function drawNav(gr){
   gr.FillSolidRect(R.navTop.x,gapY,R.navTop.w,R.navLib.y-gapY,COL.black);
   // library card
   panelBg(gr,R.navLib,COL.base);
-  tL(gr,'音乐库',FONT.lib,COL.text2,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
+  tL(gr,'音乐库',FONT.head,COL.text3,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
   var active=plman.ActivePlaylist, pls=visiblePlaylists();
   var footH=72*s, footTop=R.navLib.y+R.navLib.h-footH;   // pinned "add playlist" footer, always visible
   var pinY=R.navLib.y+48*s, pinH=58*s,albumH=34*s,extraH=albumH*2;
@@ -74,7 +74,7 @@ function drawNav(gr){
   // (clear starts below the panel's rounded corners so a square fill can't square them off)
   gr.FillSolidRect(R.navLib.x,R.navLib.y+M.radius+2,R.navLib.w,listTop-R.navLib.y-M.radius-2,COL.base);
   gr.FillSolidRect(R.navLib.x,cropY,R.navLib.w,R.navLib.y+R.navLib.h-cropY,COL.base);
-  tL(gr,'音乐库',FONT.lib,COL.text2,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
+  tL(gr,'音乐库',FONT.head,COL.text3,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
   drawNavRow(gr,pinY,pinH,view==='songs'&&songsGroup!=='artist',hv(R.navLib.x,pinY,R.navLib.x+R.navLib.w,pinY+pinH),-1,'全部歌曲',fmtNum(libCount())+' 首歌曲');
   HB_ALLSONGS={x0:R.navLib.x,y0:pinY,x1:R.navLib.x+R.navLib.w,y1:pinY+pinH};
   var albumY=pinY+pinH,albumOn=view==='albums'||view==='album';
@@ -107,26 +107,12 @@ function drawNav(gr){
 }
 // pinned sidebar footer: click to create a blank playlist, or drop files on it to import
 function drawAddPlaylist(gr,footTop,footH){
-  var bx=R.navLib.x+12, bw=R.navLib.w-24, by=footTop+6, bh=footH-16;
+  var s=ssDensity,bx=R.navLib.x+8, bw=R.navLib.w-16, bh=Math.min(footH-14,Math.round(44*s)), by=footTop+Math.round((footH-bh)/2);
   var hot=hv(bx,by,bx+bw,by+bh), drop=navDropHover;
-  var rad=Math.min(10,bw/2,bh/2);
-  if(drop)      gr.FillRoundRect(bx,by,bw,bh,rad,rad,ssAccent(26));
-  else if(hot)  gr.FillRoundRect(bx,by,bw,bh,rad,rad,COL.rowHover);
-  strokeRound(gr,bx,by,bw,bh,rad,drop?2:1,drop?COL.green:(hot?COL.text3:COL.line));
-  // circular badge, echoing the empty-playlist state in the main panel
-  var bs=30, ax=bx+13, ay=by+Math.round((bh-bs)/2);
-  gr.FillEllipse(ax,ay,bs,bs,drop?ssAccent(46):ssInk(hot?26:16));
-  drawIcon(gr,'add',drop?COL.green:(hot?COL.text:COL.text2),ax,ay,bs,bs,18);
-  var tx=ax+bs+12, tw=bx+bw-12-tx;
-  if(drop){ tL(gr,'拖入以导入',FONT.pl,COL.green,tx,by+Math.round((bh-20)/2),tw,20); }
-  else {
-    var firstH=Math.max(Math.ceil(20*ssDensity),lineH(gr,FONT.pl)),secondH=Math.max(Math.ceil(17*ssDensity),lineH(gr,FONT.plSub)),gap=Math.ceil(4*ssDensity);
-    if(firstH+secondH+gap<=bh-4){
-      var ty=by+Math.round((bh-firstH-secondH-gap)/2);
-      tL(gr,'新建歌单',FONT.pl,hot?COL.text:COL.text2,tx,ty,tw,firstH);
-      tL(gr,'拖入文件或点击',FONT.plSub,COL.text3,tx,ty+firstH+gap,tw,secondH);
-    }else tL(gr,'新建歌单',FONT.pl,hot?COL.text:COL.text2,tx,by,tw,bh);
-
-  }
+  if(drop||hot) gr.FillRoundRect(bx,by,bw,bh,7,7,drop?ssAccent(26):COL.rowHover);
+  var isz=Math.round(16*s), ax=bx+Math.round(12*s), ay=by+Math.round((bh-isz)/2);
+  drawIcon(gr,'add',drop?COL.green:(hot?COL.text:COL.text2),ax,ay,isz,isz,isz);
+  var tx=ax+isz+Math.round(10*s), tw=bx+bw-12-tx;
+  tL(gr,drop?'拖入以导入':'新建歌单',FONT.pl,drop?COL.green:(hot?COL.text:COL.text2),tx,by,tw,bh);
   HB_ADDPL={x0:bx,y0:by,x1:bx+bw,y1:by+bh};
 }

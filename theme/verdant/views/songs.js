@@ -13,10 +13,10 @@ function drawSongs(gr,r){
   var cov=libChoice(), g=songsGroup;
   // header: gradient wash + mosaic cover + title/meta, mirroring the playlist header
   gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,blend(artHue(cov.single,'__lib__'),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
-  var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0), lx=r.x+M.cpad, ay=r.y+16*s, art=M.artSz;
+  var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0), lx=r.x+M.cpad, ay=r.y+16*s, art=Math.min(M.artSz,Math.round(168*s));
   drawLibCover(gr,lx,ay,art,8);
   if(songsTracks.length){
-    HB_SONGS_PLAY=drawPlaylistPlay(gr,lx+art-52*s,ay+art-52*s,44*s,-1);
+    HB_SONGS_PLAY=drawPlaylistPlay(gr,lx+art-Math.round(46*s),ay+art-Math.round(46*s),Math.round(36*s),-1);
     HB_SONGS_PLAY.label='播放全部歌曲';HB_SONGS_PLAY.library=true;
   }
   // header text stops short of the pill column so the two can never collide on a narrow panel
