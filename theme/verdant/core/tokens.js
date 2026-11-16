@@ -13,36 +13,38 @@ var SS_APPEARANCE='dark';try{if(window.GetProperty('SmartShuffle: appearance','d
 function ssAlpha(c,a){return ((a<<24)|(c&0xffffff));}
 function ssInk(a){return ssAlpha(COL.text,a);}
 function ssAccent(a){return ssAlpha(COL.green,a);}
+/* Historical green names remain aliases for the single record-room accent. */
 function ssPalette(mode){
   if(mode==='light')return {
-    black:RGB(238,242,240),base:RGB(255,255,255),elev:RGB(246,249,247),hover:RGB(229,236,232),
-    text:RGB(28,39,33),text2:RGB(79,96,86),text3:RGB(98,114,104),
-    green:RGB(8,127,73),greenC:RGB(7,118,68),greenHover:RGB(6,105,60),
-    rowHover:RGBA(28,39,33,14),rowActive:RGBA(8,127,73,28),line:RGB(193,205,197),seekbg:RGB(201,213,206),
-    splitter:RGB(193,205,197),gridLine:RGBA(38,72,52,65),gridAxis:RGBA(31,69,46,110),
-    popup:RGB(255,255,255),popupAlt:RGB(255,255,255),button:RGB(234,240,236),buttonHover:RGB(220,231,224),
-    input:RGB(239,244,241),banner:RGB(242,246,244),cardHover:RGB(232,240,235),skeleton:RGB(227,234,230),
-    pill:RGB(237,243,239),accentMuted:RGB(215,232,222),onAccent:RGB(255,255,255),onDanger:RGB(255,255,255),
-    danger:RGB(181,46,55),dangerHover:RGB(159,33,43),error:RGB(173,52,52),
-    shadow:RGBA(24,45,33,28),scrim:RGBA(23,39,30,62),modalScrim:RGBA(23,39,30,72),
-    play:RGB(8,127,73),onPlay:RGB(255,255,255)
+    black:RGB(244,243,241),base:RGB(253,252,250),elev:RGB(240,238,236),hover:RGB(232,229,227),
+    text:RGB(32,31,33),text2:RGB(96,91,96),text3:RGB(115,108,115),
+    green:RGB(122,49,79),greenC:RGB(122,49,79),greenHover:RGB(109,35,52),
+    rowHover:RGBA(67,52,43,12),rowActive:RGBA(122,49,79,23),line:RGB(204,199,202),seekbg:RGB(217,212,216),
+    splitter:RGB(217,213,214),gridLine:RGBA(91,75,66,55),gridAxis:RGBA(91,75,66,105),
+    popup:RGB(253,252,250),popupAlt:RGB(246,244,242),button:RGB(238,235,233),buttonHover:RGB(226,221,222),
+    input:RGB(239,237,235),banner:RGB(242,239,238),cardHover:RGB(242,239,238),skeleton:RGB(228,225,224),
+    pill:RGB(240,237,235),accentMuted:RGB(230,209,210),onAccent:RGB(255,251,246),onDanger:RGB(255,255,255),
+    danger:RGB(171,43,39),dangerHover:RGB(147,32,31),error:RGB(167,43,39),
+    shadow:RGBA(49,37,29,24),scrim:RGBA(49,37,29,62),modalScrim:RGBA(49,37,29,80),
+    play:RGB(122,49,79),onPlay:RGB(255,251,246)
   };
   return {
-  black:RGB(0,0,0), base:RGB(18,18,18), elev:RGB(24,24,24), hover:RGB(42,42,42),
-  text:RGB(255,255,255), text2:RGB(179,179,179), text3:RGB(106,106,106),
-  green:RGB(30,215,96), greenC:RGB(29,185,84),
-  rowHover:RGBA(255,255,255,18), rowActive:RGBA(255,255,255,38),
-  line:RGBA(255,255,255,28),splitter:RGB(53,62,56),gridLine:RGBA(255,255,255,25),gridAxis:RGBA(255,255,255,60),seekbg:RGB(77,77,77),greenHover:RGB(45,215,110),
-  popup:RGB(35,35,35),popupAlt:RGB(43,43,43),button:RGB(52,52,52),buttonHover:RGB(66,66,66),
-  input:RGB(62,62,62),banner:RGB(34,34,34),cardHover:RGB(40,40,40),skeleton:RGB(30,30,30),
-  pill:RGBA(0,0,0,90),accentMuted:RGB(60,92,74),onAccent:RGB(0,0,0),onDanger:RGB(255,255,255),
-  danger:RGB(224,72,72),dangerHover:RGB(240,96,96),error:RGB(245,150,130),
-  shadow:RGBA(0,0,0,110),scrim:RGBA(0,0,0,150),modalScrim:RGBA(0,0,0,188),
-  play:RGB(255,255,255),onPlay:RGB(0,0,0)
-};}
+    black:RGB(23,23,26),base:RGB(30,30,34),elev:RGB(40,39,44),hover:RGB(51,49,56),
+    text:RGB(246,242,246),text2:RGB(193,188,195),text3:RGB(164,156,165),
+    green:RGB(229,166,187),greenC:RGB(229,166,187),greenHover:RGB(239,174,183),
+    rowHover:RGBA(246,242,246,15),rowActive:RGBA(229,166,187,28),
+    line:RGB(66,63,70),splitter:RGB(56,53,60),gridLine:RGBA(227,216,231,30),gridAxis:RGBA(227,216,231,70),seekbg:RGB(71,66,75),
+    popup:RGB(40,38,44),popupAlt:RGB(45,42,49),button:RGB(51,47,54),buttonHover:RGB(65,58,68),
+    input:RGB(46,43,50),banner:RGB(40,37,44),cardHover:RGB(43,40,47),skeleton:RGB(44,41,48),
+    pill:RGB(43,39,47),accentMuted:RGB(86,56,70),onAccent:RGB(36,25,27),onDanger:RGB(255,255,255),
+    danger:RGB(190,65,57),dangerHover:RGB(209,78,69),error:RGB(242,158,141),
+    shadow:RGBA(0,0,0,100),scrim:RGBA(0,0,0,145),modalScrim:RGBA(0,0,0,180),
+    play:RGB(229,166,187),onPlay:RGB(36,25,27)
+  };
+}
 var COL=ssPalette(SS_APPEARANCE);
-var M = { pad:8, gap:8, navW:210, queueW:350, barH:96, navTopH:84, rowH:56, cardTextH:56, radius:10, cpad:24, headH:280, artSz:200 };
-var PALETTE=[RGB(83,62,140),RGB(30,120,110),RGB(150,64,92),RGB(43,92,160),RGB(120,92,44),RGB(58,120,64),RGB(140,80,120),RGB(52,100,150),RGB(96,72,52),RGB(70,70,96)];
+var M = { pad:8, gap:10, navW:216, queueW:300, barH:96, navTopH:78, rowH:52, cardTextH:56, radius:8, cpad:24, headH:280, artSz:200 };
+var PALETTE=[RGB(105,75,68),RGB(108,95,78),RGB(130,74,85),RGB(81,91,101),RGB(133,108,76),RGB(102,105,87),RGB(119,93,100),RGB(95,107,111),RGB(115,87,66),RGB(94,86,91)];
 
 /* ------------------------- fonts (create once) -------------------------
    Every font is built here at load time from UISCALE, which core/props.js has already resolved
@@ -52,16 +54,16 @@ var PALETTE=[RGB(83,62,140),RGB(30,120,110),RGB(150,64,92),RGB(43,92,160),RGB(12
 var SS_BASE_UI_SCALE=UISCALE,ssDensity=1;
 var SS_FONT_META=[],SS_FIT_FONTS=[],SS_SCRIPT_FONTS={};
 function gf(name,sz,style){var size=Math.max(1,Math.round(sz*UISCALE)),font=gdi.Font(name,size,style||0);SS_FONT_META.push({font:font,name:name,size:size,style:style||0});return font;}
-function F(sz,bold){ return gf(bold?'Inter Medium':'Inter', sz, 0); }
+function F(sz,medium){ return gf(medium?'Inter Medium':'Inter',sz,0); }
 function ssCreateFonts(){return {
-  lib:F(15,1), pl:F(13,1), plSub:F(11,0),
-  eyebrow:F(11,1), title:F(28,1), meta:F(13,0),
-  rowTitle:F(14,0), rowArtist:F(12,0), rowNum:F(13,0), rowCell:F(13,0), head:F(12,1),
-  tab:F(16,1), sect:F(15,1), qName:F(13,0), qArtist:F(11,0),
-  npTitle:F(15,0), npArtist:F(12,0), time:F(12,0),
+  lib:F(11,1), pl:F(13,1), plSub:F(11,0),
+  eyebrow:F(10,1), homeTitle:F(27,1), title:F(27,1), display:F(36,1), meta:F(12,0),
+  rowTitle:F(14,0), rowArtist:F(12,0), rowNum:F(13,0), rowCell:F(13,0), head:F(13,1),
+  tab:F(15,1), sect:F(16,1), qName:F(13,0), qArtist:F(11,0),
+  npTitle:F(14,1), npArtist:F(11,0), time:F(10,0),
   icon:gf('Segoe MDL2 Assets',15), iconBtn:gf('Segoe MDL2 Assets',18),
   navIco:gf('Segoe MDL2 Assets',24), cap:gf('Segoe MDL2 Assets',10),
-  menu:F(12), card:F(14,1), sect2:F(20,1),
+  menu:F(12), card:F(14,0), sect2:F(20,1),
   searchTxt:F(16),
   lyric:F(18,1), fsLyric:F(30,1),
   fsSrc:F(13),
@@ -107,7 +109,7 @@ function ssFitFont(gr,font,height,text,width){
   if(SS_FIT_FONTS.length>=192)SS_FIT_FONTS=[];SS_FIT_FONTS.push({base:font,height:limit,key:key,font:f});return f;
 }
 function ssScriptFont(text,font){
-  var name=/[\u3040-\u30ff]/.test(text)?'Yu Gothic UI':/[\u2e80-\u9fff\uff00-\uffef]/.test(text)?'Microsoft YaHei UI':null;if(!name)return font;
+  var name=/[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(text)?'Microsoft YaHei UI':null;if(!name)return font;
   var meta=null;for(var i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
   if(!meta||meta.name===name)return font;var key=name+'|'+meta.size+'|'+meta.style;if(!SS_SCRIPT_FONTS[key]){var f=gdi.Font(name,meta.size,meta.style);SS_FONT_META.push({font:f,name:name,size:meta.size,style:meta.style});SS_SCRIPT_FONTS[key]=f;}return SS_SCRIPT_FONTS[key];
 }
@@ -123,6 +125,10 @@ function tCE(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,1,true);}
 
 /* ------------------------- vector icons (SVG rasterized via gdi.LoadSVG, tinted + cached) ------------------------- */
 var ICONS={
+ music:"<path fill='none' stroke='currentColor' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round' d='M9 17V5l11-2v12M9 8l11-2'/><ellipse fill='none' stroke='currentColor' stroke-width='1.7' cx='6' cy='17.5' rx='3' ry='2.5'/><ellipse fill='none' stroke='currentColor' stroke-width='1.7' cx='17' cy='15.5' rx='3' ry='2.5'/>",
+ albums:"<rect fill='none' stroke='currentColor' stroke-width='1.7' x='4' y='5' width='16' height='16' rx='3'/><path fill='none' stroke='currentColor' stroke-width='1.7' stroke-linecap='round' d='M7 2h10'/><circle fill='none' stroke='currentColor' stroke-width='1.7' cx='12' cy='13' r='4'/><circle cx='12' cy='13' r='1'/>",
+ artists:"<circle fill='none' stroke='currentColor' stroke-width='1.7' cx='12' cy='7.5' r='3.5'/><path fill='none' stroke='currentColor' stroke-width='1.7' stroke-linecap='round' d='M5 21v-2a7 7 0 0 1 14 0v2'/>",
+ stats:"<path fill='none' stroke='currentColor' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round' d='M4 3v17h17M8 15v-4m5 4V7m5 8V4'/>",
  play:"<path d='M8 5v14l11-7z'/>",
  pause:"<rect x='6' y='5' width='4' height='14' rx='1.3'/><rect x='14' y='5' width='4' height='14' rx='1.3'/>",
  prev:"<path d='M6 6h2.2v12H6zm3 6l9 6V6z'/>",
@@ -131,7 +137,7 @@ var ICONS={
  repeat:"<path d='M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z'/>",
  repeat1:"<path d='M13 15V9h-1l-2 1v1h1.5v4zm4-8v3l4-4-4-4v3H5v6h2V7zm0 10H7v-3l-4 4 4 4v-3h12v-6h-2z'/>",
  volume:"<path d='M3 9v6h4l5 5V4L7 9zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'/>",
- home:"<path d='M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z'/>",
+ home:"<path fill='none' stroke='currentColor' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round' d='m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9'/>",
  search:"<path d='M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.49 4.49 0 0 1 9.5 14z'/>",
  add:"<path d='M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z'/>",
  more:"<path d='M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm12 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'/>",
@@ -153,7 +159,7 @@ function iconImg(name,size,col){
   var key=name+'|'+size+'|'+(col&0xffffff);
   if(svgCache.hasOwnProperty(key)) return svgCache[key];
   var rgb=((col>>16)&0xff)+','+((col>>8)&0xff)+','+(col&0xff);
-  var xml="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='"+size+"' height='"+size+"'><g fill='rgb("+rgb+")'>"+ICONS[name]+"</g></svg>";
+  var xml="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='"+size+"' height='"+size+"'><g fill='rgb("+rgb+")'>"+ICONS[name].replace(/currentColor/g,'rgb('+rgb+')')+"</g></svg>";
   var bmp=null; try{ bmp=gdi.LoadSVG(xml,size); }catch(e){ bmp=null; }
   svgCache[key]=bmp; return bmp;
 }

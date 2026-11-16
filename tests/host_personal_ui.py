@@ -29,7 +29,12 @@ try:
     print(json.dumps(result,ensure_ascii=False,indent=2))
 finally:
     sys.path.insert(0,str(ROOT/'scripts'));from bridge import Bridge
-    Bridge(PROFILE).request('personal_config',enabled=False)
+    bridge=Bridge(PROFILE)
+    bridge.request('personal_config',enabled=False)
+    if result_file.exists():
+        recorded=json.loads(result_file.read_text(encoding='utf-8')).get('originalHistory')
+        if isinstance(recorded,bool):
+            bridge.request('listening_stats_config',enabled=recorded)
     subprocess.run([str(ROOT/'test-player/foobar2000.exe'),'/stop'],check=True);subprocess.run([str(ROOT/'test-player/foobar2000.exe'),'/exit'],check=True);p.wait(timeout=20)
     app.write_bytes(saved);script.unlink(missing_ok=True)
     (PROFILE/'smartshuffle/store.json').write_bytes(saved_store)

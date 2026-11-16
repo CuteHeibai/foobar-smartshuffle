@@ -4,7 +4,7 @@ function ssPersonalDate(value){
   function pad(v){return v<10?'0'+v:String(v);}return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
 }
 function ssPersonalOutcome(item){
-  var labels={playing:'正在播放',completed:'已播完',skipped:'已跳过',stopped:'已停止',interrupted:'播放中断'};
+  var labels={playing:'正在播放',completed:'已播完',skipped:'已跳过',switched:'未播完切走',replayed:'重新播放',failed:'播放失败',stopped:'已停止',interrupted:'播放中断'};
   return (labels[item.outcome]||'未知状态')+' · '+(item.qualified?'有效收听':'未达有效收听')+' · 已听 '+fmtTime(Math.max(0,Number(item.listened)||0));
 }
 function ssDrawPersonalHeart(gr,x,y,size,active){
@@ -30,7 +30,7 @@ function drawPersonal(gr,r){
   var titleY=r.y+18*s,titleH=34*s,subY=titleY+titleH+4*s,headY=subY+46*s,rowsTop=Math.round(headY+28*s);
   var footerH=Math.round(42*s),cropY=Math.max(rowsTop,Math.floor(r.y+r.h-footerH)),viewH=cropY-rowsTop,history=view==='history';
   tL(gr,ssPersonalTitle(view),FONT.sect2,COL.text,lx,titleY,w,titleH);
-  tL(gr,history?'从启用后记录 · 最近90天，最多10000次播放':view==='later'?'手动管理，播放后仍会保留':'收藏按歌曲去重，不改写音乐文件',FONT.plSub,COL.text2,lx,subY,w,20*s);
+  tL(gr,history?'由听歌统计设置记录 · 最近90天，最多10000次播放':view==='later'?'手动管理，播放后仍会保留':'收藏按歌曲去重，不改写音乐文件',FONT.plSub,COL.text2,lx,subY,w,20*s);
   tL(gr,String(p.total)+(history?' 次播放':' 首歌曲'),FONT.plSub,COL.text2,lx,subY+23*s,w,20*s);
   var bw=Math.min(82*s,Math.max(48*s,w*.23)),gap=8*s,fy=r.y+r.h-36*s;
   function pageButton(label,x,delta,enabled){

@@ -19,7 +19,7 @@ function syncOrderFromFb(){ var o=readOrder(); pbRepeat=o===2?2:(o===1?1:0); }
 function toggleShuffle(){ ssSend('enable',{enabled:!pbShuffle}); repaintAll(); }
 function cycleRepeat(){ pbRepeat=(pbRepeat+1)%3; applyPlaybackOrder(); }
 var ROUTE='__verdant_np__', SHUF='__smartshuffle__';
-function isHiddenPl(nm){ return nm===SHUF||nm===ROUTE||nm==='__smartshuffle_library__'; }
+function isHiddenPl(nm){ return nm===SHUF||nm===ROUTE||nm==='__smartshuffle_library__'||nm==='__smartshuffle_artist__'||nm==='__smartshuffle_album__'; }
 function playlistOfName(nm){ for(var i=0;i<plman.PlaylistCount;i++) if(plman.GetPlaylistName(i)===nm) return i; return -1; }
 function sameHandle(a,b){ return !!(a&&b&&a.Path===b.Path&&a.SubSong===b.SubSong); }
 function ssPlayOrPause(){ssSend('play_pause');}
@@ -36,6 +36,20 @@ function playPlaylist(pl){
 function playLibrary(){
   if(!songsTracks||!songsTracks.length)return false;
   ssSend('play_library');return true;
+}
+function playArtist(name){
+  if(view!=='artist'||viewArtist!==name)return false;
+  return ssPlayCollection('play_artist');
+}
+function playAlbum(id){
+  if(view!=='album'||viewAlbum!==id)return false;
+  return ssPlayCollection('play_album');
+}
+function ssPlayCollection(op){
+  var tracks=[];
+  for(var album of artistAlbums)for(var song of album.tracks)tracks.push(ssTrackID(song.handle));
+  if(!tracks.length)return false;
+  ssSend(op,{tracks:tracks});return true;
 }
 function drawPlaylistPlay(gr,x,y,size,pl){
   var box={x0:x,y0:y,x1:x+size,y1:y+size,pl:pl,label:'播放歌单'};

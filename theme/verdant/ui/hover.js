@@ -12,6 +12,7 @@ function ssQueueInteractionDamage(rect){
   r.x=Math.min(r.x,rect.x);r.y=Math.min(r.y,rect.y);r.w=right-r.x;r.h=bottom-r.y;
 }
 function ssPaintInteractions(gr){
+  if(R.queueOverlay)return;
   var hover=ssHoverRow(),current=typeof ssSelectionRects==='function'?ssSelectionRects():[];
   if(hover)current.push(hover);
   var all=ssInteractionPainted.concat(current,ssInteractionDamage),rects=[];ssInteractionDamage=[];

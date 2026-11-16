@@ -30,7 +30,7 @@ function ssMainSelectionContext(){
     for(i=0;i<order.length;i++)rows.push({pl:pi,item:order[i],h:handles[order[i]]});
   }else if(view==='songs'){for(i=0;i<(songsTracks||[]).length;i++)rows.push({h:songsTracks[i].h});}
   else if(view==='search'){for(i=0;i<searchTrks.length;i++)rows.push({h:searchTrks[i].h});key+=':'+searchQuery;}
-  else if(view==='artist'){key+=':'+viewArtist;for(i=0;i<artistAlbums.length;i++)for(j=0;j<artistAlbums[i].tracks.length;j++)rows.push({h:artistAlbums[i].tracks[j].handle,block:i,idx:j});}
+  else if(view==='artist'||view==='album'){key+=':'+(view==='album'?viewAlbum:viewArtist);for(i=0;i<artistAlbums.length;i++)for(j=0;j<artistAlbums[i].tracks.length;j++)rows.push({h:artistAlbums[i].tracks[j].handle,block:i,idx:j});}
   else if(typeof ssIsPersonal==='function'&&ssIsPersonal(view)){key=ssPersonalSelectionKey();for(i=0;i<ssPersonal.items.length;i++)rows.push({track_id:ssPersonal.items[i].id,event_id:ssPersonal.items[i].event_id});}
   ssMainIndex={};for(i=0;i<rows.length;i++){items.push((rows[i].event_id!==undefined?rows[i].event_id:rows[i].item===undefined?i:rows[i].item)+':'+(rows[i].track_id||ssTrackID(rows[i].h)));if(rows[i].item!==undefined)ssMainIndex['p'+rows[i].pl+':'+rows[i].item]=i;else if(rows[i].block!==undefined)ssMainIndex['a'+rows[i].block+':'+rows[i].idx]=i;}
   var geometry=[];for(i=0;i<HB_TR.length;i++){var hb=HB_TR[i],at=ssMainRowIndex(hb,rows);if(at>=0)geometry.push({index:at,x0:hb.x0,y0:hb.y0,x1:hb.x1,y1:hb.y1});}

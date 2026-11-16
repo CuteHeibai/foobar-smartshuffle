@@ -76,3 +76,15 @@ function drawArtistCard(gr,x,y,w,a,clipTop,clipBot){
   else paintArtistCard(gr,x,y,w,a,hov);
   HB_CARD.push({x0:x,y0:vy0,x1:x+w,y1:vy1,kind:'artist',id:a.name});
 }
+
+// Caller supplies a clipped bitmap viewport; hit targets use that same vertical band.
+function drawLibraryAlbumCard(gr,x,y,w,album,clipTop,clipBot){
+  var h=w+M.cardTextH,top=Math.max(y,clipTop),bottom=Math.min(y+h,clipBot);
+  if(bottom<=top)return;
+  if(hv(x,top,x+w,bottom))gr.FillRoundRect(x,y,w,h,5,5,COL.cardHover);
+  drawRounded(gr,x,y,w,4,album.handle,album.album);
+  var gap=Math.round(10*ssDensity),titleH=Math.round(22*ssDensity),subH=Math.round(20*ssDensity);
+  tL(gr,album.album,FONT.card,COL.text,x,y+w+gap,w,titleH);
+  tL(gr,ssArtistName(album.artist),FONT.plSub,COL.text2,x,y+w+gap+titleH,w,subH);
+  HB_CARD.push({x0:x,y0:top,x1:x+w,y1:bottom,kind:'album',id:album.id});
+}

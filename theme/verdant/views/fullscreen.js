@@ -179,15 +179,28 @@ function fsMiniNP(gr){   // small cover + title + artist, top-left (lyrics/viz v
   tL(gr,npTitleStr||'尚未播放',FONT.sect2,COL.text,64+s+18,84,W/2,26);
   tL(gr,npArtistStr,FONT.qName,COL.text2,64+s+18,116,W/2,20);
 }
-// cover + title + artist, centred between the header and the transport bar
+// A desktop listening desk: original artwork left, track information right.
+function ssFsDefaultGeometry(width,bot){
+  var margin=Math.min(72,Math.round(width*.06)),top=132,gap=Math.min(64,Math.round(width*.05));
+  var avail=Math.max(1,bot-top),sz=Math.max(1,Math.min(440,avail-20,(width-margin*2-gap)*.47));
+  var x=margin,y=top+Math.max(0,Math.round((avail-sz)/2));
+  return {x:x,y:y,size:sz,textX:x+sz+gap,textY:y+Math.max(0,(sz-148)/2),textW:Math.max(1,width-margin-(x+sz+gap))};
+}
 function drawFsDefault(gr,bot){
-  var top=120, avail=bot-top, txtH=130, gap=30;
-  var sz=Math.max(140,Math.min(420,avail-txtH-gap));
-  var y0=top+Math.max(0,Math.round((avail-(sz+gap+txtH))/2));
-  drawRounded(gr,Math.round((W-sz)/2),y0,sz,12,NP,'np');
-  var tx=72, tw=W-144, ty=y0+sz+gap;
-  tCE(gr,npTitleStr||'尚未播放',FONT.title,COL.text,tx,ty,tw,90);
-  tCE(gr,npArtistStr,FONT.sect2,COL.text2,tx,ty+96,tw,34);
+  var m=ssFsDefaultGeometry(W,bot);
+  if(!NP){
+    ssDrawIdleRecord(gr,m.x,m.y,m.size);
+    tL(gr,'尚未播放',FONT.title,COL.text,m.textX,m.textY,m.textW,46);
+    var w=Math.min(118,m.textW),y=m.textY+58;
+    gr.FillRoundRect(m.textX,y,w,32,5,5,COL.elev);
+    tC(gr,'选择音乐',FONT.pl,COL.green,m.textX,y,w,32);
+    HB_FS.push({x0:m.textX,y0:y,x1:m.textX+w,y1:y+32,act:'exit'});
+    return;
+  }
+  drawRounded(gr,m.x,m.y,m.size,5,NP,'np');
+  tL(gr,'正在聆听',FONT.eyebrow,COL.green,m.textX,m.textY,m.textW,24);
+  tL(gr,npTitleStr||'尚未播放',FONT.title,COL.text,m.textX,m.textY+36,m.textW,58);
+  tL(gr,npArtistStr,FONT.sect2,COL.text2,m.textX,m.textY+108,m.textW,34);
 }
 function drawFsLyrics(gr,bot){
   fsMiniNP(gr);
@@ -197,7 +210,7 @@ function drawFsLyrics(gr,bot){
   else drawStaticLyrics(gr,140,W-280,180,bot,FONT.fsLyric,0.4);
 }
 function vizAlpha(c,a){ return RGBA((c>>16)&255,(c>>8)&255,c&255,a); }
-/* One colour ramp, shared by every style: Verdant green, brightening toward white as a band gets
+/* One colour ramp, shared by every style: the shared accent, brightening toward white as a band gets
    louder. Shared rather than repeated, because two call sites matching each other by eye is how
    they drift apart in the first place -- change this and every visualizer changes with it.
    (An earlier version tinted the bars with the cover's dominant colour. It is gone: the styles now
@@ -239,7 +252,7 @@ var VIZ_RN=36;
 var VIZ_WAVE_AMP=0.42;             // waveform: share of the half-height at full scale
 var VIZ_AXIS=ssInk(14); // the hairline the mirrored halves meet on
 
-// ---- style 1: mirrored pill bars, Verdant green (the original, on the rebuilt analysis) ----
+// ---- style 1: mirrored pill bars, the shared accent (the original, on the rebuilt analysis) ----
 function drawVizBars(gr,top,bot){
   var cy=Math.round((top+bot)/2), n=VIZ_N, i;
   var w=W-VIZ_MARGIN*2, cell=w/n, bw=Math.max(3,Math.round(cell/(1+VIZ_GAPR)));

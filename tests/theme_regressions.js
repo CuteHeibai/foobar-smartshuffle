@@ -116,11 +116,11 @@ function layoutHarness(){
   c.W=1180;c.H=780;c.M={gap:8,navW:210,queueW:350,barH:96,navTopH:84};c.R={};c.UIWizard=null;c.applyCaption=()=>{};
   const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
   vm.runInContext(app.slice(app.indexOf('function layout('),app.indexOf('// bitmaps are keyed')),c);
-  c.layout();return {h,c,props};
+  c.ssRightOpen=true;c.layout();return {h,c,props};
 }
 test('all three columns and footer regions keep content space at different window widths',()=>{
   const {c}=layoutHarness();c.ssWidths={nav:470,right:520,info:430,tools:450};
-  for(const w of [800,1180,1800]){c.W=w;c.layout();assert.ok(c.R.main.w>=Math.min(330,w*.36)-2);assert.ok(c.R.navW>0&&c.R.queueW>0);assert.ok(w-c.R.barInfoW-c.R.barToolsW>=Math.min(310,w*.34)-2);}
+  for(const w of [800,1180,1800]){c.W=w;c.layout();assert.ok(c.R.main.w>=Math.min(330,w*.36)-2);assert.ok(c.R.navW>0);assert.equal(c.R.queueW>0,w>=1000*c.ssDensity);assert.ok(w-c.R.barInfoW-c.R.barToolsW>=Math.min(310,w*.34)-2);}
 });
 
 test('legacy footer widths cannot override the responsive footer layout',()=>{

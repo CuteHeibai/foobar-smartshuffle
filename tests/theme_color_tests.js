@@ -19,8 +19,8 @@ function harness(mode){
 }
 function luminance(c){return [.2126,.7152,.0722].reduce((v,weight,i)=>{let n=((c>>((2-i)*8))&255)/255;return v+weight*(n<=.04045?n/12.92:((n+.055)/1.055)**2.4);},0);}
 function contrast(a,b){let x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
-test('light palette keeps text, secondary labels and green controls legible on white surfaces',()=>{
- const {c}=harness('light');assert.equal(c.SS_APPEARANCE,'light');assert.equal(c.COL.base&0xffffff,0xffffff);
+test('light palette keeps text, secondary labels and accent controls legible on warm surfaces',()=>{
+ const {c}=harness('light');assert.equal(c.SS_APPEARANCE,'light');assert.equal(c.COL.base&0xffffff,0xfdfcfa);
  for(const name of ['text','text2','text3','green'])assert.ok(contrast(c.COL[name],c.COL.base)>=4.5,name);
  assert.ok(contrast(c.COL.onAccent,c.COL.green)>=4.5);assert.ok(contrast(c.COL.onDanger,c.COL.danger)>=4.5);
 });
@@ -64,5 +64,16 @@ test('native state selects the saved appearance without sending another setting 
  const {c,load}=harness();c.pbShuffle=false;c.ssFlight=null;c.ssOut=[];c.ssPump=()=>{};c.ssSeenOpen=0;load('data/smartshuffle.js');
  c.ssAcceptState({version:1,theme:{appearance:'light'},ui_open:0});assert.equal(c.SS_APPEARANCE,'light');
  assert.ok(!c.ssOut.some(q=>q.op==='theme_appearance'));
+});
+
+
+test('desktop fullscreen keeps artwork beside metadata and above transport',()=>{
+ const {c,load}=harness();load('core/util.js');load('views/fullscreen.js');
+ for(const [w,h] of [[1024,720],[1280,800],[1920,1080],[2560,1440]]){
+ const m=c.ssFsDefaultGeometry(w,h-172);assert.ok(m.size>0);assert.ok(m.textX>=m.x+m.size+30);assert.ok(m.textX+m.textW<=w);assert.ok(m.y+m.size<=h-172);assert.ok(m.textY+142<=h-172);
+ }
+});
+test('dark record-room palette retains readable text and accent actions',()=>{
+ const {c}=harness('dark');for(const name of ['text','text2','text3','green'])assert.ok(contrast(c.COL[name],c.COL.base)>=4.5,name);assert.ok(contrast(c.COL.onAccent,c.COL.green)>=4.5);
 });
 console.log(passed+' appearance regression checks passed');

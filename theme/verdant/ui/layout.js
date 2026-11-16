@@ -1,6 +1,17 @@
 ﻿/* User-sized columns. Requested widths survive small-window clamping and restarts. */
 var SS_WIDTH_KEYS={nav:'SmartShuffle: library width',right:'SmartShuffle: lyrics width'};
 var ssWidths={},ssResizing=null,ssResizeTimer=0,ssSplitHot='',ssLayoutReportTimer=0,ssResizePreview=null;
+var ssRightOpen=false,ssRightTab='lyrics',ssRightForced=false;
+try{ssRightOpen=window.GetProperty('SmartShuffle: right pane open',false)===true;ssRightTab=window.GetProperty('SmartShuffle: right pane tab','lyrics')==='queue'?'queue':'lyrics';}catch(e){}
+function ssSetRightPane(tab,open){
+  if(tab!=='queue'&&tab!=='lyrics')return;
+  ssRightTab=rightTab=tab;ssRightOpen=!!open;
+  ssRightForced=ssRightOpen&&W<1000*(typeof ssDensity==='number'?ssDensity:1);
+  window.SetProperty('SmartShuffle: right pane open',ssRightOpen);
+  window.SetProperty('SmartShuffle: right pane tab',tab);
+  if(tab==='lyrics'&&ssRightOpen){loadLyrics();lySnap=true;}else stopLyAnim();
+  ssHideLyrics();layout();ssDropModalImage();ssDropSceneImage();ssSyncLyricPanel();ssReportLayout();repaintAll();
+}
 // Work-area proportions, not a fixed requested pixel size. Native code supplies
 // the monitor containing the player, so taskbars and secondary screens are respected.
 function ssDefaultWindowSize(){
@@ -34,7 +45,7 @@ function ssResponsiveMetrics(w,h){
   ssDensity=density;
   if(typeof SS_BASE_UI_SCALE!=='undefined')UISCALE=SS_BASE_UI_SCALE*density;
   if(typeof ssCreateFonts==='function'){SS_FONT_META=[];SS_FIT_FONTS=[];SS_SCRIPT_FONTS={};FONT=ssCreateFonts();LH_F=[];LH_V=[];}
-  var base={pad:8,gap:8,navW:210,queueW:350,barH:96,navTopH:84,rowH:56,cardTextH:56,radius:10};
+  var base={pad:8,gap:10,navW:216,queueW:300,barH:96,navTopH:78,rowH:52,cardTextH:56,radius:8};
   for(var key in base)M[key]=Math.round(base[key]*density);
   TBH=Math.round(32*UISCALE);CAPBW=Math.round(46*UISCALE);
   if(typeof SG_IND!=='undefined'){
@@ -55,6 +66,9 @@ function ssFitWidths(left,right,budget,minLeft,minRight){
 function ssLayoutWidths(w){
   var mainMin=Math.min(330,Math.round(w*.36)),navMin=Math.min(156,Math.round(w*.18)),rightMin=Math.min(220,Math.round(w*.24));
   var panes=ssFitWidths(ssWidths.nav||Math.min(M.navW,w*.19),ssWidths.right||Math.min(M.queueW,w*.27),w-M.gap*4-mainMin,navMin,rightMin);
+  // Keep the saved request intact while a smaller window temporarily gives content priority.
+  var showRight=ssRightOpen&&(ssRightForced||w>=1000*(typeof ssDensity==='number'?ssDensity:1));
+  if(!showRight){panes.right=0;panes.left=Math.round(Math.max(navMin,Math.min(ssWidths.nav||M.navW,w*.28)));}
   // Let the title use the left third as the window grows; reserve the middle for transport.
   var bar=ssFitWidths(w*.36,Math.min(300,w*.27),w-Math.min(310,w*.34),Math.min(180,w*.2),Math.min(260,w*.28));
   return {nav:panes.left,right:panes.right,info:bar.left,tools:bar.right};
@@ -63,7 +77,7 @@ function ssSplitAt(x,y){
   if(fsMode||ssModal||ssPopup||!R.main)return '';
   if(y>=R.top.y&&y<R.barY-M.gap){
     if(Math.abs(x-(R.main.x-M.gap/2))<=M.gap/2+1)return 'nav';
-    if(Math.abs(x-(R.queue.x-M.gap/2))<=M.gap/2+1)return 'right';
+    if(!R.queueOverlay&&R.queue.w>0&&Math.abs(x-(R.queue.x-M.gap/2))<=M.gap/2+1)return 'right';
   }
   return '';
 }
@@ -81,7 +95,7 @@ function ssPaintResizePreview(gr){
   gr.DrawImage(p.image,0,0,W,TBH,0,0,W,TBH);
   gr.DrawImage(p.image,0,R.barY,W,H-R.barY,0,p.barY,W,H-p.barY);
   var keys=['navTop','navLib','main','queue'];
-  for(var i=0;i<keys.length;i++){var to=R[keys[i]],from=p.panes[keys[i]];gr.DrawImage(p.image,to.x,to.y,to.w,to.h,from.x,from.y,from.w,from.h);}
+  for(var i=0;i<keys.length;i++){var to=R[keys[i]],from=p.panes[keys[i]];if(to.w>0&&from.w>0)gr.DrawImage(p.image,to.x,to.y,to.w,to.h,from.x,from.y,from.w,from.h);}
   return true;
 }
 function ssResizeBegin(x,y){
@@ -113,6 +127,7 @@ function ssDrawResizers(gr){
   if(fsMode||ssModal||ssPopup||!R.main||!R.queue||!R.top)return;
   var active=ssResizing?ssResizing.key:'',keys=['nav','right'];
   for(var i=0;i<keys.length;i++){
+    if(keys[i]==='right'&&(R.queueOverlay||R.queue.w<=0))continue;
     var key=keys[i],x=key==='nav'?R.main.x-M.gap/2:R.queue.x-M.gap/2;
     var y=R.top.y+14,h=R.main.h-28;
     gr.FillSolidRect(Math.round(x),Math.round(y),1,Math.round(Math.max(4,h)),key===active?COL.text2:COL.splitter);
@@ -123,11 +138,12 @@ function ssResetLayout(){
   ssResizing=null;ssDropResizePreview();ssSplitHot='';
   if(fsMode&&typeof exitFullscreen==='function')exitFullscreen();
   if(typeof rightTab!=='undefined')rightTab='lyrics';
+  ssRightTab='lyrics';ssRightOpen=false;window.SetProperty('SmartShuffle: right pane open',false);window.SetProperty('SmartShuffle: right pane tab','lyrics');
   for(var key in SS_WIDTH_KEYS){ssWidths[key]=0;window.SetProperty(SS_WIDTH_KEYS[key],0);}
   ssApplyDefaultWindow(true);
   layout();ssDropModalImage();ssDropPopupImage();ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();
 }
-function ssLayoutStatus(){return {width:W,height:H,nav:R.navW,right:R.queueW,info:R.barInfoW,tools:R.barToolsW,density:ssDensity,row_height:M.rowH,cover_size:M.artSz,reset:Number(window.GetProperty('SmartShuffle: layout reset applied',0))};}
+function ssLayoutStatus(){return {width:W,height:H,nav:R.navW,right:R.queueW,right_open:ssRightOpen,right_tab:rightTab,info:R.barInfoW,tools:R.barToolsW,density:ssDensity,row_height:M.rowH,cover_size:M.artSz,reset:Number(window.GetProperty('SmartShuffle: layout reset applied',0))};}
 function ssReportLayout(){
   if(!ssStarted)return;
   if(ssLayoutReportTimer)window.ClearTimeout(ssLayoutReportTimer);

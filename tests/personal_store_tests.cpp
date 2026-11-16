@@ -1,3 +1,4 @@
+#include "listening_stats.hpp"
 #include "personal_store.hpp"
 #include <functional>
 #include <iostream>
@@ -24,6 +25,45 @@ void test(const char* name, const std::function<void()>& body) {
 json item(const PersonalStore& s, const std::string& kind, size_t offset = 0) { return s.page(kind, offset, 1).at("items").at(0); }
 }
 int main() {
+    test("rankings use inclusive dates, zero samples, and confirmed switches only", [] {
+        PersonalStore s;
+        s.begin(track("a"), 100); s.listen(90); s.finish("completed", 190);
+        s.begin(track("a"), 200); s.listen(30); s.finish("switched", 230);
+        s.begin(track("b"), 300); s.listen(15); s.finish("skipped", 315);
+        s.begin(track("old"), 50); s.listen(100); s.finish("completed", 150);
+        auto day=[](int64_t time){return time<100?"2026-01-01":"2026-01-02";};
+        auto r=ss::listening_stats(s.history(), {"a","b","zero"}, "2026-01-02","2026-01-02","plays",true,0,20,day);
+        expect(r.at("overview").at("seconds")==135,"sum with inclusive boundary");
+        expect(r.at("rows").at(0).at("id")=="b" && r.at("rows").at(1).at("id")=="zero","includes zero songs");
+        expect(r.at("rows").at(0).at("switches")==0,"legacy skip is not a confirmed switch");
+        expect(r.at("rows").at(1).at("score").is_null(),"unplayed score is null");
+        auto score=ss::listening_stats(s.history(), {"a","b","zero"}, "2026-01-02","2026-01-02","score",false,0,20,day);
+        expect(score.at("total")==2,"score drops unplayed songs");
+        auto a=score.at("rows").at(0);
+        expect(a.at("average")==60 && a.at("switches")==1 && a.at("score")==75,"weighted score");
+    });
+    test("rank metrics reverse independently and keep stable pagination", [] {
+        PersonalStore s;
+        s.begin(track("long", 120), 100); s.listen(110); s.finish("completed", 210);
+        s.begin(track("many", 60), 220); s.listen(32); s.finish("switched", 252);
+        s.begin(track("many", 60), 300); s.listen(34); s.finish("switched", 334);
+        s.begin(track("short", 0), 350); s.listen(5); s.finish("stopped", 355);
+        auto day=[](int64_t t){return t<220?"2026-01-01":"2026-01-02";};
+        auto ask=[&](const char* order,bool asc,size_t offset=0,size_t limit=50){
+            return ss::listening_stats(s.history(), {}, "2026-01-01","2026-01-02",order,asc,offset,limit,day);
+        };
+        auto top=[&](const char* order,bool asc){return ask(order,asc).at("rows").at(0).at("id");};
+        expect(top("plays",false)=="many" && top("plays",true)=="short","plays sort");
+        expect(top("average",false)=="long" && top("average",true)=="short","average sort");
+        expect(top("switches",false)=="many" && top("switches",true)=="long","switch sort");
+        auto page=ask("average",false,1,1);
+        expect(page.at("total")==3 && page.at("rows").size()==1 && page.at("rows").at(0).at("id")=="many","page retains ordering");
+        auto score=ask("score",true);
+        expect(score.at("rows").at(0).at("id")=="short" &&
+            std::abs(score.at("rows").at(0).at("score").get<double>()-100.0/3.0)<.001,"missing duration reweights score");
+        expect(score.at("overview").at("daily").at("2026-01-01")==110 &&
+            score.at("overview").at("daily").at("2026-01-02")==71,"both local days included");
+    });
     test("empty summary and pages expose the versioned personal contract", [] {
         PersonalStore s;
         expect(s.summary("") == json{{"revision", 0}, {"history_count", 0}, {"favorites_count", 0}, {"later_count", 0}, {"now_favorite", false}, {"now_later", false}}, "empty summary");

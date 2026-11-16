@@ -25,11 +25,11 @@ function repaintAll(){ if(typeof ssInvalidateRowRasters==='function')ssInvalidat
    10px gutter below it (see the FillSolidRect(r.x,cropY,...) in each), so the remainder lands on
    the player bar. drawBar runs after main in the partial path, so pairing them covers it -- and
    it is far cheaper than the full-window repaint that used to hide this. */
-function repaintMain(scrollOnly){ if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyMain=true; window.RepaintRect(R.main.x,R.main.y,R.main.w,R.main.h); if(!scrollOnly||(view!=='playlist'&&view!=='songs'))repaintBar(); }
+function repaintMain(scrollOnly){ if(R.queueOverlay){repaintAll();return;} if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyMain=true; window.RepaintRect(R.main.x,R.main.y,R.main.w,R.main.h); if(!scrollOnly||(view!=='stats'&&view!=='playlist'&&view!=='songs'&&view!=='artist'&&view!=='album'&&view!=='albums'))repaintBar(); }
 function repaintNav(){ markDirty(); dirtyNav=true; window.RepaintRect(R.navLib.x,R.navLib.y,R.navLib.w,R.navLib.h); }
 // drawNav paints both nav cards, so a hover crossing between them must invalidate their union
 function repaintNavAll(){ markDirty(); dirtyNav=true; window.RepaintRect(R.navTop.x,R.navTop.y,R.navTop.w,(R.navLib.y+R.navLib.h)-R.navTop.y); }
-function repaintQueue(scrollOnly){ if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyQueue=true; window.RepaintRect(R.queue.x,R.queue.y,R.queue.w,R.queue.h); }
+function repaintQueue(scrollOnly){ if(R.queueOverlay){repaintAll();return;} if(!R.queue||R.queue.w<=0)return; if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyQueue=true; window.RepaintRect(R.queue.x,R.queue.y,R.queue.w,R.queue.h); }
 // the visualizer's own band, 30 times a second -- see the fullscreen branch of on_paint
 function repaintViz(){ markDirty(); dirtyViz=true; window.RepaintRect(0,VIZ_TOP,W,Math.max(0,(H-172)-VIZ_TOP)); }
 function repaintTitle(){ markDirty(); dirtyTitle=true; window.RepaintRect(0,0,W,TBH); }
@@ -59,9 +59,10 @@ function scrollTick(){
   var alpha=1-Math.exp(-dt/95),mm=false,nm=false,qm=false;
   function step(current,target,zone){var d=target-current;if(Math.abs(d)<.5)return target;if(zone==='nav')nm=true;else if(zone==='queue')qm=true;else mm=true;return current+d*alpha;}
   firstRow=step(firstRow,firstRowT);homeScroll=step(homeScroll,homeScrollT);songsScroll=step(songsScroll,songsScrollT);
-  searchScroll=step(searchScroll,searchScrollT);plScroll=step(plScroll,plScrollT);navScroll=step(navScroll,navScrollT,'nav');
+  searchScroll=step(searchScroll,searchScrollT);artScroll=step(artScroll,artScrollT);plScroll=step(plScroll,plScrollT);navScroll=step(navScroll,navScrollT,'nav');
   ssQueueScroll=step(ssQueueScroll,ssQueueScrollT,'queue');
   if(typeof ssPersonalScroll!=='undefined')ssPersonalScroll=step(ssPersonalScroll,ssPersonalScrollT);
+  if(view==='stats')ssStatsScroll=step(ssStatsScroll,ssStatsScrollT);
   if(mm) repaintMain(true);
   if(nm) repaintNav();
   if(qm) repaintQueue(true);
@@ -73,7 +74,7 @@ function stopScrollAnim(){ if(scrollTimer){ window.ClearInterval(scrollTimer); s
 
 function hv(x0,y0,x1,y1){ return mx>=x0 && mx<x1 && my>=y0 && my<y1; }
 var HB_PL=[], HB_TR=[], HB_CTRL=[], HB_TABS=[], HB_SEEK=null, HB_VOL=null, HB_Q=[];
-var HB_CARD=[],HB_PLPLAY=[],HB_PLAYLIST_PLAY=null,HB_SONGS_PLAY=null,ssPlaylistPlayDown=null, HB_HOME=null, HB_CAP=null, HB_MENU=[], SB=null;
+var HB_CARD=[],HB_PLPLAY=[],HB_PLAYLIST_PLAY=null,HB_SONGS_PLAY=null,HB_ARTIST_PLAY=null,HB_ALBUMS=null,HB_ALBUM_BACK=null,ssPlaylistPlayDown=null, HB_HOME=null, HB_CAP=null, HB_MENU=[], SB=null;
 var navScroll=0, NAV_MAX=0, SBN=null, HB_ADDPL=null, navDropHover=false;
 // deferred "scroll this playlist into view" -- only drawNav knows the row geometry, so it consumes this
 var navRevealPl=-1;
@@ -82,18 +83,18 @@ var plDropHover=false, HB_PLADD_FILES=null, HB_PLADD_FOLDER=null;   // empty-pla
 // playlist edit: context menu, inline rename, delete confirm
 var HB_DOTS=[], ctxMenu=null, CTX_HB=[], renameEdit=null, confirmDel=null, CONF_HB=null, RENAME_HB=null;
 
-var rightTab='lyrics';
-var view='home', viewArtist='', artistAlbums=[], homeScroll=0, artScroll=0;
+var rightTab=typeof ssRightTab==='string'?ssRightTab:'lyrics';
+var view='home', viewArtist='', viewAlbum='', artistAlbums=[], homeScroll=0, artScroll=0, artScrollT=0,ssOpenCatalog=null,ssAlbumBack=null;
 // Fullscreen "chill" mode + its sub-view (default now-playing / lyrics / visualizer)
 var fsMode=false, fsView='default', HB_FS=[], vizTimer=null, vizBars=[];
 // Re-asserted every full paint + on_size: JSplitter can reset window.DlgCode on resize/reload.
 /* Search and rename need every key, because the user is typing into them. Everywhere else the
    panel still asks for character keys, which is what lets Space reach on_char and act as
    play/pause -- without it the dialog manager swallows Space before the panel ever sees it. */
-function applyKeyMode(){ try{ window.DlgCode=(ssModal||ssPopup||confirmDel||view==='search'||renameEdit)?DLGC_WANTALLKEYS:DLGC_WANTCHARS; }catch(e){} }
+function applyKeyMode(){ try{ window.DlgCode=(ssModal||ssPopup||confirmDel||view==='search'||renameEdit||(view==='stats'&&ssStats.edit))?DLGC_WANTALLKEYS:DLGC_WANTCHARS; }catch(e){} }
 
 var searchQuery='', searchScroll=0, searchScrollT=0, searchIdx=null, searchQ2=null, searchArts=[], searchTrks=[], HB_SEARCH=null;
-var HOME_MAXROW=0, ART_MAXBLOCK=0, SEARCH_MAXPX=0;
+var HOME_MAXROW=0, SS_COLLECTION_SCROLL_MAX=0, SEARCH_MAXPX=0;
 // Home "Your Playlists" horizontal shelf: pixel scroll offset + eased target, max, wheel hit-band, h-scrollbar.
 var plScroll=0, plScrollT=0, HOME_PLMAX=0, HOME_SHELF_Y0=0, HOME_SHELF_Y1=0, SBH=null;
 // The shelf glides freely but always *targets* a card boundary, so the leftmost card keeps its
@@ -112,14 +113,20 @@ function layout(contentOnly){
   R.navX=g; R.navW=widths.nav;
   R.queueW=widths.right; R.queueX=W-g-R.queueW;
   R.barInfoW=widths.info;R.barToolsW=widths.tools;
-  R.mainX=R.navX+R.navW+g; R.mainW=R.queueX-g-R.mainX;
+  R.mainX=R.navX+R.navW+g;
+  R.queueOverlay=ssRightForced&&R.queueW>0;
+  if(R.queueOverlay){
+    R.queueX=R.mainX;
+    R.queueW=W-g-R.mainX;
+  }
+  R.mainW=(R.queueOverlay?W-g:R.queueX-(R.queueW>0?g:0))-R.mainX;
   var topH=R.top.bottom-R.top.y;
   var compact=R.mainW<800*ssDensity;
-  M.cpad=Math.round((R.mainW<650*ssDensity?16:24)*ssDensity);
-  M.artSz=Math.round(Math.max(72*ssDensity,Math.min(200*ssDensity,R.mainW*.18,topH*.28)));
-  M.headH=Math.round((compact?120:76)*ssDensity+M.artSz);SHEAD=M.headH+Math.round(20*ssDensity);
+  M.cpad=Math.round((R.mainW<650*ssDensity?20:32)*ssDensity);
+  M.artSz=Math.round(Math.max(72*ssDensity,Math.min(96*ssDensity,R.mainW*.20,topH*.25)));
+  M.headH=Math.round(66*ssDensity+M.artSz);SHEAD=M.headH;
   R.navTop={x:R.navX,y:top0,w:R.navW,h:M.navTopH};
-  R.navLib={x:R.navX,y:top0+M.navTopH+g*2,w:R.navW,h:topH-M.navTopH-g*2};   // wider gap to the library card
+  R.navLib={x:R.navX,y:top0+M.navTopH+g,w:R.navW,h:topH-M.navTopH-g};   // wider gap to the library card
   R.main={x:R.mainX,y:top0,w:R.mainW,h:topH};
   R.queue={x:R.queueX,y:top0,w:R.queueW,h:topH};
   if(contentOnly)return;
@@ -129,7 +136,7 @@ function layout(contentOnly){
   applyKeyMode();
 }
 // bitmaps are keyed by geometry; and the panel's surface is rebuilt, so the next paint must be full
-function on_size(w,h){ if(w<400||h<200)return;if(typeof ssAbortResize==='function')ssAbortResize();W=w; H=h; layout(); ssDropModalImage();ssDropSceneImage(); plCardCache={}; artCardCache={}; artCardN=0; skelImgs={}; dirtyAll=true;ssReportLayout(); }
+function on_size(w,h){ if(w<400||h<200)return;if(typeof ssAbortResize==='function')ssAbortResize();if(W!==w||H!==h)ssRightForced=false;W=w; H=h; layout(); ssDropModalImage();ssDropSceneImage(); plCardCache={}; artCardCache={}; artCardN=0; skelImgs={}; dirtyAll=true;ssReportLayout(); }
 
 // name/count come from the per-playlist caches, not fresh interop: this runs on every paint of the playlist view
 function activePl(){ var i=plman.ActivePlaylist; return {i:i, name:i>=0?plName(i):'', count:i>=0?plCount(i):0}; }
@@ -152,13 +159,15 @@ function drawMainCounted(gr){
 }
 function ssDrawBase(gr){
   HB_DOTS=[];gr.FillSolidRect(0,0,W,H,COL.black);
-  drawTitleBar(gr);drawMainCounted(gr);drawNav(gr);drawQueue(gr);drawBar(gr);ssDrawResizers(gr);
+  drawTitleBar(gr);if(!R.queueOverlay)drawMainCounted(gr);drawNav(gr);
+  drawQueue(gr);drawBar(gr);ssDrawResizers(gr);
 }
 function on_paint(gr){
   ssPaintFrame(gr);
   if(!ssModal&&!ssPopup&&!fsMode&&!ctxMenu&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt)ssDrawResizers(gr);
 }
 function ssPaintFrame(gr){
+  if(R.queueOverlay&&dirtySearch)dirtyAll=true;
   if(ssPaintResizePreview(gr))return;
   if(ssSelectionDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!ssModal&&!ssPopup&&!fsMode){
     ssPaintInteractions(gr);return;
@@ -223,7 +232,7 @@ function ssPaintFrame(gr){
 
 function drawMain(gr){
   if(typeof HB_PERSONAL_ACTIONS!=='undefined')HB_PERSONAL_ACTIONS=[];
-  HB_PLPLAY=[];HB_PLAYLIST_PLAY=null;HB_SONGS_PLAY=null;
+  HB_PLPLAY=[];HB_PLAYLIST_PLAY=null;HB_SONGS_PLAY=null;HB_ARTIST_PLAY=null;HB_ALBUM_BACK=null;
   HB_CARD=[]; HB_TR=[]; SB=null; SBH=null;SS_ARTIST_HB=null;   // clear stale click targets from the previous view
   if(view!=='songs'){ HB_SG=null; SG_HB=[]; HB_RGNORM=null; }
   if(view!=='playlist'){ HB_PLSORT=null; HB_PLSORTDIR=null; PL_SORT_HB=[]; }
@@ -232,7 +241,9 @@ function drawMain(gr){
   var r=R.main; panelBg(gr,r,COL.base);
   if(view==='home'){ drawHome(gr,r); return; }
   if(view==='search'){ drawSearch(gr,r); return; }
-  if(view==='artist'){ drawArtist(gr,r); return; }
+  if(view==='stats'){drawStats(gr,r);return;}
+  if(view==='artist'||view==='album'){ssSyncCollection();drawArtist(gr,r);return;}
+  if(view==='albums'){drawAlbums(gr,r);return;}
   if(view==='songs'){ drawSongs(gr,r); return; }
   if(typeof ssIsPersonal==='function'&&ssIsPersonal(view)){drawPersonal(gr,r);return;}
   drawPlaylist(gr,r);
@@ -242,12 +253,20 @@ function drawMain(gr){
 function seekFrac(x){ return HB_SEEK?clamp01((x-HB_SEEK.x)/HB_SEEK.w):0; }
 function applyVol(x){ if(HB_VOL){ fb.Volume=pos2vol(clamp01((x-HB_VOL.x)/HB_VOL.w)); repaintBar(); } }
 function setQueueScroll(y){if(!SS_QUEUE_SB)return;var s=SS_QUEUE_SB;ssQueueScroll=ssQueueScrollT=Math.round(sbFrac(y,s.top,s.h,s.thumbH)*s.maxPx);repaintQueue();}
-function ssHeaderPlayAt(x,y){return HB_SONGS_PLAY&&inRect(x,y,HB_SONGS_PLAY)?HB_SONGS_PLAY:hit(HB_PLPLAY,x,y)||(HB_PLAYLIST_PLAY&&inRect(x,y,HB_PLAYLIST_PLAY)?HB_PLAYLIST_PLAY:null);}
+function ssHeaderPlayAt(x,y){if(HB_ARTIST_PLAY&&inRect(x,y,HB_ARTIST_PLAY))return HB_ARTIST_PLAY;return HB_SONGS_PLAY&&inRect(x,y,HB_SONGS_PLAY)?HB_SONGS_PLAY:hit(HB_PLPLAY,x,y)||(HB_PLAYLIST_PLAY&&inRect(x,y,HB_PLAYLIST_PLAY)?HB_PLAYLIST_PLAY:null);}
+function ssOverQueueLayer(x,y){
+  return R.queueOverlay&&R.main&&x>=R.main.x&&x<R.main.x+R.main.w&&y>=R.main.y&&y<R.main.y+R.main.h;
+}
 function on_mouse_lbtn_down(x,y){
   ssPlaylistPlayDown=null;
   if(ssPopup)return;
   if(ssPointerDown(x,y)) return;
   if(ctxMenu||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;   // overlays are modal; dismissal/actions handled on button-up
+  if(!fsMode&&ssOverQueueLayer(x,y)){
+    if(SS_QUEUE_SB&&inRect(x,y,SS_QUEUE_SB)){drag='scrollq';setQueueScroll(y);}
+    return;
+  }
+  if(!fsMode&&view==='stats'&&ssStatsPointerDown(x,y))return;
   if(!fsMode&&typeof ssPersonalPointerDown==='function'&&ssPersonalPointerDown(x,y))return;
   if(!fsMode){var playTarget=ssHeaderPlayAt(x,y);if(playTarget){ssPlaylistPlayDown=playTarget;return;}}
   if(ssResizeBegin(x,y))return;
@@ -257,6 +276,7 @@ function on_mouse_lbtn_down(x,y){
   if(SBH && inRect(x,y,SBH)){ drag='scrollh'; setScrollH(x); return; }
   if(SBN && inRect(x,y,SBN)){ drag='scrolln'; setScrollN(y); return; }
   if(SB && inRect(x,y,SB)){ drag='scroll'; setScroll(y); return; }
+  var card=hit(HB_CARD,x,y);if(card&&card.kind==='album')return;
   ssSelectionDown(x,y);
 }
 function on_mouse_rbtn_up(x,y){
@@ -264,6 +284,11 @@ function on_mouse_rbtn_up(x,y){
   if(ssModal) return true;
   if(ctxMenu||confirmDel||renameEdit||dupPrompt||rgPrompt) return true;   // a modal is open: swallow
   var i;
+  if(ssOverQueueLayer(x,y)){
+    var queued=hit(HB_Q,x,y);
+    if(queued&&queued.track_id)ssOpenNativeMenu('context',{track_id:queued.track_id},x,y);
+    return true;
+  }
   for(i=0;i<HB_TR.length;i++)if(inRect(x,y,HB_TR[i])){
     var row=HB_TR[i];
     return ssBatchTrackMenu(row,x,y);
@@ -312,13 +337,22 @@ function computeSearch(){
   for(i=0;i<idx.length && cnt<150;i++){ if(idx[i].key.indexOf(q)>=0){ searchTrks.push(idx[i]); cnt++; } }
 }
 function doCtrl(act){
-  if(act==='favorite')ssPersonalNow('favorites');
+  if(act==='lyrics'||act==='queue'){ssSetRightPane(act,!(ssRightOpen&&rightTab===act&&R.queue&&R.queue.w>0));return;}
+  else if(act==='favorite')ssPersonalNow('favorites');
   else if(act==='later')ssPersonalNow('later');
   else if(act==='play') ssPlayOrPause();
   else if(act==='next') ssSend('next');
   else if(act==='prev') ssSend('previous');
   else if(act==='playback_mode'||act==='shuffle'||act==='repeat') ssShowPlaybackModes(Math.max(8,W-320),R.barY-80);
   else if(act==='preference') ssOpen();
+  else if(act==='player_settings'){
+    var settingsX=Math.max(8,W-250),settingsY=R.barY;
+    ssShowPopup([
+      {label:'播放模式',run:function(){ssShowPlaybackModes(settingsX,settingsY);}},
+      {label:'音频输出',run:function(){ssShowOutputs(settingsX,settingsY);}}
+    ],settingsX,settingsY);
+    return;
+  }
   else if(act==='output') ssShowOutputs(Math.max(0,W-350),R.barY);
   else if(act==='scan_pause') ssSend('scan_pause',{paused:!(ssState&&ssState.scan&&ssState.scan.paused)});
   else if(act==='scan_retry') ssSend('scan_retry');
@@ -328,14 +362,33 @@ function doCtrl(act){
 }
 function on_mouse_lbtn_up(x,y){
   var playlistPressed=ssPlaylistPlayDown;ssPlaylistPlayDown=null;
+  if(!fsMode&&!ssPopup&&!ssModal&&!ctxMenu&&!confirmDel&&!renameEdit&&!drag&&ssOverQueueLayer(x,y)){
+    if(typeof HB_QUEUE_CLOSE!=='undefined'&&HB_QUEUE_CLOSE&&inRect(x,y,HB_QUEUE_CLOSE)){ssSetRightPane(rightTab,false);return;}
+    if(SS_LYRIC_BTN&&inRect(x,y,SS_LYRIC_BTN)){ssNativeLyrics();return;}
+    var paneTab=hit(HB_TABS,x,y);
+    if(paneTab)ssSetRightPane(paneTab.tab,true);
+    else if(x<R.queue.x)ssSetRightPane(rightTab,false);
+    return;
+  }
   if(ssRecycleClick(x,y))return;
   if(!ssPopup&&!ssModal&&SS_ARTIST_HB&&inRect(x,y,SS_ARTIST_HB)){ssArtistMenu(viewArtist,x,y);return;}
   if(ssResizeEnd(x,y))return;
   if(ssPopupClick(x,y))return;
   if(ssPointerUp(x,y)) return;
+  if(typeof ssStatsPointerUp==='function'&&ssStatsPointerUp(x,y))return;
   if(typeof ssPersonalPointerUp==='function'&&ssPersonalPointerUp(x,y))return;
   if(typeof ssSelectOwner!=='undefined'&&ssSelectOwner&&ssSelectionUp(x,y))return;
-  if(playlistPressed){if(!drag&&!fsMode&&!ssPopup&&!ssModal&&inRect(x,y,playlistPressed)){var playlistPlay=ssHeaderPlayAt(x,y);if(playlistPlay&&!!playlistPlay.library===!!playlistPressed.library&&playlistPlay.pl===playlistPressed.pl){if(playlistPlay.library)playLibrary();else playPlaylist(playlistPlay.pl);}}return;}
+  if(playlistPressed){
+    if(drag||fsMode||ssPopup||ssModal||!inRect(x,y,playlistPressed))return;
+    var target=ssHeaderPlayAt(x,y);
+    if(!target||target.pl!==playlistPressed.pl||target.library!==playlistPressed.library||
+       target.artist!==playlistPressed.artist||target.album!==playlistPressed.album)return;
+    if(target.album!==undefined)playAlbum(target.album);
+    else if(target.artist!==undefined)playArtist(target.artist);
+    else if(target.library)playLibrary();
+    else playPlaylist(target.pl);
+    return;
+  }
   if(ssSelectionUp(x,y))return;
   if(SS_LYRIC_BTN && inRect(x,y,SS_LYRIC_BTN)){ ssNativeLyrics(); return; }
   var t;
@@ -416,18 +469,25 @@ function on_mouse_lbtn_up(x,y){
     }
     return;
   }
-  if((t=hit(HB_TABS,x,y))){ rightTab=t.tab; if(rightTab==='lyrics'){ loadLyrics(); lySnap=true; } else stopLyAnim(); repaintAll(); return; }
+  if((t=hit(HB_TABS,x,y))){ssSetRightPane(t.tab,true);return;}
   if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act); return; }
+  if(R.queueOverlay&&R.navTop&&x<R.main.x&&y>=R.navTop.y&&y<R.barY)ssSetRightPane(rightTab,false);
   if(HB_HOME && inRect(x,y,HB_HOME)){ view='home'; repaintAll(); return; }
+  if(typeof HB_HOME_CONTINUE!=='undefined'&&view==='home'&&HB_HOME_CONTINUE&&inRect(x,y,HB_HOME_CONTINUE)){ssPlayOrPause();return;}
+  if(typeof HB_ARTISTS_NAV!=='undefined'&&HB_ARTISTS_NAV&&inRect(x,y,HB_ARTISTS_NAV)){view='songs';setSongsGroup('artist');songsScroll=songsScrollT=0;repaintAll();return;}
+  if(typeof HB_STATS_NAV!=='undefined'&&HB_STATS_NAV&&inRect(x,y,HB_STATS_NAV)){ssStatsOpen();return;}
   if(HB_SEARCH && inRect(x,y,HB_SEARCH)){ view='search'; repaintAll(); return; }
-  if(HB_ALLSONGS && inRect(x,y,HB_ALLSONGS)){ if(view!=='songs'){ view='songs'; songsScroll=songsScrollT=0; } repaintAll(); return; }
+  if(HB_ALBUMS&&inRect(x,y,HB_ALBUMS)){if(view!=='albums'){view='albums';artScroll=artScrollT=0;}repaintAll();return;}
+  if(HB_ALBUM_BACK&&inRect(x,y,HB_ALBUM_BACK)){ssBackFromAlbum();repaintAll();return;}
+  if(HB_ALLSONGS && inRect(x,y,HB_ALLSONGS)){ if(view!=='songs'){ view='songs'; songsScroll=songsScrollT=0; } if(songsGroup==='artist')setSongsGroup('none'); repaintAll(); return; }
   if(typeof HB_PERSONAL!=='undefined'&&(t=hit(HB_PERSONAL,x,y))){ssOpenPersonal(t.kind);return;}
   if(HB_ADDPL && inRect(x,y,HB_ADDPL)){ var np=createNewPlaylist(); plman.ActivePlaylist=np; revealPlaylist(np); firstRow=firstRowT=0; view='playlist'; repaintAll(); return; }
   if(HB_PLADD_FILES && inRect(x,y,HB_PLADD_FILES)){ addFilesToPl(plman.ActivePlaylist); return; }
   if(HB_PLADD_FOLDER && inRect(x,y,HB_PLADD_FOLDER)){ addFolderToPl(plman.ActivePlaylist); return; }
   if((t=hit(HB_CARD,x,y))){
     if(t.kind==='pl'){ plman.ActivePlaylist=t.id; firstRow=firstRowT=0; view='playlist'; }
-    else { loadArtist(t.id); view='artist'; }
+    else if(t.kind==='album')ssOpenAlbum(t.id);
+    else loadArtist(t.id);
     repaintAll(); return;
   }
   if((t=hit(HB_PL,x,y))){ plman.ActivePlaylist=t.i; firstRow=firstRowT=0; view='playlist'; repaintAll(); return; }
@@ -452,13 +512,19 @@ function playRow(t){
 function on_mouse_lbtn_dblclk(x,y){
   if(ssModal) return;
   if(ctxMenu||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;
-  if(typeof ssPersonalActionAt==='function'&&ssPersonalActionAt(x,y))return;
-  var t=hit(HB_TR,x,y);
+  var overLayer=ssOverQueueLayer(x,y);
+  if(!overLayer&&typeof ssPersonalActionAt==='function'&&ssPersonalActionAt(x,y))return;
+  var t=overLayer?null:hit(HB_TR,x,y);
   if(t&&!(t.srch&&searchTrks[t.idx].reason==='歌词')) ssEnqueueRow(t);
   else if(!t&&(t=hit(HB_Q,x,y))){rightTab='queue';if(t.scope==='priority')playQueueItem(t.queueIndex);else if(t.track_id)ssSend('play_id',{track_id:t.track_id});else playQueueNext(t.pl,t.item);repaintAll();}
 }
 function hoverSig(x,y){
-  if(!fsMode){if(HB_SONGS_PLAY&&inRect(x,y,HB_SONGS_PLAY))return 'library-play-header';if(HB_PLAYLIST_PLAY&&inRect(x,y,HB_PLAYLIST_PLAY))return 'playlist-play-header';var playlistPlay=hit(HB_PLPLAY,x,y);if(playlistPlay)return 'playlist-play-'+playlistPlay.pl;}
+  if(!fsMode){
+    if(typeof HB_HOME_CONTINUE!=='undefined'&&view==='home'&&HB_HOME_CONTINUE&&inRect(x,y,HB_HOME_CONTINUE))return 'home-continue';
+    if(typeof HB_ARTISTS_NAV!=='undefined'&&HB_ARTISTS_NAV&&inRect(x,y,HB_ARTISTS_NAV))return 'artists-nav';
+    if(typeof HB_STATS_NAV!=='undefined'&&HB_STATS_NAV&&inRect(x,y,HB_STATS_NAV))return 'stats-nav';
+  }
+  if(!fsMode){if(HB_ARTIST_PLAY&&inRect(x,y,HB_ARTIST_PLAY))return 'artist-play-header';if(HB_SONGS_PLAY&&inRect(x,y,HB_SONGS_PLAY))return 'library-play-header';if(HB_PLAYLIST_PLAY&&inRect(x,y,HB_PLAYLIST_PLAY))return 'playlist-play-header';var playlistPlay=hit(HB_PLPLAY,x,y);if(playlistPlay)return 'playlist-play-'+playlistPlay.pl;}
   var i;
   if(fsMode){
     if(vizMenuOpen){ i=hitIdx(VIZ_HB,x,y); return (i<0)?'vz':('vz'+i); }
@@ -484,12 +550,15 @@ function hoverSig(x,y){
   if(HB_PLADD_FILES && inRect(x,y,HB_PLADD_FILES)) return 'pladdf';
   if(HB_PLADD_FOLDER && inRect(x,y,HB_PLADD_FOLDER)) return 'pladdd';
   if(HB_ALLSONGS && inRect(x,y,HB_ALLSONGS)) return 'als';
+  if(HB_ALBUMS&&inRect(x,y,HB_ALBUMS))return 'albums-nav';
+  if(HB_ALBUM_BACK&&inRect(x,y,HB_ALBUM_BACK))return 'album-back';
   if(typeof HB_PERSONAL!=='undefined'&&(i=hitIdx(HB_PERSONAL,x,y))>=0)return 'personal-nav-'+i;
   if(SS_ARTIST_HB && inRect(x,y,SS_ARTIST_HB))return 'artistverify';
   if(HB_SG && inRect(x,y,HB_SG)) return 'sgb';
   if(HB_RGNORM && inRect(x,y,HB_RGNORM)) return 'nzb';
   if(HB_PLSORT && inRect(x,y,HB_PLSORT)) return 'psb';
   if(HB_PLSORTDIR && inRect(x,y,HB_PLSORTDIR)) return 'psd';
+  if(view==='stats'){var iStats=hitIdx(HB_STATS,x,y);if(iStats>=0)return 'stats-'+iStats;}
   if(SB && inRect(x,y,SB)) return 'sb';
   if((i=hitIdx(HB_CTRL,x,y))>=0) return 'c'+i;
   if((i=hitIdx(HB_TABS,x,y))>=0) return 't'+i;
@@ -533,6 +602,8 @@ function scrollSection(x,y){
     if(view==='playlist') return 'pl';
     if(view==='songs') return 'songs';
     if(view==='search') return 'srch';
+    if(view==='stats')return 'stats';
+    if(view==='artist'||view==='albums'||view==='album')return 'collection';
     if(typeof ssIsPersonal==='function'&&ssIsPersonal(view))return 'personal';
   }
   return '';
@@ -548,11 +619,12 @@ function on_mouse_leave(){
   }
   hoverZoneKey='';
 }
-function on_key_down(key){ if(ssRecycleKey(key)||ssPopupKey(key)||ssKeyDown(key)) return; }
+function on_key_down(key){ if(ssRecycleKey(key)||ssPopupKey(key)||ssKeyDown(key)) return; if(key===27&&R.queueOverlay)ssSetRightPane(rightTab,false); }
 function on_char(code){
   if(ssPopup)return;
   if(ssModal) return;
   if(confirmDel)return;
+  if(view==='stats'&&ssStatsInput(code))return;
   if(renameEdit){
     if(code===8) renameEdit.text=renameEdit.text.slice(0,-1);
     else if(code===27){ cancelRename(); return; }              // Esc = cancel
@@ -602,9 +674,10 @@ function on_mouse_wheel(step){
     else { homeScrollT=clampPx(homeScrollT-step*Math.round(ssWheelStep()*1.7),HOME_MAXROW); startScrollAnim(); }   // artists: bigger step, tall cards
     return;
   }
+  else if(view==='stats'){ssStatsScrollT=clampPx(ssStatsScrollT-step*ssWheelStep(),ssStatsMax);startScrollAnim();return;}
   else if(view==='songs'){ songsScrollT=clampPx(songsScrollT-step*ssWheelStep(),SONGS_MAXPX); startScrollAnim(); return; }
   else if(view==='search'){ searchScrollT=clampPx(searchScrollT-step*ssWheelStep(),SEARCH_MAXPX); startScrollAnim(); return; }
-  else if(view==='artist'){ artScroll=clampPx(artScroll-step,ART_MAXBLOCK); repaintAll(); return; }
+  else if(view==='artist'||view==='albums'||view==='album'){artScrollT=clampPx(artScrollT-step*ssWheelStep(),SS_COLLECTION_SCROLL_MAX);startScrollAnim();return;}
   else if(typeof ssIsPersonal==='function'&&ssIsPersonal(view)){ssPersonalScrollT=clampPx(ssPersonalScrollT-step*ssWheelStep(),SS_PERSONAL_MAX);startScrollAnim();return;}
   firstRowT=clampPx(firstRowT-step*ssWheelStep(),PL_MAXPX); startScrollAnim();
 }
@@ -654,7 +727,7 @@ function on_drag_drop(action,x,y,mask){
 }
 function on_script_unload(){
   ssStopFooterMarquee();ssInvalidateSelections();ssDropResizePreview();
-  ssStopCovers();
+  ssStopCovers();ssStatsStop();
   ssHideLyrics();
   ssStop();if(typeof ssStopPersonal==='function')ssStopPersonal();if(ssSearchTimer)window.ClearTimeout(ssSearchTimer);
   stopLyAnim(); stopCaret(); stopViz(); stopScrollAnim(); stopShimAnim(); stopMemWatch();
@@ -686,7 +759,7 @@ function on_playback_stop(){ npChanged(); }
 function on_playback_pause(){ npChanged(); }
 function on_playback_time(){
   repaintBar();
-  var lyricsShown=(rightTab==='lyrics')||(fsMode&&fsView==='lyrics');
+  var lyricsShown=(rightTab==='lyrics'&&R.queue&&R.queue.w>0)||(fsMode&&fsView==='lyrics');
   if(lyricsShown && lyrics && lyrics!=='none' && lyrics.synced){ var c=currentLyricLine(); if(c!==lyCur){ lyCur=c; startLyAnim(); } }
 }
 function on_playback_seek(){ repaintAll(); }

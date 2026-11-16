@@ -6,5 +6,8 @@ void request_layout_reset();
 bool personal_library_enabled();
 void set_personal_library_enabled(bool enabled);
 void set_personal_library_handler(std::function<void(bool)> handler);
+bool listening_stats_enabled();
+void set_listening_stats_enabled(bool enabled);
+void set_listening_stats_handler(std::function<void(bool)> handler);
 void open_settings();
 }

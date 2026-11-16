@@ -10,25 +10,24 @@ function drawSongs(gr,r){
     if(songsOk || skelVisible('songs')) drawViewSkeleton(gr,r);
     return;
   }
-  var cov=libChoice(), g=songsGroup;
-  // header: gradient wash + mosaic cover + title/meta, mirroring the playlist header
-  gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,blend(artHue(cov.single,'__lib__'),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
-  var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0), lx=r.x+M.cpad, ay=r.y+(compact?22:44)*s, art=M.artSz;
+  var g=songsGroup;
+  var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0), lx=r.x+M.cpad, ay=r.y+16*s, art=M.artSz;
   drawLibCover(gr,lx,ay,art,8);
   if(songsTracks.length){
     HB_SONGS_PLAY=drawPlaylistPlay(gr,lx+art-52*s,ay+art-52*s,44*s,-1);
     HB_SONGS_PLAY.label='播放全部歌曲';HB_SONGS_PLAY.library=true;
   }
   // header text stops short of the pill column so the two can never collide on a narrow panel
-  var gpW=compact?Math.max(150,Math.floor((r.w-M.cpad*2-8)*.54)):232, pgap=8, nzW=compact?r.w-M.cpad*2-gpW-pgap:Math.max(196,Math.round(gr.CalcTextWidth('音量均衡',FONT.pl))+72);
-  var clW=nzW+pgap+gpW, clX=compact?lx:Math.max(lx+art+24,rx-clW), gpX=clX+nzW+pgap;
-  var tx=lx+art+24, tw=compact?rx-tx:Math.max(120,clX-12-tx);
-  var text=ssHeaderBoxes(art,compact,s);
+  var pgap=8, toolbarW=Math.max(2,r.w-M.cpad*2-pgap);
+  var gpW=Math.min(232,Math.floor(toolbarW*.54)),nzW=Math.min(196,toolbarW-gpW);
+  var clX=lx,gpX=clX+nzW+pgap;
+  var tx=lx+art+24, tw=compact?rx-tx:Math.max(1,rx-tx);
+  var text=ssHeaderBoxes(art,false,s);
   tL(gr,'音乐库',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
   tL(gr,'全部歌曲',FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
-  tL(gr,fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):''),FONT.meta,COL.text2,compact?lx:tx,ay+text.metaY,compact?r.w-M.cpad*2:tw,text.metaH);
-  HB_RGNORM=drawNormalizePill(gr,clX,ay+(compact?art+42*s:142*s),nzW,38*s);
-  HB_SG=drawDropPill(gr,gpX,ay+(compact?art+42*s:142*s),gpW,38*s,'分组：'+labelOf(SONGS_GROUPS,songsGroup,'不分组'),sgMenuOpen);
+  tL(gr,fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):''),FONT.meta,COL.text2,tx,ay+text.metaY,tw,text.metaH);
+  HB_RGNORM=drawNormalizePill(gr,clX,ay+art+6*s,nzW,38*s);
+  HB_SG=drawDropPill(gr,gpX,ay+art+6*s,gpW,38*s,'分组：'+labelOf(SONGS_GROUPS,songsGroup,'不分组'),sgMenuOpen);
 
   if(!songsRows.length){
     tC(gr,'音乐库还是空的',FONT.sect,COL.text2,r.x,r.y+SHEAD+40,r.w,24);

@@ -15,7 +15,7 @@ function context(){
  function app(){let text=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(text.slice(0,text.lastIndexOf('\nlayout();')),c);c.dupPrompt=c.rgPrompt=null;c.sgMenuOpen=c.plSortMenuOpen=c.vizMenuOpen=false;}
  return {c,load,app,advance(ms){now+=ms;},tick(ms){now+=ms;c.scrollTick();},flush(){let jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
 }
-function graphics(){return {SetTextRenderingHint(){},SetSmoothingMode(){},SetInterpolationMode(){},CalcTextHeight:(s,f)=>f.Size*1.3,CalcTextWidth:(s,f)=>Array.from(String(s)).length*f.Size*.9,DrawString(){},DrawImage(){},FillSolidRect(){},FillRoundRect(){},FillEllipse(){},DrawLine(){},DrawRect(){}};}
+function graphics(){return {SetTextRenderingHint(){},SetSmoothingMode(){},SetInterpolationMode(){},CalcTextHeight:(s,f)=>f.Size*1.3,CalcTextWidth:(s,f)=>Array.from(String(s)).length*f.Size*.9,DrawString(){},DrawImage(){},FillSolidRect(){},FillRoundRect(){},FillEllipse(){},DrawEllipse(){},DrawLine(){},DrawRect(){}};}
 test('large fonts stay inside each supplied text box at 200 percent scale',()=>{
  const {c}=context(),draws=[],g=graphics();g.DrawString=(s,f,col,x,y,w,h)=>draws.push({s,f,x,y,w,h});
  c.tL(g,'大标题',c.FONT.title,1,10,10,180,26);c.tL(g,'副标题',c.FONT.meta,1,10,40,180,18);
@@ -32,13 +32,13 @@ test('footer removes analysis counts and ineffective scan controls',()=>{
  c.tL=c.tR=c.tC=(g,s)=>words.push(s);c.drawBar(graphics());assert.ok(!words.some(s=>/分析|暂停|继续/.test(s)));assert.ok(!c.HB_CTRL.some(h=>h.act==='scan_pause'||h.act==='scan_retry'));
 });
 test('queue keeps partial rows at both viewport edges during fractional scrolling',()=>{
- const {c,load}=context();load('views/preference.js');c.UISCALE=1;c.pbShuffle=true;c.ssState={remaining:Array.from({length:30},(_,i)=>({id:'t'+i,title:'song'+i})),queue:[]};c.ssQueueScroll=9;c.ssQueueScrollT=9;c.HB_Q=[];c.qRow=(g,r,x,y,rh)=>({x0:x,y0:y,x1:r.x+r.w,y1:y+rh});c.tL=()=>{};c.drawSBV=()=>null;c.SB_QUEUE={};c.hv=()=>false;c.drag=null;
+ const {c,load}=context();load('views/preference.js');c.R={};c.UISCALE=1;c.pbShuffle=true;c.ssState={remaining:Array.from({length:30},(_,i)=>({id:'t'+i,title:'song'+i})),queue:[]};c.ssQueueScroll=9;c.ssQueueScrollT=9;c.HB_Q=[];c.qRow=(g,r,x,y,rh)=>({x0:x,y0:y,x1:r.x+r.w,y1:y+rh});c.tL=()=>{};c.drawSBV=()=>null;c.SB_QUEUE={};c.hv=()=>false;c.drag=null;
  c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
  assert.equal(c.HB_Q[0].track_id,'t0','partially visible first item must remain');assert.ok(c.HB_Q[0].y0>=209);assert.equal(c.HB_Q.at(-1).y1,580,'last partial row stays clipped and hittable');
 });
 
 test('queue header hides the round counter and retains the remaining track count',()=>{
- const {c,load}=context();load('views/preference.js');c.pbShuffle=true;c.ssState={round:42,remaining_count:17,remaining:[],queue:[]};c.ssQueueScroll=c.ssQueueScrollT=0;c.HB_Q=[];c.hv=()=>false;c.drag=null;c.drawSBV=()=>null;c.SB_QUEUE={};const words=[];c.tL=(g,s)=>words.push(s);
+ const {c,load}=context();load('views/preference.js');c.R={};c.pbShuffle=true;c.ssState={round:42,remaining_count:17,remaining:[],queue:[]};c.ssQueueScroll=c.ssQueueScrollT=0;c.HB_Q=[];c.hv=()=>false;c.drag=null;c.drawSBV=()=>null;c.SB_QUEUE={};const words=[];c.tL=(g,s)=>words.push(s);
  c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
  assert.ok(words.includes('接下来'));assert.ok(words.includes('本轮剩余 17 首'));assert.ok(!words.some(s=>/第\s*42\s*轮/.test(s)));
 });
@@ -99,10 +99,11 @@ test('Ctrl left-click toggles songs; right-click keeps its menu and holding left
  c.on_mouse_rbtn_up(20,20);assert.equal(menus,1);
  c.utils.IsKeyPressed=k=>k===1;c.ssSelectionDown(20,20);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'pending');h.advance(170);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'reorder');assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0]);
 });
-test('Chinese text explicitly uses YaHei UI and English uses subpixel antialiasing',()=>{
+test('Chinese and Japanese text share YaHei UI while English retains Inter',()=>{
  const {c}=context(),g=graphics(),draws=[],hints=[];g.SetTextRenderingHint=v=>hints.push(v);g.DrawString=(s,f)=>draws.push({s,f});
  c.tL(g,'歌曲列表',c.FONT.rowTitle,1,0,0,200,32);c.tL(g,'English song',c.FONT.rowTitle,1,0,40,200,32);
- assert.equal(draws[0].f.Name,'Microsoft YaHei UI');assert.equal(draws[1].f.Name,'Inter');assert.deepEqual(hints,[5,5]);
+ c.tL(g,'夜に駆ける',c.FONT.rowTitle,1,0,80,200,32);
+ assert.equal(draws[0].f.Name,'Microsoft YaHei UI');assert.equal(draws[1].f.Name,'Inter');assert.equal(draws[2].f.Name,draws[0].f.Name);assert.equal(draws[2].f.Size,draws[0].f.Size);assert.deepEqual(hints,[5,5,5]);
 });
 test('scene restore copies align source and destination to whole pixels',()=>{
  const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[{x0:10.2,y0:49.3,x1:480.8,y1:99.3}];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=40;c.my=70;let copies=[];const g=graphics();g.DrawImage=(im,...args)=>copies.push(args);c.ssPaintInteractions(g);assert.ok(copies.length);assert.ok(copies.every(args=>args.every(Number.isInteger)));
@@ -116,11 +117,11 @@ test('footer uses the whole-window center and shrinks the seek rail before movin
 });
 
 test('responsive playback bar keeps long track labels clear of transport and output controls',()=>{
- const {c,load}=context();load('ui/layout.js');load('views/bar.js');c.NP=null;c.npTitleStr='A long song title '.repeat(12);c.npArtistStr='An artist '.repeat(10);c.drag=null;c.pbShuffle=true;c.ssState={};c.hv=()=>false;
+ const {c,load}=context();load('ui/layout.js');load('views/bar.js');c.NP={RawPath:'file://test.flac',SubSong:0};c.npTitleStr='A long song title '.repeat(12);c.npArtistStr='An artist '.repeat(10);c.drag=null;c.pbShuffle=true;c.ssState={};c.hv=()=>false;
  const g=graphics(),labels=[];c.tL=c.tR=c.tC=(gr,text,font,color,x,y,w,h)=>labels.push({text,x,y,w,h});
  for(const [width,density] of [[800,.85],[1180,1],[1800,1.25],[2560,1.25]]){
   c.W=width;c.ssDensity=density;c.M.barH=Math.round(96*density);const widths=c.ssLayoutWidths(width);c.R={barY:680,barInfoW:widths.info,barToolsW:widths.tools};labels.length=0;c.drawBar(g);
-  const title=labels.find(r=>r.text===c.npTitleStr),prev=c.HB_CTRL.find(h=>h.act==='prev'),next=c.HB_CTRL.find(h=>h.act==='next'),mode=c.HB_CTRL.find(h=>h.act==='playback_mode');
+  const title=labels.find(r=>r.text===c.npTitleStr),prev=c.HB_CTRL.find(h=>h.act==='prev'),next=c.HB_CTRL.find(h=>h.act==='next'),mode=c.HB_CTRL.find(h=>h.act==='playback_mode'||h.act==='player_settings');
   assert.ok(title.x+title.w<=prev.x0,'track text must end before previous control');assert.ok(next.x1<=mode.x0,'next control must end before playback-mode menu');assert.ok(c.HB_SEEK.x>=title.x+title.w,'seek rail must clear long track text');
   if(width>=1180)assert.equal(c.R.transport.center,Math.round(width/2));
  }

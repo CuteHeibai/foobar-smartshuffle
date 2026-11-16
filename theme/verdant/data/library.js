@@ -34,9 +34,9 @@ function libTF(field){
 }
 
 /* Local catalog includes user playlists as well as the monitored library. */
-var ssCatalog=null,ssCatalogByID=null,ssCatalogArtists=null;
+var ssCatalog=null,ssCatalogByID=null,ssCatalogArtists=null,ssAlbumCatalog=null;
 function ssInvalidateCatalog(){
-  ssCatalog=null;ssCatalogByID=null;ssCatalogArtists=null;artistList=null;artistTracksMap=null;artistCandCache={};
+  ssCatalog=null;ssCatalogByID=null;ssCatalogArtists=null;ssAlbumCatalog=null;artistList=null;artistTracksMap=null;artistCandCache={};
 }
 function ssCatalogHandles(){
   if(ssCatalog)return ssCatalog;
@@ -106,21 +106,49 @@ function artistCover(name,fallback){
 }
 // false while the scan can still move the choice: baking a card now would freeze its placeholder
 function artistCoverReady(name,fallback){ return coverPick('ar|'+name,artistCands(name,fallback),1).done; }
-function loadArtist(name){
-  viewArtist=name; artScroll=0; artistAlbums=[];
-  var lib=ssCatalogHandles();
-  if(!lib.Count) return;
-  var arts=ssCatalogArtistNames(),albs=TF.album.EvalWithMetadbs(lib),
-      titles=TF.title.EvalWithMetadbs(lib),lens=TF.len.EvalWithMetadbs(lib),yrs=TF.year.EvalWithMetadbs(lib);
-  var map={}, order=[];
-  for(var i=0;i<arts.length;i++){
-    if(arts[i]!==name) continue;
-    var al=albs[i]||'未知专辑';
-    if(!map[al]){ map[al]={album:al, handle:lib[i], year:yrs[i], tracks:[]}; order.push(al); }
-    map[al].tracks.push({title:titles[i], dur:lens[i], handle:lib[i]});
+function getAlbumCatalog(){
+  if(ssAlbumCatalog)return ssAlbumCatalog;
+  var handles=ssCatalogHandles(),byKey=new Map(),byArtist=new Map(),albums=[];
+  if(handles.Count){
+    var artists=ssCatalogArtistNames(),names=TF.album.EvalWithMetadbs(handles),titles=TF.title.EvalWithMetadbs(handles),
+        lengths=TF.len.EvalWithMetadbs(handles),years=TF.year.EvalWithMetadbs(handles),
+        discs=TF.discno.EvalWithMetadbs(handles),numbers=TF.trackno.EvalWithMetadbs(handles);
+    for(var i=0;i<handles.Count;i++){
+      var artist=artists[i]||'未知歌手',name=(names[i]||'').trim();
+      var key=JSON.stringify([artist.trim().toLowerCase(),name.toLowerCase()]);
+      var album=byKey.get(key);
+      if(!album){
+        album={id:key,album:name||'未知专辑',named:!!name,artist:artist,handle:handles[i],year:years[i],tracks:[]};
+        byKey.set(key,album);
+        if(name)albums.push(album);
+      }
+      if(!byArtist.has(artist))byArtist.set(artist,new Set());
+      byArtist.get(artist).add(album);
+      album.tracks.push({title:titles[i],dur:lengths[i],handle:handles[i],disc:parseInt(discs[i],10)||1,number:parseInt(numbers[i],10)||0});
+    }
+    for(var album of byKey.values())album.tracks.sort(function(a,b){return a.disc-b.disc||(a.number||1e9)-(b.number||1e9);});
+    albums.sort(function(a,b){return a.album.localeCompare(b.album)||a.artist.localeCompare(b.artist);});
   }
-  for(var j=0;j<order.length;j++) artistAlbums.push(map[order[j]]);
+  return ssAlbumCatalog={albums:albums,byKey:byKey,byArtist:byArtist};
+}
+function ssSyncCollection(){
+  var catalog=getAlbumCatalog();
+  if(ssOpenCatalog===catalog)return;
+  ssOpenCatalog=catalog;
+  var group=view==='album'?catalog.byKey.get(viewAlbum):null;
+  artistAlbums=view==='album'?(group?[group]:[]):Array.from(catalog.byArtist.get(viewArtist)||[]);
+}
+function loadArtist(name){
+  view='artist';viewArtist=name;artScroll=artScrollT=0;ssOpenCatalog=null;ssSyncCollection();
   for(var k=0;k<artistAlbums.length&&k<3;k++)ssQueueArtistAuto(name,artistAlbums[k].album,artistAlbums[k].handle,true);
+}
+function ssOpenAlbum(id){
+  ssAlbumBack={view:view,scroll:artScrollT};
+  view='album';viewAlbum=id;artScroll=artScrollT=0;ssOpenCatalog=null;ssSyncCollection();
+}
+function ssBackFromAlbum(){
+  view=ssAlbumBack&&ssAlbumBack.view==='artist'?'artist':'albums';
+  artScroll=artScrollT=ssAlbumBack?ssAlbumBack.scroll:0;ssOpenCatalog=null;
 }
 
 /* ---- "All Songs" library view: one index of every library track (built once, invalidated by

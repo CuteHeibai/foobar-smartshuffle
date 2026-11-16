@@ -88,7 +88,7 @@ function lyStWheel(step){
 function noLyrics(){ return !lyrics || lyrics==='none' || !lyrics.lines || !lyrics.lines.length; }
 function lyTick(){
   var d=lyTarget-lyScroll; if(Math.abs(d)<0.5){ lyScroll=lyTarget; stopLyAnim(); } else lyScroll+=d*0.25;
-  if(fsMode){ repaintAll(); } else { markDirty(); dirtyQueue=true; window.RepaintRect(R.queue.x,R.queue.y,R.queue.w,R.queue.h); }
+  if(fsMode){ repaintAll(); } else { repaintQueue(true); }
 }
 function startLyAnim(){ if(!lyTimer) lyTimer=window.SetInterval(lyTick,16); }   // 60fps roll
 function stopLyAnim(){ if(lyTimer){ window.ClearInterval(lyTimer); lyTimer=null; } }

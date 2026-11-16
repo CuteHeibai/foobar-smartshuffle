@@ -9,7 +9,7 @@ function ssGradientGrid(size){
   ssGridSize=size;ssGridImage=gdi.CreateImage(size,size);var g=ssGridImage.GetGraphics();
   function mix(a,b,t){return RGB(Math.round(a[0]+(b[0]-a[0])*t),Math.round(a[1]+(b[1]-a[1])*t),Math.round(a[2]+(b[2]-a[2])*t));}
   var light=typeof SS_APPEARANCE!=='undefined'&&SS_APPEARANCE==='light';
-  for(var y=0;y<size;y+=4){var t=y/Math.max(1,size-1);g.FillGradRect(0,y,size,Math.min(4,size-y),0,mix(light?[228,222,247]:[72,52,103],light?[210,239,234]:[26,93,99],t),mix(light?[247,224,236]:[117,65,105],light?[213,239,217]:[32,106,71],t));}
+  for(var y=0;y<size;y+=4){var t=y/Math.max(1,size-1);g.FillGradRect(0,y,size,Math.min(4,size-y),0,mix(light?[235,222,220]:[77,48,55],light?[239,233,221]:[66,59,47],t),mix(light?[220,193,199]:[111,56,69],light?[225,211,190]:[94,76,52],t));}
   ssGridImage.ReleaseGraphics(g);return ssGridImage;
 }
 function ssDrawGlassBall(gr,gx,gy,size){
@@ -21,10 +21,10 @@ function ssDrawGlassBall(gr,gx,gy,size){
     gr.FillEllipse(tx-r,ty-r,r*2,r*2,ssAccent(Math.round(34*a)));previous={x:tx,y:ty};
   }
   var bx=gx+(ssDraft.x+1)*size/2,by=gy+(1-ssDraft.y)*size/2;
-  gr.FillEllipse(bx-24,by-24,48,48,RGBA(78,227,159,28));
-  gr.FillEllipse(bx-17,by-17,34,34,RGBA(136,242,203,100));
+  gr.FillEllipse(bx-24,by-24,48,48,ssAccent(28));
+  gr.FillEllipse(bx-17,by-17,34,34,ssAccent(100));
   gr.FillEllipse(bx-13,by-13,26,26,ssAccent(175));
-  gr.DrawEllipse(bx-16,by-16,32,32,1.5,RGBA(230,255,245,155));
+  gr.DrawEllipse(bx-16,by-16,32,32,1.5,ssAlpha(COL.onAccent,155));
   gr.FillEllipse(bx-10,by-11,12,7,RGBA(255,255,255,130));
   if(ssTrail.length)ssRepaintPreference();
 }
@@ -40,7 +40,7 @@ function ssSyncLyricPanel(){
     ssLyricTried=true;
     try{ ssLyricChild=window.GetPanel('ESLyric'); }catch(e){ ssLyricChild=null; }
   }
-  var visible=rightTab==='lyrics'&&!fsMode&&!ssModal&&!ssPopup&&!(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof ssResizing!=='undefined'&&ssResizing)&&R.queue&&R.queue.h>80;
+  var visible=rightTab==='lyrics'&&!fsMode&&!ssModal&&!ssPopup&&!(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof ssResizing!=='undefined'&&ssResizing)&&R.queue&&R.queue.w>80&&R.queue.h>80;
   if(ssPopup&&ssPopup.nativeMenu&&!ssLyricChild){ssNativeLyricKey='';ssLyricVisible=false;return;}
   if(!ssLyricChild){
     ssRequestNativeLyrics(visible);
@@ -63,10 +63,10 @@ function ssHideLyrics(){
   ssLyricVisible=false;
 }
 function ssButton(gr,x,y,w,h,label,act,enabled,primary){
-  var hot=enabled&&hv(x,y,x+w,y+h),color=primary?(enabled?COL.text:COL.seekbg):(hot?COL.hover:COL.elev),radius=Math.min(18,h/2);
+  var hot=enabled&&hv(x,y,x+w,y+h),color=primary?(enabled?(hot?COL.greenHover:COL.green):COL.seekbg):(hot?COL.hover:COL.elev),radius=Math.min(6,h/2);
   gr.FillRoundRect(x,y,w,h,radius,radius,color);
   if(!primary)strokeRound(gr,x,y,w,h,radius,1,COL.line);
-  tC(gr,label,FONT.pl,primary&&enabled?COL.base:(enabled?COL.text:COL.text3),x,y,w,h);
+  tC(gr,label,FONT.pl,primary&&enabled?COL.onAccent:(enabled?COL.text:COL.text3),x,y,w,h);
   SS_HB.push({x0:x,y0:y,x1:x+w,y1:y+h,act:act,enabled:enabled});
 }
 function ssPreferenceLabel(){
@@ -144,18 +144,21 @@ function ssPointerUp(x,y){
 }
 function ssDrawNativeQueue(gr,r,x,qy,bottom){
   if(!ssState) return false;
-  var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rows=priority.concat(list), rh=Math.max(42,Math.round(35*UISCALE));
+  var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rows=priority.concat(list), rh=R.queueOverlay?Math.max(57,Math.round(55*ssDensity)):Math.max(42,Math.round(35*UISCALE));
   tL(gr,'接下来',FONT.pl,COL.text,x,qy,r.w-36,28); qy+=29;
-  tL(gr,pbShuffle?'本轮剩余 '+(ssState.remaining_count||0)+' 首':ssState.source_name||'顺序播放',FONT.qArtist,COL.green,x,qy,r.w-36,24); qy+=30;
+  tL(gr,pbShuffle?'本轮剩余 '+(ssState.remaining_count||0)+' 首':(!isHiddenPl(ssState.source_name)&&ssState.source_name)||'顺序播放',FONT.qArtist,COL.green,x,qy,r.w-36,24); qy+=30;
   var viewport=Math.max(0,bottom-qy);SS_QUEUE_MAX=Math.max(0,rows.length*rh-viewport);ssQueueScroll=clampPx(ssQueueScroll,SS_QUEUE_MAX);ssQueueScrollT=clampPx(ssQueueScrollT,SS_QUEUE_MAX);
   if(viewport<1)return true;
   var drawScroll=Math.round(ssQueueScroll),top=qy,start=Math.floor(drawScroll/rh),parentGr=gr,layer=ssBeginViewport('queue-list',gr,r.x,top,r.w,viewport);gr=layer.gr;qy-=drawScroll-start*rh;
   for(var i=start;i<rows.length&&qy<bottom;i++){
     var tr=rows[i],hb={x0:x-8,y0:Math.max(top,qy),x1:r.x+r.w-18,y1:Math.min(bottom,qy+rh),rowY:qy,rowH:rh};hb.track_id=tr.id;hb.scope=i<priority.length?'priority':pbShuffle?'remaining':'native';hb.queueIndex=i<priority.length?i:pbShuffle?i-priority.length:tr.item;if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}HB_Q.push(hb);
-    var labelW=r.w-48;
+    var cover=R.queueOverlay?Math.round(40*ssDensity):0,trackX=x+(cover?cover+12:0),labelW=r.x+r.w-24-trackX;
     ssDrawCachedRow(gr,'queue:'+i+':'+tr.id,r.x,qy,r.w,rh,function(gr){
-    tL(gr,(i<priority.length?'优先 · ':'')+(tr.title||'未知曲目'),FONT.qName,COL.text,x,qy+3,labelW,Math.round(rh*.5)-3);
-    tL(gr,tr.artist||'',FONT.qArtist,COL.text2,x,qy+Math.round(rh*.53),labelW,Math.round(rh*.4));
+    var handle=cover&&typeof ssCatalogHandle==='function'?ssCatalogHandle(tr.id):null;
+    if(cover){drawCover(gr,x,qy+(rh-cover)/2,cover,3,handle,tr.title||tr.id);gr.FillSolidRect(x,qy+rh-1,r.w-36,1,COL.line);}
+    var artist=tr.artist||(handle?TF.artist.EvalWithMetadb(handle):'');
+    tL(gr,(i<priority.length?'优先 · ':'')+(tr.title||'未知曲目'),FONT.qName,COL.text,trackX,qy+3,labelW,Math.round(rh*.5)-3);
+    tL(gr,artist,FONT.qArtist,COL.text2,trackX,qy+Math.round(rh*.53),labelW,Math.round(rh*.4));
     });qy+=rh;
   }
   layer.finish();gr=parentGr;

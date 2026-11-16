@@ -35,7 +35,7 @@ def history():return call('personal_list',kind='history',offset=0,limit=100)['re
 def last(identity):return next(r for r in history() if r['id']==identity)
 try:
  s=start();check('personal' in s,'Native state exposes a small personal-library summary')
- check(s['personal'].get('enabled') is False and not s['personal']['history_enabled'],'Personal library defaults off for existing installations')
+ check(s['personal'].get('enabled') is False and s['personal']['history_enabled'],'Personal controls default off while statistics recording defaults on')
  setting=fixture('settings',personal_enabled=True,apply=False)
  check(setting.get('personal_control') and not setting['personal_checked'] and not call('state')['personal']['enabled'],'Native preferences exposes an unchecked switch and cancelling leaves the feature off')
  fixture('settings',personal_enabled=True);check(call('state')['personal']['enabled'],'Applying the native setting enables the personal library')
@@ -74,10 +74,10 @@ try:
  b.wait(lambda s:any(r['id']==c for r in history()))
  row=last(c);check(row['outcome']=='stopped' and row['listened']<2 and not row['qualified'],'Pause and seek do not become listened time')
  fixture('play',playlist=pi,item=1);b.wait(lambda s:s['now_id']==c);time.sleep(.2);fixture('play',playlist=pi,item=0);b.wait(lambda s:s['now_id']==a)
- check(last(c)['outcome']=='skipped','Manual switching records the previous song as skipped')
+ check(last(c)['outcome']=='switched','Manual switching records the previous song as skipped')
  for _ in range(3):time.sleep(.4);fixture('seek',time=.05)
  call('next');b.wait(lambda s:s['now_id']==c)
- repeated=last(a);check(repeated['listened']>repeated['duration']*.9 and repeated['outcome']=='skipped','Rewinding and listening past ninety percent never turns a manual next into completion')
+ repeated=last(a);check(repeated['listened']>repeated['duration']*.9 and repeated['outcome']=='switched','Rewinding and listening past ninety percent never turns a manual next into completion')
  fixture('seek',time=7.8)
  until=time.monotonic()+6
  while time.monotonic()<until:
@@ -91,15 +91,15 @@ try:
  while time.monotonic()<until:
   if last(c)['outcome']!='playing':break
   time.sleep(.05)
- check(last(c)['outcome']=='skipped','An unsuccessful manual advance cannot mark the previous song as naturally completed')
+ check(last(c)['outcome']=='failed','An unsuccessful manual advance cannot mark the previous song as naturally completed')
 
  subprocess.run([str(EXE),'/stop'],check=True)
- old_count=call('state')['personal']['history_count'];call('personal_config',enabled=False)
+ old_count=call('state')['personal']['history_count'];call('personal_config',enabled=False);call('listening_stats_config',enabled=False)
  fixture('play',playlist=pi,item=1);time.sleep(.25);subprocess.run([str(EXE),'/stop'],check=True)
  check(call('state')['personal']['history_count']==old_count,'Disabled feature does not record new playback history')
- fixture('play',playlist=pi,item=1);time.sleep(.2);call('personal_config',enabled=True);time.sleep(.2)
+ fixture('play',playlist=pi,item=1);time.sleep(.2);call('listening_stats_config',enabled=True);time.sleep(.2)
  check(call('state')['personal']['current']['listened']<.6,'Enabling during playback starts listening from the setting change')
- call('personal_config',enabled=False);check(call('state')['personal']['current'] is None,'Disabling during playback closes the current history event')
+ call('listening_stats_config',enabled=False);check(call('state')['personal']['current'] is None,'Disabling during playback closes the current history event')
  subprocess.run([str(EXE),'/stop'],check=True);fixture('cleanup');stop()
  s=start();check(s['personal']['enabled'] is False and not s['personal']['history_enabled'],'The disabled setting persists after restart')
  call('personal_config',enabled=True)

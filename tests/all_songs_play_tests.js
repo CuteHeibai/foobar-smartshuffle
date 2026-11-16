@@ -64,4 +64,103 @@ test('real application callbacks dispatch the All Songs header before selection 
   c.ssSelectionDown=c.ssSelectionUp=()=>false;c.on_mouse_lbtn_down(120,120);c.on_mouse_lbtn_up(700,400);
   assert.equal(h.writes.length,0,'release outside cancels a library play press');
 });
+
+test('artist page play sends all albums in page order and preserves subsong identity',()=>{
+  const h=harness(),c=h.c;
+  Object.assign(c,{view:'artist',viewArtist:'Artist',ssTrackID:t=>t.RawPath+'|'+t.SubSong,
+    artistAlbums:[{tracks:[{handle:{RawPath:'file://A',SubSong:2}}]},{tracks:[{handle:{RawPath:'file://B',SubSong:0}}]}]});
+  assert.equal(c.playArtist('Previous artist'),false);
+  assert.equal(c.playArtist('Artist'),true);
+  assert.equal(h.writes[0].op,'play_artist');
+  assert.deepEqual(h.writes[0].tracks,['file://A|2','file://B|0']);
+  c.artistAlbums=[];assert.equal(c.playArtist('Artist'),false);
+});
+
+function artistHarness(){
+  const h=harness(),c=h.c;
+  h.load('views/artist.js');
+  Object.assign(c,{view:'artist',viewArtist:'Artist',viewAlbum:'',artScroll:0,artScrollT:0,HB_CARD:[],SS_ARTIST_HB:null,HB_ARTIST_PLAY:null,
+    coverCol:()=>0,ssDrawArtistAvatar(){},ssArtistName:String,drawRounded(){},ssRowHover:()=>false,tR(){},
+    ssBeginViewport:(key,gr)=>({gr,finish(){}}),drawScrollbar(){},clampPx:(value,max)=>Math.max(0,Math.min(value,max))});
+  return {h,c,gr:{FillGradRect(){},FillSolidRect(){},FillRoundRect(){},FillEllipse(){}}};
+}
+test('artist play button stays clear of the artist information link and disappears with no songs',()=>{
+  const {c,gr}=artistHarness();
+  c.artistAlbums=[{tracks:[{}]}];
+  c.drawArtist(gr,{x:0,y:0,w:370,h:260});
+  assert.equal(c.HB_ARTIST_PLAY.artist,'Artist');
+  assert.ok(c.HB_ARTIST_PLAY.x1<c.SS_ARTIST_HB.x0);
+  c.artistAlbums=[];c.drawArtist(gr,{x:0,y:0,w:370,h:260});
+  assert.equal(c.HB_ARTIST_PLAY,null);
+});
+test('long single-album artist pages scroll to their final track with clipped hit targets',()=>{
+  const {c,gr}=artistHarness(),bounds={x:0,y:0,w:390,h:350};
+  c.artistAlbums=[{id:'A',named:true,album:'Album',tracks:Array.from({length:32},(_,i)=>({title:'Track '+i}))}];
+  c.drawArtist(gr,bounds);
+  assert.ok(c.SS_COLLECTION_SCROLL_MAX>1000);
+  assert.ok(c.HB_CARD.some(a=>a.kind==='album'&&a.id==='A'));
+  c.artScroll=c.artScrollT=c.SS_COLLECTION_SCROLL_MAX;
+  c.HB_CARD=[];c.drawArtist(gr,bounds);
+  assert.equal(c.HB_TR.at(-1).idx,31);
+  assert.ok(c.HB_TR.every(row=>row.y0>=174&&row.y1<=350));
+});
+test('collection scrolling never changes the cached artwork size limit',()=>{
+  const {h,c,gr}=artistHarness();
+  h.load('data/art.js');h.load('data/covers.js');c.window.GetProperty=(key,value)=>value;
+  const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+  vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
+  c.view='artist';c.viewArtist='Artist';c.artistAlbums=[{tracks:[{title:'Song'}]}];c.drawRounded=()=>{};
+  c.gdi={Image:()=>({Width:500,Height:500,Resize(){throw Error('500px cover must not be resized');}})};
+  c.ssCoverTracks={'fixture|0':{cover:'cached.jpg'}};
+  c.drawArtist(gr,{x:0,y:0,w:390,h:350});
+  assert.equal(c.SS_COLLECTION_SCROLL_MAX,0);
+  assert.equal(c.ART_MAXPX,500);
+  assert.equal(c.ssCachedCover({Path:'fixture',SubSong:0}).Width,500);
+});
+test('album catalog groups by tag across file paths and orders discs then track numbers',()=>{
+  const h=harness(),c=h.c;
+  h.load('data/library.js');
+  const rows=[{title:'second',artist:'Artist',album:'Shared',discno:'1',trackno:'02',RawPath:'file://A'},
+              {title:'first',artist:'Artist',album:'Shared',discno:'1',trackno:'01',RawPath:'file://B'},
+              {title:'disc two',artist:'Artist',album:'Shared',discno:'2',trackno:'01',RawPath:'file://C'},
+              {title:'other artist',artist:'Another',album:'Shared',RawPath:'file://D'},
+              {title:'no album',artist:'Artist',album:'',RawPath:'file://E'}];
+  rows.Count=rows.length;
+  c.ssCatalogHandles=()=>rows;c.ssCatalogArtistNames=()=>rows.map(r=>r.artist);
+  c.TF=Object.fromEntries(['title','album','len','year','discno','trackno'].map(k=>[k,{EvalWithMetadbs:list=>list.map(r=>r[k]||'')}]));
+  const catalog=c.getAlbumCatalog(),album=catalog.albums.find(a=>a.artist==='Artist');
+  assert.equal(catalog.albums.length,2);
+  assert.deepEqual(Array.from(album.tracks,t=>t.title),['first','second','disc two']);
+  Object.assign(c,{view:'albums',artScroll:50,artScrollT:55,ssOpenCatalog:null,ssAlbumBack:null,ssTrackID:t=>t.RawPath+'|0'});
+  c.ssOpenAlbum(album.id);
+  assert.equal(c.artScroll,0);assert.equal(c.playAlbum(album.id),true);
+  assert.equal(h.writes[0].op,'play_album');assert.deepEqual(h.writes[0].tracks,['file://B|0','file://A|0','file://C|0']);
+  c.ssBackFromAlbum();assert.equal(c.view,'albums');assert.equal(c.artScroll,55);
+});
+
+
+
+test('desktop artist album shelf uses multiple columns and retains track access',()=>{
+  const {c,gr}=artistHarness(),bounds={x:0,y:0,w:1000,h:650};
+  c.artistAlbums=Array.from({length:7},(_,i)=>({id:'A'+i,named:true,album:'Album '+i,tracks:[{title:'Track '+i}]}));
+  c.drawArtist(gr,bounds);
+  const cards=c.HB_CARD.filter(a=>a.kind==='album');
+  assert.ok(cards.length>=2);
+  assert.equal(cards[0].y0,cards[1].y0);
+  assert.ok(cards[0].x1<cards[1].x0);
+  assert.ok(cards.every(a=>a.y0>=174&&a.y1<=650));
+  c.artScroll=c.artScrollT=c.SS_COLLECTION_SCROLL_MAX;c.HB_CARD=[];c.drawArtist(gr,bounds);
+  assert.equal(c.HB_TR.at(-1).block,6);
+  assert.ok(c.HB_TR.every(a=>a.y0>=174&&a.y1<=650));
+});
+test('artist album shelf rebuilds when desktop width changes',()=>{
+  const {c,gr}=artistHarness();
+  c.artistAlbums=Array.from({length:8},(_,i)=>({id:'A'+i,named:true,album:'Album '+i,tracks:[{}]}));
+  c.drawArtist(gr,{x:0,y:0,w:1000,h:650});
+  const wide=c.ssCollectionRows.find(row=>row.tiles).tiles.length;
+  c.drawArtist(gr,{x:0,y:0,w:700,h:650});
+  assert.ok(c.ssCollectionRows.find(row=>row.tiles).tiles.length<wide);
+  c.drawArtist(gr,{x:0,y:0,w:390,h:650});
+  assert.equal(c.ssCollectionRows[0].tiles,undefined);
+});
 console.log(passed+' All Songs playback checks passed');

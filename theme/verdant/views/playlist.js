@@ -13,7 +13,7 @@ function drawPlaylist(gr,r){
     return;
   }
   gr.FillGradRect(r.x,r.y,r.w,M.headH,90,blend(artHue(plChoice(p.i).single,p.name),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
-  var s=ssDensity,compact=r.w<800*s, ax=r.x+M.cpad, ay=r.y+(compact?22:44)*s, art=M.artSz;
+  var s=ssDensity,compact=r.w<800*s, ax=r.x+M.cpad, ay=r.y+16*s, art=M.artSz;
   drawPlCover(gr,ax,ay,art,8,p.i,p.name);
   if(p.count>0)HB_PLAYLIST_PLAY=drawPlaylistPlay(gr,ax+art-52*s,ay+art-52*s,44*s,p.i);
   var addW=Math.min(136*s,r.w-art-48*s),addX=r.x+r.w-M.cpad-addW,addY=r.y+10*s;
@@ -23,14 +23,14 @@ function drawPlaylist(gr,r){
   }
   // sort pill + asc/desc button, right-aligned like the All Songs group pill; header text
   // stops short of this column so the two can never collide on a narrow panel
-  var rx0=r.x+r.w-M.cpad, sortDirW=38, sortPillW=compact?Math.min(230,r.w-100):200, sortGap=8, sortTotalW=sortPillW+sortGap+sortDirW;
-  var sortX=compact?ax:Math.max(ax+art+24*s,rx0-sortTotalW), sortY=ay+(compact?art+42*s:142*s);
-  var tx=ax+art+24*s, tw=compact?rx0-tx:Math.max(120,sortX-12-tx);
-  var text=ssHeaderBoxes(art,compact,s);
+  var rx0=r.x+r.w-M.cpad, sortDirW=38, sortPillW=Math.max(1,Math.min(200,r.w-M.cpad*2-46)), sortGap=8, sortTotalW=sortPillW+sortGap+sortDirW;
+  var sortX=ax, sortY=ay+art+6*s;
+  var tx=ax+art+24*s, tw=Math.max(1,rx0-tx-(canEditPl(p.i)&&addW>82*s?addW+10*s:0));
+  var text=ssHeaderBoxes(art,false,s);
   tL(gr,'歌单',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
   tL(gr,p.name,FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
   var meta0=getMeta(p.i);
-  tL(gr,p.count+' 首歌曲'+(meta0.totalSec>0?(' '+CH_DOT+' '+fmtDur(meta0.totalSec)):''),FONT.meta,COL.text2,compact?ax:tx,ay+text.metaY,compact?r.w-M.cpad*2:tw,text.metaH);
+  tL(gr,p.count+' 首歌曲'+(meta0.totalSec>0?(' '+CH_DOT+' '+fmtDur(meta0.totalSec)):''),FONT.meta,COL.text2,tx,ay+text.metaY,tw,text.metaH);
   HB_PLSORT=drawDropPill(gr,sortX,sortY,sortPillW,38,'排序：'+labelOf(PL_SORTS,plSort,'歌手'),plSortMenuOpen);
   drawSortDirBtn(gr,sortX+sortPillW+sortGap,sortY,sortDirW,38);
 

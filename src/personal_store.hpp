@@ -141,6 +141,9 @@ public:
         active_ = false; prune(now);
     }
     bool active() const { return active_; }
+    const auto& history() const { return history_; }
+    double active_seconds() const { return active_ ? history_.front().at("listened").get<double>() : 0; }
+    bool expire(int64_t now) { if (!prune(now)) return false; bump(); return true; }
 
 private:
     using Collection = std::deque<json>;

@@ -5,7 +5,7 @@
 /* Manually-queued rows have no playlist behind them, so their title/artist are formatted per
    handle rather than read from a playlist's meta. Cached by path: the queue redraws on every
    hover inside the panel, and two EvalWithMetadb calls per row per frame is pure interop. */
-var qMetaCache={};
+var qMetaCache={},HB_QUEUE_CLOSE=null;
 var ssQueueScroll=0,ssQueueScrollT=0,SS_QUEUE_MAX=0,SS_QUEUE_SB=null;
 function qRowMeta(h){
   var p=h.Path, e=qMetaCache[p];
@@ -20,12 +20,15 @@ function qRow(gr,r,x,qy,rh){
 }
 // cover + title + artist, the layout every queue entry shares
 function qEntry(gr,r,x,y,cs,dy,h,seed,key,title,artist,tcol){
-  drawCover(gr,x,y,cs,4,h,seed,key);
+  if(!h&&seed==='np'&&typeof ssDrawIdleRecord==='function')ssDrawIdleRecord(gr,x,y,cs);
+  else drawCover(gr,x,y,cs,4,h,seed,key);
   var tx=x+cs+12, tw=r.w-36-cs-12;
   tL(gr,title,FONT.qName,tcol,tx,y+dy,tw,18);
   tL(gr,artist,FONT.qArtist,COL.text2,tx,y+dy+20,tw,16);
 }
 function drawQueue(gr){
+  HB_QUEUE_CLOSE=null;
+  if(!R.queue||R.queue.w<=0){HB_TABS=[];HB_Q=[];SS_LYRIC_BTN=null;SS_QUEUE_SB=null;return;}
   ssDrawQueueContent(gr);
   var r=R.queue;roundBottom(gr,r.x,r.y,r.w,r.h);
 }
@@ -40,8 +43,15 @@ function ssDrawQueueContent(gr){
   HB_TABS.push({x0:x-6,y0:r.y+8,x1:x+64,y1:r.y+48,tab:'lyrics'});
   HB_TABS.push({x0:x+70,y0:r.y+8,x1:x+134,y1:r.y+48,tab:'queue'});
 
+  if(R.queueOverlay){
+    var closeX=r.x+r.w-45,closeY=r.y+12;
+    HB_QUEUE_CLOSE={x0:closeX,y0:closeY,x1:closeX+32,y1:closeY+32};
+    if(hv(closeX,closeY,closeX+32,closeY+32))gr.FillRoundRect(closeX,closeY,32,32,4,4,COL.rowHover);
+    tC(gr,'×',FONT.tab,COL.text,closeX,closeY,32,32);
+  }
+  gr.FillSolidRect(x,r.y+52,r.w-36,1,COL.line);
   if(!qOn){
-    SS_LYRIC_BTN={x0:r.x+r.w-86,y0:r.y+12,x1:r.x+r.w-12,y1:r.y+44};
+    SS_LYRIC_BTN={x0:r.x+r.w-(R.queueOverlay?128:86),y0:r.y+12,x1:r.x+r.w-(R.queueOverlay?54:12),y1:r.y+44};
     tC(gr,'ESLyric',FONT.qArtist,COL.green,SS_LYRIC_BTN.x0,SS_LYRIC_BTN.y0,74,32);
     if(ssLyricVisible) return;
     loadLyrics();
@@ -91,7 +101,8 @@ function ssDrawQueueContent(gr){
   var pli=(loc&&loc.IsValid)?loc.PlaylistIndex:plman.ActivePlaylist;
   var start=(loc&&loc.IsValid)?loc.PlaylistItemIndex+1:0;
   var rawnm=(pli>=0)?plName(pli):'';
-  var pnm=(rawnm===SHUF)?(ssState?ssState.source_name:''):(rawnm===ROUTE?'':rawnm);   // show the real source, not the hidden copy
+  var pnm=rawnm===SHUF?(ssState?ssState.source_name:''):rawnm;
+  if(isHiddenPl(pnm))pnm='';   // Show the source without exposing internal playlist names.
   if(qy+30<bottom){
     tL(gr,pnm?('来自歌单：'+pnm):'接下来',FONT.sect,COL.text,x,qy,r.w-110,24); qy+=36;
     // The playing playlist's metadata is built on ticks like everywhere else -- this runs on the

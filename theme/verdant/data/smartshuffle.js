@@ -49,6 +49,7 @@ function ssAcceptState(s){
   if(typeof ssAcceptMenu==='function')ssAcceptMenu(done,s);
   if(typeof ssAcceptFiles==='function')ssAcceptFiles(done,s);
   if(typeof ssAcceptPersonal==='function')ssAcceptPersonal(done,s);
+  if(typeof ssAcceptStats==='function')ssAcceptStats(done,s);
   if(s.ui_open>ssSeenOpen){
     ssSeenOpen=s.ui_open;
     if(!ssModal&&!ssOwnOpen[s.request_id]) ssShow(false);
@@ -58,7 +59,7 @@ function ssAcceptState(s){
     // A ball moved while the open request was in flight always wins.
     if(!ssDraftTimer&&!ssOut.some(function(q){return q.op==='preview';})) ssDraft=ssPoint((s.preview&&s.preview.point)||s.point);
   }
-  if(done&&s.response&&s.response.ok===false){
+  if(done&&done.op!=='listening_stats'&&s.response&&s.response.ok===false){
     ssMessage=s.response.code==='stale_preview'?'歌单已变化，预览已更新；请核对后再次应用。':('操作失败：'+(s.response.message||s.response.code||'请重试'));
     if(!ssModal)ssError=ssMessage;
   }else if(done){ ssMessage=''; }

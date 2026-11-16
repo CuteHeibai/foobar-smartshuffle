@@ -31,7 +31,8 @@ def ready(mode):
     return b.wait(lambda s:s.get('theme',{}).get('appearance')==mode
                   and s['theme'].get('rendered_appearance')==mode
                   and s.get('lyrics_panel',{}).get('appearance')==mode
-                  and s['lyrics_panel'].get('ready') and s['lyrics_panel'].get('visible'))
+                  and (not s.get('theme',{}).get('layout',{}).get('right',0) or s['lyrics_panel'].get('ready'))
+                  and bool(s['lyrics_panel'].get('visible')) == bool(s['theme'].get('layout',{}).get('right',0)>0 and s['theme'].get('layout',{}).get('right_tab','lyrics')=='lyrics'))
 
 def check(value,label):
     assert value,label

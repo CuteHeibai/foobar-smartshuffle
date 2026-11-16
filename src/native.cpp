@@ -12,6 +12,9 @@
 #include "native_dialogs.hpp"
 #include "integration_switch.hpp"
 #include "personal_store.hpp"
+#include "listening_stats.hpp"
+#include <cstdio>
+#include <ctime>
 #include <fstream>
 #include <map>
 #include <set>
@@ -33,6 +36,9 @@ using Clock=std::chrono::steady_clock;
 unsigned privateFontCount=0;
 constexpr auto Managed="__smartshuffle__";
 constexpr auto Library="__smartshuffle_library__";
+constexpr auto Artist="__smartshuffle_artist__";
+constexpr auto Album="__smartshuffle_album__";
+bool temporary_source_name(const pfc::string8& name){return name=="__verdant_np__"||name==Library||name==Artist||name==Album;}
 std::wstring wide(const std::string& s){if(s.empty())return {};int n=MultiByteToWideChar(CP_UTF8,0,s.data(),int(s.size()),nullptr,0);std::wstring r(n,0);MultiByteToWideChar(CP_UTF8,0,s.data(),int(s.size()),r.data(),n);return r;}
 std::string narrow(const std::wstring& s){if(s.empty())return {};int n=WideCharToMultiByte(CP_UTF8,0,s.data(),int(s.size()),nullptr,0,nullptr,nullptr);std::string r(n,0);WideCharToMultiByte(CP_UTF8,0,s.data(),int(s.size()),r.data(),n,nullptr,nullptr);return r;}
 fs::path local_path(const char* s){
@@ -78,7 +84,7 @@ std::string fingerprint(const metadb_handle_ptr& h){try{
 }catch(...){return {};}}
 uint64_t seed(){static std::mt19937_64 r(std::random_device{}());return r();}
 
-struct NewTrack {metadb_handle_ptr handle;std::string playlist;size_t index=~size_t(0);bool queued=false;play_control::t_track_command command=play_control::track_command_default;};
+struct NewTrack {metadb_handle_ptr handle;std::string playlist;size_t index=~size_t(0);bool queued=false,historyReplay=false;play_control::t_track_command command=play_control::track_command_default;};
 struct Preview {uint64_t seed=0,revision=0;std::string token,source;ss::Point point;std::vector<std::string> order;};
 class Engine:public play_callback_impl_base,public playlist_callback_impl_base {
 public:
@@ -125,6 +131,10 @@ public:
     std::optional<t_playback_queue_item> nativeBridge;
     std::string nativeBridgeSource;
     std::deque<NewTrack> events;
+    std::vector<metadb_handle_ptr> played;
+    size_t playedCursor=0;
+    std::optional<size_t> historyTarget;
+    Clock::time_point historyDeadline;
     std::set<std::string> externalQueue,queuedStarts;
     std::vector<std::pair<std::string,bool>> queueSnapshot;
     bool queueFixScheduled=false;
@@ -145,7 +155,7 @@ public:
         auto hasTheme=fs::exists(root.parent_path()/L"verdant"/L"main.js");
         try{edition=native_ss::installation_edition(readjson(root/L"installation.json"),hasTheme);}catch(...){edition=hasTheme?"full":"core";}
         if(edition!="full")edition="core";
-        personalHistory=edition=="full"&&native_ss::personal_library_enabled();
+        personalHistory=edition=="full"&&native_ss::listening_stats_enabled();
         if(fs::exists(root/L"personal.json"))try{personal.load(readjson(root/L"personal.json"),epoch());personalDirty=true;}
         catch(const std::exception& e){personalReady=false;personalError=std::string("个人音乐记录无法读取，已保留原文件：")+e.what();}
 
@@ -161,7 +171,8 @@ public:
         metadb_handle_ptr h;if(playback_control::get()->get_now_playing(h)){on_playback_new_track(h);accountingPaused=playback_control::get()->is_paused();}
         try{uiLayoutReset=readjson(root/L"store.json").value("layout_reset",uint64_t(0));}catch(...){}
         native_ss::set_layout_reset_handler([this]{++uiLayoutReset;save();changed=true;publish();});
-        native_ss::set_personal_library_handler([this](bool value){
+        native_ss::set_personal_library_handler([this](bool){changed=true;publish();});
+        native_ss::set_listening_stats_handler([this](bool value){
             accrue();close_personal("stopped");personalAwaitingStart=false;
             personalHistory=edition=="full"&&value;
             metadb_handle_ptr h;
@@ -172,7 +183,7 @@ public:
         });
         publish();
     }
-    ~Engine(){quitting=true;accrue();close_personal("interrupted");save_personal(true);native_ss::set_personal_library_handler({});native_ss::close_native_dialogs();native_ss::set_dialog_handlers({},{});native_ss::set_layout_reset_handler({});remove_owned_queue();lyrics.reset();metadata.reset();scanner.reset();save();}
+    ~Engine(){quitting=true;accrue();close_personal("interrupted");save_personal(true);native_ss::set_personal_library_handler({});native_ss::set_listening_stats_handler({});native_ss::close_native_dialogs();native_ss::set_dialog_handlers({},{});native_ss::set_layout_reset_handler({});remove_owned_queue();lyrics.reset();metadata.reset();scanner.reset();save();}
     json personal_track(const metadb_handle_ptr& h){
         file_info_impl info;std::string title,artist,album;double length=0;
         if(h->get_info(info)){
@@ -221,7 +232,7 @@ public:
         for(auto& h:list){auto id=idof(h);if(handles.count(id))continue;handles[id]=h;tracks.push_back(describe(h));}
         ss::reconcile(round(),tracks,seed(),recent_counts());
     }
-    void select_source(size_t pi){auto pm=playlist_manager_v5::get();if(pi>=pm->get_playlist_count()||internal(pi))return;source=guidstr(pm->playlist_get_guid(pi));pfc::string8 name;pm->playlist_get_name(pi,name);if(name=="__verdant_np__"||name==Library)temporarySources.insert(source);refresh();lastScan=Clock::now()-std::chrono::seconds(30);changed=true;}
+    void select_source(size_t pi){auto pm=playlist_manager_v5::get();if(pi>=pm->get_playlist_count()||internal(pi))return;source=guidstr(pm->playlist_get_guid(pi));pfc::string8 name;pm->playlist_get_name(pi,name);if(temporary_source_name(name))temporarySources.insert(source);refresh();lastScan=Clock::now()-std::chrono::seconds(30);changed=true;}
     std::vector<ss::Track> remaining_tracks(){std::set<std::string> ids(round().remaining.begin(),round().remaining.end());std::vector<ss::Track> ret;for(auto& t:tracks)if(ids.count(t.id))ret.push_back(t);return ret;}
     json track_json(const std::string& id){auto it=std::find_if(tracks.begin(),tracks.end(),[&](const ss::Track& t){return t.id==id;});if(it!=tracks.end())return {{"id",id},{"title",it->title},{"artist",it->artist},{"duration",it->duration},{"analyzed",!it->features.empty()}};return {{"id",id},{"title",id},{"artist",""}};}
     json list_json(const std::vector<std::string>& ids,size_t limit=SIZE_MAX){json a=json::array();for(size_t i=0;i<ids.size()&&i<limit;++i)a.push_back(track_json(ids[i]));return a;}
@@ -256,7 +267,7 @@ public:
         }
         j["native_order"]=pm->playback_order_get_active();j["order_name"]=pm->playback_order_get_name(pm->playback_order_get_active());j["orders"]=json::array();
         for(size_t i=0;i<pm->playback_order_get_count();++i)j["orders"].push_back({{"index",i},{"name",pm->playback_order_get_name(i)}});
-        j["personal"]=personal.summary(nowId);j["personal"]["error"]=personalError;j["personal"]["history_enabled"]=personalHistory;
+        j["personal"]=personal.summary(nowId);j["personal"]["error"]=personalError;j["personal"]["history_enabled"]=personalHistory;j["listening_stats"]=edition=="full";
         j["personal"]["enabled"]=edition=="full"&&native_ss::personal_library_enabled();
         j["personal"]["current"]=personal.active()?personal.page("history",0,1).at("items").at(0):json(nullptr);
         j["metadata"]=metadataState;
@@ -333,12 +344,21 @@ public:
     }
     void queue_event(metadb_handle_ptr h){
         NewTrack e;e.handle=h;e.command=startCommand;size_t pi=~size_t(0),item=~size_t(0);auto pm=playlist_manager_v5::get();pm->get_playing_item_location(&pi,&item);e.index=item;e.queued=queuedStarts.erase(idof(h))>0;
+        if(historyTarget&&idof(played[*historyTarget])==idof(h)){
+            playedCursor=*historyTarget;e.historyReplay=true;
+        }else if(played.empty()||played[playedCursor]!=h){
+            if(!played.empty())played.resize(playedCursor+1);
+            played.push_back(h);
+            if(played.size()>256)played.erase(played.begin());
+            playedCursor=played.size()-1;
+        }
+        historyTarget.reset();
         if(pi!=~size_t(0)&&pi<pm->get_playlist_count())e.playlist=internal(pi)?Managed:guidstr(pm->playlist_get_guid(pi));
         events.push_back(std::move(e));
     }
     void on_playback_starting(play_control::t_track_command c,bool paused)override{accrue();startCommand=c;accountingPaused=paused;if(managedRequested){managedContext=true;managedRequested=false;}else if(c!=play_control::track_command_default&&c!=play_control::track_command_next)managedContext=false;}
-    void on_playback_new_track(metadb_handle_ptr h)override{accrue();close_personal(startCommand==play_control::track_command_default?"completed":"skipped");personalAwaitingStart=false;if(personalHistory&&personalReady){personal.begin(personal_track(h),epoch());personalDirty=true;}nowId=idof(h);if(pendingSeek&&pendingSeek->id!=nowId)pendingSeek.reset();listened=0;statsCounted=false;auto t=describe(h);duration=t.duration;countAtStart=t.play_count;clock=Clock::now();queue_event(h);startCommand=play_control::track_command_default;accountingPlaying=true;accountingPaused=playback_control::get()->is_paused();}
-    void on_playback_stop(play_control::t_stop_reason r)override{accrue();if(r==play_control::stop_reason_starting_another)personalAwaitingStart=personal.active();else{close_personal(r==play_control::stop_reason_eof?(personalAwaitingStart&&startCommand!=play_control::track_command_default?"skipped":"completed"):r==play_control::stop_reason_shutting_down?"interrupted":"stopped");personalAwaitingStart=false;}if(r!=play_control::stop_reason_starting_another)pendingSeek.reset();accountingPlaying=false;if(r==play_control::stop_reason_eof){ended=true;eofManaged=managedContext;eofRevision=revision;eofSource=source;eofRound=source.empty()?0:round().number;eofRemaining=source.empty()?std::vector<std::string>{}:round().remaining;}}
+    void on_playback_new_track(metadb_handle_ptr h)override{accrue();close_personal(startCommand==play_control::track_command_default?"completed":idof(h)==nowId?"replayed":"switched");personalAwaitingStart=false;if(personalHistory&&personalReady){personal.begin(personal_track(h),epoch());personalDirty=true;}nowId=idof(h);if(pendingSeek&&pendingSeek->id!=nowId)pendingSeek.reset();listened=0;statsCounted=false;auto t=describe(h);duration=t.duration;countAtStart=t.play_count;clock=Clock::now();queue_event(h);startCommand=play_control::track_command_default;accountingPlaying=true;accountingPaused=playback_control::get()->is_paused();}
+    void on_playback_stop(play_control::t_stop_reason r)override{accrue();if(r==play_control::stop_reason_starting_another)personalAwaitingStart=personal.active();else{close_personal(r==play_control::stop_reason_eof?(personalAwaitingStart||personal.active_seconds()<.1?"failed":"completed"):r==play_control::stop_reason_shutting_down?"interrupted":"stopped");personalAwaitingStart=false;}if(r!=play_control::stop_reason_starting_another)pendingSeek.reset();accountingPlaying=false;if(r==play_control::stop_reason_eof){ended=true;eofManaged=managedContext&&!historyTarget;eofRevision=revision;eofSource=source;eofRound=source.empty()?0:round().number;eofRemaining=source.empty()?std::vector<std::string>{}:round().remaining;}}
     void on_playback_seek(double)override{accrue();}
     void on_playback_pause(bool p)override{accrue();accountingPaused=p;}
     void on_items_added(t_size p,t_size,const pfc::list_base_const_t<metadb_handle_ptr>&,const bit_array&)override{markdirty(p);}
@@ -355,7 +375,7 @@ public:
         if(!enabled){changed=true;return;}
         if(!e.queued&&!e.playlist.empty()&&e.playlist!=Managed&&e.playlist!=source){auto pi=playlist_manager_v5::get()->find_playlist_by_guid(parseguid(e.playlist));select_source(pi);}
         if(source.empty()){changed=true;return;}
-        if(handles.count(nowId)){
+        if(!e.historyReplay&&handles.count(nowId)){
             // Items bypassed by the host decoder in the managed sequence were attempted failures.
             if(e.playlist==Managed&&!e.queued&&(e.command==play_control::track_command_next||e.command==play_control::track_command_default)){auto it=std::find(round().remaining.begin(),round().remaining.end(),nowId);if(it!=round().remaining.end()){std::vector<std::string> skipped(round().remaining.begin(),it);for(auto& id:skipped)ss::consume(round(),id);}}
             ss::consume(round(),nowId);
@@ -468,7 +488,7 @@ public:
         inside=true;
         for(size_t i=pm->get_playlist_count();i-->0;){
             pfc::string8 name;pm->playlist_get_name(i,name);
-            bool managed=name==Managed,route=name=="__verdant_np__"||name==Library;
+            bool managed=name==Managed,route=temporary_source_name(name);
             if(!managed&&!route)continue;
             auto guid=guidstr(pm->playlist_get_guid(i));
             if(route&&!temporarySources.count(guid))continue;
@@ -476,7 +496,7 @@ public:
             bool queued=false;for(auto& q:queue)if(q.m_playlist==i){queued=true;break;}
             if(queued)continue;
             if(pm->get_active_playlist()==i){
-                for(size_t j=0;j<pm->get_playlist_count();++j){pfc::string8 other;pm->playlist_get_name(j,other);if(other!=Managed&&other!="__verdant_np__"&&other!=Library){pm->set_active_playlist(j);break;}}
+                for(size_t j=0;j<pm->get_playlist_count();++j){pfc::string8 other;pm->playlist_get_name(j,other);if(other!=Managed&&!temporary_source_name(other)){pm->set_active_playlist(j);break;}}
             }
             if(pm->remove_playlist(i)){
                 if(route){temporarySources.erase(guid);rounds.erase(guid);roundAudio.erase(guid);if(source==guid){source.clear();tracks.clear();handles.clear();preview.reset();previewDirty=false;}}
@@ -487,40 +507,221 @@ public:
         if(source.empty())select_source(pm->get_active_playlist());
     }
 
-    void play_source_playlist(size_t pi,bool allowResume=true){
+    void remove_source_queue_duplicates(bool includeCurrent=false){
+        auto pm=playlist_manager::get();
+        pfc::list_t<t_playback_queue_item> queue;pm->queue_get_contents(queue);
+        pfc::bit_array_bittable overlaps(queue.get_count());
+        std::set<std::string> scheduled;
+        if(enabled){
+            const auto& remaining=round().remaining;
+            scheduled.insert(remaining.begin(),remaining.end());
+            if(includeCurrent&&handles.count(nowId))scheduled.insert(nowId);
+        }
+        bool any=false,bridgeUsed=false;
+        for(size_t i=0;i<queue.get_count();++i){
+            if(owned_queue(queue[i],bridgeUsed))continue;
+            auto id=idof(queue[i].m_handle);
+            if(enabled?scheduled.count(id):handles.count(id)){overlaps.set(i,true);any=true;}
+        }
+        if(any)pm->queue_remove_mask(overlaps);
+    }
+
+    void start_preserving_queue(size_t target){
+        auto pm=playlist_manager::get();
+        pfc::list_t<t_playback_queue_item> queue;pm->queue_get_contents(queue);
+        // Flush before the default action so it cannot start the old queue head
+        // and then have that same entry restored as a future track.
+        if(queue.get_count())pm->queue_flush();
+        pm->playlist_execute_default_action(target,0);
+        if(queue.get_count()){
+            for(auto& item:queue){
+                if(item.m_playlist<pm->get_playlist_count()&&item.m_item<pm->playlist_get_item_count(item.m_playlist)){
+                    metadb_handle_ptr at;pm->playlist_get_item_handle(at,item.m_playlist,item.m_item);
+                    if(at==item.m_handle){pm->queue_add_item_playlist(item.m_playlist,item.m_item);continue;}
+                }
+                pm->queue_add_item(item.m_handle);
+            }
+        }
+    }
+
+    bool replay_history(bool backwards){
+        if(played.empty())return false;
+        // Wait for the host to confirm the previous navigation before moving again.
+        if(historyTarget)return true;
+        size_t target=playedCursor;
+        for(;;){
+            if(backwards){if(target==0)return false;--target;}
+            else if(++target>=played.size())return false;
+            auto file=local_path(played[target]->get_path());
+            std::error_code ec;
+            if(filesystem::g_is_remote(played[target]->get_path())||fs::exists(file,ec))break;
+        }
+        auto pm=playlist_manager::get();
+        auto managed=pm->find_or_create_playlist(Managed);
+        remove_owned_queue();
+        // Keep the currently playing row valid while the host changes tracks.
+        metadb_handle_list one;one.add_item(played[target]);
+        pm->playlist_insert_items(managed,0,one,pfc::bit_array_false());
+        historyTarget=target;
+        historyDeadline=Clock::now()+std::chrono::seconds(3);
+        pendingSeek.reset();
+        managedRequested=true;
+        start_preserving_queue(managed);
+        return true;
+    }
+
+    void play_source_playlist(size_t pi,bool allowResume=true,bool dedupeQueue=false){
         auto pm=playlist_manager_v5::get();auto pc=playback_control::get();
         auto chosen=guidstr(pm->playlist_get_guid(pi));
         size_t playing=~size_t(0),at=~size_t(0);pm->get_playing_item_location(&playing,&at);
         metadb_handle_ptr current;
         // Clicking the current smart source is a resume, never a replay or new round.
         if(allowResume&&enabled&&source==chosen&&pc->is_playing()&&(playing==pi||internal(playing))&&pc->get_now_playing(current)&&handles.count(idof(current))){
+            if(dedupeQueue)remove_source_queue_duplicates(true);
             if(pc->is_paused())pc->pause(false);changed=true;return;
         }
         pendingSeek.reset();select_source(pi);remove_owned_queue();
-        // The host default action clears its playback queue. Preserve explicit
-        // user inserts around the requested playlist start, retaining FIFO order.
-        auto startPlaylist=[&](size_t target){
-            pfc::list_t<t_playback_queue_item> queue;pm->queue_get_contents(queue);
-            pm->playlist_execute_default_action(target,0);
-            if(queue.get_count()){
-                pm->queue_flush();
-                for(auto& item:queue){
-                    if(item.m_playlist<pm->get_playlist_count()&&item.m_item<pm->playlist_get_item_count(item.m_playlist)){
-                        metadb_handle_ptr at;pm->playlist_get_item_handle(at,item.m_playlist,item.m_item);
-                        if(at==item.m_handle){pm->queue_add_item_playlist(item.m_playlist,item.m_item);continue;}
-                    }
-                    pm->queue_add_item(item.m_handle);
-                }
-            }
-        };
-        if(!enabled){invalidate();startPlaylist(pi);return;}
+        if(!enabled){if(dedupeQueue)remove_source_queue_duplicates();invalidate();start_preserving_queue(pi);return;}
         if(round().remaining.empty())next_round();
         metadb_handle_list all;for(auto& id:round().remaining)if(handles.count(id))all.add_item(handles[id]);
         if(!all.get_count())throw std::runtime_error("歌单中没有可播放的歌曲");
+        if(dedupeQueue)remove_source_queue_duplicates();
         // Only the managed projection is replaced; user queue entries and saved seen/order survive.
         auto owned=pm->find_or_create_playlist(Managed);pm->playlist_clear(owned);
         pm->playlist_insert_items(owned,0,all,pfc::bit_array_false());pm->playback_order_set_active(0);
-        invalidate();managedRequested=true;startPlaylist(owned);
+        invalidate();managedRequested=true;start_preserving_queue(owned);
+    }
+
+    void play_collection(const char* name,const metadb_handle_list& input,bool preserveOrder,const char* emptyMessage){
+        metadb_handle_list all;
+        std::set<std::string> identities;
+        for(auto& handle:input)if(identities.insert(idof(handle)).second)all.add_item(handle);
+        if(!all.get_count())throw std::runtime_error(emptyMessage);
+        auto pm=playlist_manager_v5::get();auto pc=playback_control::get();
+        auto pi=pm->find_playlist(name);
+        bool unchanged=false;
+        if(pi<pm->get_playlist_count()){
+            metadb_handle_list previous;pm->playlist_get_all_items(pi,previous);
+            if(previous.get_count()==all.get_count()){
+                if(preserveOrder){
+                    unchanged=true;
+                    for(size_t i=0;i<all.get_count();++i)if(idof(previous[i])!=idof(all[i])){unchanged=false;break;}
+                }else{
+                    // The SDK does not promise a stable order for library enumeration.
+                    std::set<std::string> previousIds;
+                    for(auto& handle:previous)previousIds.insert(idof(handle));
+                    unchanged=previousIds==identities;
+                }
+            }
+            if(unchanged&&source==guidstr(pm->playlist_get_guid(pi))&&pc->is_playing()){
+                remove_source_queue_duplicates(true);
+                if(pc->is_paused())pc->pause(false);
+                changed=true;
+                return;
+            }
+        }
+        if(!unchanged){
+            pfc::vartoggle_t<bool> guard(inside,true);
+            if(pi>=pm->get_playlist_count())pi=pm->find_or_create_playlist(name);
+            pm->playlist_clear(pi);
+            pm->playlist_insert_items(pi,0,all,pfc::bit_array_false());
+        }
+        play_source_playlist(pi,false,true);
+    }
+
+    void transport(native_ss::Transport action){
+        using native_ss::Transport;
+        auto pc=playback_control::get();
+        if(action==Transport::previous){
+            pendingSeek.reset();
+            if(!enabled)pc->previous();
+            else replay_history(true);
+            return;
+        }
+        if(action==Transport::next&&enabled&&pc->is_playing()&&playedCursor+1<played.size()){
+            pfc::list_t<t_playback_queue_item> queue;
+            playlist_manager::get()->queue_get_contents(queue);
+            bool bridgeUsed=false,userQueue=false;
+            for(auto& item:queue)if(!owned_queue(item,bridgeUsed)){userQueue=true;break;}
+            if(!userQueue&&replay_history(false))return;
+        }
+        if(action==Transport::next)pendingSeek.reset();
+        if(pc->is_playing()||!enabled){
+            if(action==Transport::next)pc->next();
+            else if(action==Transport::play_pause)pc->play_or_pause();
+            else pc->play_or_unpause();
+            return;
+        }
+        // A transport command does not select a specific track.
+        auto pm=playlist_manager::get();
+        if(source.empty())select_source(pm->get_active_playlist());
+        remove_owned_queue();
+        if(pm->queue_get_count()){pc->next();return;}
+        auto pi=index_of_source();
+        if(pi>=pm->get_playlist_count()||internal(pi))throw std::runtime_error("请先选择一个可播放的歌单");
+        play_source_playlist(pi);
+    }
+
+    static std::string listening_day(int64_t epochSeconds){
+        std::time_t seconds=epochSeconds;std::tm local{};
+        if(localtime_s(&local,&seconds)!=0)return {};
+        char date[16]{};
+        return std::strftime(date,sizeof(date),"%Y-%m-%d",&local)?date:std::string{};
+    }
+    static bool valid_listening_day(const std::string& date){
+        if(date.size()!=10||date[4]!='-'||date[7]!='-')return false;
+        for(size_t i=0;i<date.size();++i)if(i!=4&&i!=7&&(date[i]<'0'||date[i]>'9'))return false;
+        using namespace std::chrono;
+        return year_month_day{year{std::stoi(date.substr(0,4))},month{unsigned(std::stoi(date.substr(5,2)))},
+            day{unsigned(std::stoi(date.substr(8,2)))}}.ok();
+    }
+    json stats_query(const json& req){
+        if(edition!="full")throw std::runtime_error("此功能仅适用于完整版");
+        if(!personalReady)throw std::runtime_error(personalError);
+        const auto from=req.at("from").get<std::string>(),to=req.at("to").get<std::string>();
+        const auto order=req.value("order",std::string("score"));
+        if(!valid_listening_day(from)||!valid_listening_day(to)||from>to)throw std::runtime_error("日期无效，请使用 YYYY-MM-DD");
+        if(order!="score"&&order!="plays"&&order!="average"&&order!="switches")throw std::runtime_error("未知排行指标");
+        auto offset=req.value("offset",size_t(0));
+        auto limit=std::clamp(req.value("limit",size_t(20)),size_t(1),size_t(50));
+        const bool ascending=req.value("ascending",false);
+        std::set<std::string> candidates;
+        if(ascending&&order=="plays"){
+            metadb_handle_list list;library_manager::get()->get_all_items(list);
+            for(auto& h:list)candidates.insert(idof(h));
+            auto pm=playlist_manager::get();
+            for(size_t p=0;p<pm->get_playlist_count();++p){
+                pfc::string8 name;pm->playlist_get_name(p,name);
+                if(name==Managed||temporary_source_name(name)||autoplaylist_manager::get()->is_client_present(p))continue;
+                list.remove_all();pm->playlist_get_all_items(p,list);
+                for(auto& h:list)candidates.insert(idof(h));
+            }
+        }
+        if(personal.expire(epoch()))personalDirty=true;
+        auto result=ss::listening_stats(personal.history(),candidates,from,to,order,ascending,offset,limit,listening_day);
+        for(auto& row:result["rows"])if(row["samples"]==0){
+            auto track=personal_track(handle_id(row.at("id").get<std::string>()));
+            for(auto key:{"title","artist","album"})row[key]=std::move(track[key]);
+        }
+        result["recording"]=personalHistory;
+        result["progress"]=nullptr;
+        if(enabled&&!source.empty()&&!tracks.empty()){
+            auto counts=recent_counts();
+            std::array<unsigned,3> first{},remaining{};
+            size_t index=0;
+            for(auto& id:round().remaining){
+                auto count=counts.find(id);
+                auto bucket=count==counts.end()?0:std::min(2,count->second);
+                ++remaining[bucket];
+                if(index++<8)++first[bucket];
+            }
+            const auto pending=round().remaining.size();
+            result["progress"]={{"source",source_name()},{"total",tracks.size()},
+                {"attempted",tracks.size()-std::min(tracks.size(),pending)},{"remaining",pending},
+                {"point",round().preference},{"first",first},{"distribution",remaining}};
+        }
+        result["smart"]=enabled;
+        return result;
     }
 
     void dispatch(const json& req){
@@ -556,6 +757,11 @@ public:
             if(edition!="full")throw std::runtime_error("此功能仅适用于完整版");
             native_ss::set_personal_library_enabled(req.at("enabled").get<bool>());
         }
+        else if(op=="listening_stats"){response["stats"]=stats_query(req);}
+        else if(op=="listening_stats_config"){
+            if(edition!="full")throw std::runtime_error("此功能仅适用于完整版");
+            native_ss::set_listening_stats_enabled(req.at("enabled").get<bool>());
+        }
         else if(op=="personal_list"){
             if(!personalReady)throw std::runtime_error(personalError);
             response["personal"]=personal.page(req.at("kind").get<std::string>(),req.value("offset",size_t(0)),req.value("limit",size_t(50)));
@@ -565,7 +771,7 @@ public:
             response["personal_flags"]=personal.flags(req.at("tracks").get<std::vector<std::string>>());
         }
         else if(op=="personal_set"){
-            if(!personalHistory)throw std::runtime_error("请先在插件设置中启用播放历史、收藏和稍后听");
+            if(edition!="full"||!native_ss::personal_library_enabled())throw std::runtime_error("请先在插件设置中启用播放历史、收藏和稍后听");
             if(!personalReady)throw std::runtime_error(personalError);
             auto kind=req.at("kind").get<std::string>();auto list=selected_handles(req);
             if(list.get_count()>1024)throw std::runtime_error("每次最多操作1024首歌曲");
@@ -595,7 +801,7 @@ public:
             auto pm=playlist_manager::get();auto list=selected_handles(req);bool move=req.value("move",false);size_t from=~size_t(0);
             if(move){from=edit_playlist(req);if(!playlist_writable(from))throw std::runtime_error("智能或锁定歌单只能复制歌曲");}
             bool create=req.value("new_playlist",false);size_t target;
-            if(create){auto name=req.value("name",std::string("所选歌曲"));if(name.empty()||name==Managed||name=="__verdant_np__"||name==Library)throw std::runtime_error("歌单名称无效");target=pm->create_playlist(name.c_str(),name.size(),pm->get_playlist_count());}
+            if(create){auto name=req.value("name",std::string("所选歌曲"));if(name.empty()||name==Managed||name=="__verdant_np__"||name==Library||name==Artist||name==Album)throw std::runtime_error("歌单名称无效");target=pm->create_playlist(name.c_str(),name.size(),pm->get_playlist_count());}
             else target=edit_playlist(req,"target_guid");
             if(target==from)throw std::runtime_error("来源和目标歌单相同");if(!playlist_writable(target))throw std::runtime_error("目标歌单不接受添加歌曲");
             auto beforeCount=pm->playlist_get_item_count(target);pm->playlist_undo_backup(target);pm->playlist_insert_items(target,beforeCount,list,pfc::bit_array_false());
@@ -626,50 +832,24 @@ public:
                 remove_owned_queue();pm->queue_flush();for(auto i:order){auto& v=user[i];if(v.m_playlist<pm->get_playlist_count()&&v.m_item<pm->playlist_get_item_count(v.m_playlist))pm->queue_add_item_playlist(v.m_playlist,v.m_item);else pm->queue_add_item(v.m_handle);}
             }else throw std::runtime_error("未知待播队列");
         }
-        else if(op=="play_pause"){
-            auto pc=playback_control::get();auto pm=playlist_manager::get();
-            if(pc->is_playing()||!enabled){pc->play_or_pause();return;}
-            // A stopped transport has no explicit track choice. Start the saved
-            // smart round instead of letting the host choose the source's row 0.
-            if(source.empty())select_source(pm->get_active_playlist());
-            remove_owned_queue();
-            if(pm->queue_get_count()){pc->next();return;}
-            auto pi=index_of_source();
-            if(pi>=pm->get_playlist_count()||internal(pi))throw std::runtime_error("请先选择一个可播放的歌单");
-            play_source_playlist(pi);
+        else if(op=="play_start"||op=="play_pause"||op=="next"){
+            transport(op=="play_start"?native_ss::Transport::play:
+                op=="play_pause"?native_ss::Transport::play_pause:native_ss::Transport::next);
         }
         else if(op=="play_playlist"){
             auto pm=playlist_manager_v5::get();
             size_t pi=req.contains("playlist_guid")?edit_playlist(req):req.at("playlist").get<size_t>();
             if(pi>=pm->get_playlist_count()||internal(pi))throw std::runtime_error("歌单已变化，请重新选择");
-            pfc::string8 name;pm->playlist_get_name(pi,name);if(name=="__verdant_np__"||name==Library)throw std::runtime_error("内部歌单不能播放");
+            pfc::string8 name;pm->playlist_get_name(pi,name);if(temporary_source_name(name))throw std::runtime_error("内部歌单不能播放");
             if(!pm->playlist_get_item_count(pi))throw std::runtime_error("歌单中没有可播放的歌曲");
-            play_source_playlist(pi);
+            play_source_playlist(pi,true,true);
         }
         else if(op=="play_library"){
-            // The SDK library is the same collection shown by All Songs, not a union of playlists.
-            metadb_handle_list library,all;library_manager::get()->get_all_items(library);
-            std::set<std::string> identities;
-            for(auto& handle:library)if(identities.insert(idof(handle)).second)all.add_item(handle);
-            if(!all.get_count())throw std::runtime_error("音乐库中没有可播放的歌曲");
-            auto pm=playlist_manager_v5::get();auto pc=playback_control::get();
-            auto pi=pm->find_playlist(Library);bool unchanged=false;
-            if(pi<pm->get_playlist_count()){
-                metadb_handle_list previous;pm->playlist_get_all_items(pi,previous);std::set<std::string> previousIds;
-                for(auto& handle:previous)previousIds.insert(idof(handle));
-                // SDK enumeration order is unspecified; preserve a source with unchanged membership.
-                unchanged=previous.get_count()==all.get_count()&&previousIds==identities;
-                if(unchanged&&source==guidstr(pm->playlist_get_guid(pi))&&pc->is_playing()){
-                    if(pc->is_paused())pc->pause(false);changed=true;return;
-                }
-            }
-            if(!unchanged){
-                pfc::vartoggle_t<bool> guard(inside,true);
-                if(pi>=pm->get_playlist_count())pi=pm->find_or_create_playlist(Library);
-                pm->playlist_clear(pi);pm->playlist_insert_items(pi,0,all,pfc::bit_array_false());
-            }
-            // Repeat clicks were handled above. A changed collection must refresh/reconcile first.
-            play_source_playlist(pi,false);
+            metadb_handle_list library;library_manager::get()->get_all_items(library);
+            play_collection(Library,library,false,"音乐库中没有可播放的歌曲");
+        }
+        else if(op=="play_artist"||op=="play_album"){
+            play_collection(op=="play_artist"?Artist:Album,selected_handles(req),true,"页面没有可播放的歌曲");
         }
         else if(op=="play"){
             pendingSeek.reset();std::optional<double> seek;
@@ -703,8 +883,7 @@ public:
             if(at==list.get_count())throw std::runtime_error("歌曲已从歌单移除");
             dispatch({{"version",1},{"op","play"},{"playlist",pi},{"item",at}});
         }
-        else if(op=="next"){pendingSeek.reset();playback_control::get()->next();}
-        else if(op=="previous"){pendingSeek.reset();playback_control::get()->previous();}
+        else if(op=="previous"){transport(native_ss::Transport::previous);}
         else if(op=="lyrics_panel"){response["lyrics_panel"]=lyrics->update(req);}
         else if(op=="reset_layout")native_ss::request_layout_reset();
         else if(op=="native_preferences")native_ss::open_native_preference();
@@ -751,7 +930,10 @@ public:
                 selected.add_item(h);response["menu"]=nativeMenus.open_context(selected);
             }
         }
-        else if(op=="menu_execute")nativeMenus.execute(req.at("token").get<std::string>(),req.at("command").get<unsigned>());
+        else if(op=="menu_execute"){
+            auto action=nativeMenus.execute(req.at("token").get<std::string>(),req.at("command").get<unsigned>());
+            if(action!=native_ss::Transport::none)transport(action);
+        }
         else if(op=="artist_resource"){
             auto name=req.at("name").get<std::string>(),kind=req.at("resource").get<std::string>();auto artists=readjson(root/L"artists.json");
             if(!artists.contains(name)||!artists[name].value("verified",false))throw std::runtime_error("歌手资料尚未确认");
@@ -820,6 +1002,7 @@ public:
         for(auto& result:metadata->results()){auto task=result.value("task",std::string{});if(metadataState[task].value("id",std::string{})==result.value("id",std::string{})){metadataState[task]=std::move(result);changed=true;}}
         if(quitting||inside)return;
         auto now=Clock::now();accrue();
+        if(historyTarget&&now>=historyDeadline)historyTarget.reset();
         auto pc=playback_control::get();auto pm=playlist_manager::get();
         if(pendingMode){auto mode=*pendingMode;pendingMode.reset();set_mode(false,mode);}
         while(!events.empty()){auto e=events.front();events.pop_front();process_new(std::move(e));}
@@ -889,13 +1072,45 @@ initquit_factory_t<Lifecycle> lifecycle;
 const GUID menuGroup={0xe8b61f29,0x598c,0x4a63,{0xa5,0x4c,0xab,0x9f,0x60,0x28,0x82,0xea}};
 mainmenu_group_popup_factory group(menuGroup,mainmenu_groups::playback,mainmenu_commands::sort_priority_base,"随机偏好");
 class Menu:public mainmenu_commands {
-    t_uint32 get_command_count()override{return 8;}
+    t_uint32 get_command_count()override{return 12;}
     GUID get_command(t_uint32 i)override{GUID g={0x35f6ca00+i,0x949e,0x4405,{0xbc,0x90,0xc3,0x88,0x46,0x31,0xd2,0xa9}};return g;}
-    void get_name(t_uint32 i,pfc::string_base& out)override{if(i==7){out=native_ss::integration_original()?"一键启用新版界面（重启）":"一键停用改动，切换原版（重启）";return;}const char* names[]={"调整随机偏好","智能均衡随机","常听优先","重新开始一轮","暂停或继续音频分析","启用或关闭智能调度","检查更新…"};out=names[i];}
-    bool get_display(t_uint32 i,pfc::string_base& text,t_uint32& flags)override{get_name(i,text);flags=(i==7?!native_ss::integration_available():!engine)?flag_disabled:0;return true;}
-    bool get_description(t_uint32,pfc::string_base& out)override{out="每轮全覆盖，根据听歌频率和音频风格调整出场顺序";return true;}
+    void get_name(t_uint32 i,pfc::string_base& out)override{
+        if(i==7){out=native_ss::integration_original()?"一键启用新版界面（重启）":"一键停用改动，切换原版（重启）";return;}
+        const char* names[]={"调整随机偏好","智能均衡随机","常听优先","重新开始一轮","暂停或继续音频分析","启用或关闭智能调度","检查更新…","","智能随机：播放","智能随机：播放／暂停","智能随机：下一首","智能随机：上一首"};
+        out=names[i];
+    }
+    bool get_display(t_uint32 i,pfc::string_base& text,t_uint32& flags)override{get_name(i,text);flags=(i==7?!native_ss::integration_available():!engine&&i<8)?flag_disabled:0;return true;}
+    bool get_description(t_uint32 i,pfc::string_base& out)override{
+        out=i>=8?"可在键盘快捷键中绑定。停止时从智能随机待播顺序起播。":"每轮全覆盖，根据听歌频率和音频风格调整出场顺序";
+        return true;
+    }
     GUID get_parent()override{return menuGroup;}
-    void execute(t_uint32 i,ctx_t)override{try{if(i==7){native_ss::integration_switch();return;}if(!engine)return;if(i==0){if(engine->themeVersion.empty())native_ss::open_native_preference();else engine->dispatch({{"version",1},{"op","open"}});}else if(i==1||i==2){engine->dispatch({{"version",1},{"op","preset"},{"x",i==1?0:.75},{"y",0}});}else if(i==3)engine->dispatch({{"version",1},{"op","restart"}});else if(i==4)engine->dispatch({{"version",1},{"op","scan_pause"}});else if(i==5)engine->dispatch({{"version",1},{"op","enable"},{"enabled",!engine->enabled}});else{engine->updater->check();native_ss::open_updates();}engine->publish();}catch(const std::exception& e){popup_message::g_show(e.what(),"随机偏好");}}
+    void execute(t_uint32 i,ctx_t)override{
+        using native_ss::Transport;
+        try{
+            if(i==7){native_ss::integration_switch();return;}
+            if(i>=8){
+                auto action=i==8?Transport::play:i==9?Transport::play_pause:i==10?Transport::next:Transport::previous;
+                if(engine){engine->transport(action);engine->publish();}
+                else {
+                    auto pc=playback_control::get();
+                    if(action==Transport::play)pc->play_or_unpause();
+                    else if(action==Transport::play_pause)pc->play_or_pause();
+                    else if(action==Transport::next)pc->next();
+                    else pc->previous();
+                }
+                return;
+            }
+            if(!engine)return;
+            if(i==0){if(engine->themeVersion.empty())native_ss::open_native_preference();else engine->dispatch({{"version",1},{"op","open"}});}
+            else if(i==1||i==2)engine->dispatch({{"version",1},{"op","preset"},{"x",i==1?0:.75},{"y",0}});
+            else if(i==3)engine->dispatch({{"version",1},{"op","restart"}});
+            else if(i==4)engine->dispatch({{"version",1},{"op","scan_pause"}});
+            else if(i==5)engine->dispatch({{"version",1},{"op","enable"},{"enabled",!engine->enabled}});
+            else{engine->updater->check();native_ss::open_updates();}
+            engine->publish();
+        }catch(const std::exception& e){popup_message::g_show(e.what(),"随机偏好");}
+    }
 };
 mainmenu_commands_factory_t<Menu> menus;
 }

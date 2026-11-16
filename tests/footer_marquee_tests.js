@@ -4,7 +4,7 @@ const root=path.join(__dirname,'../theme/verdant');let passed=0,failed=0;
 function test(name,fn){try{fn();console.log('PASS '+name);passed++;}catch(e){console.error('FAIL '+name+': '+e.message);failed++;}}
 function harness(title='A very long title that must scroll across its own viewport'){
   let now=0,serial=0,repaints=0;const timers=new Map(),images=[],copies=[],words=[];
-  function graphics(){return {CalcTextWidth:(s,f)=>String(s).length*10,CalcTextHeight:()=>16,SetTextRenderingHint(h){this.hint=h;},SetSmoothingMode(){},SetInterpolationMode(){},FillSolidRect(){},FillEllipse(){},
+  function graphics(){return {CalcTextWidth:(s,f)=>String(s).length*10,CalcTextHeight:()=>16,SetTextRenderingHint(h){this.hint=h;},SetSmoothingMode(){},SetInterpolationMode(){},FillSolidRect(){},FillEllipse(){},DrawEllipse(){},FillRoundRect(){},
     DrawString(s,f,col,x,y,w,h,flags){words.push({s,f,x,y,w,h,flags,hint:this.hint});},DrawImage(im,x,y,w,h,sx,sy,sw,sh){copies.push({im,x,y,w,h,sx,sy,sw,sh});}};}
   const c={console,Math,Number,JSON,isFinite,Date:{now:()=>now},UISCALE:1,SS_BASE_UI_SCALE:1,ssDensity:1,
     window:{GetProperty:(k,d)=>d,SetInterval(fn,ms){timers.set(++serial,{fn,ms});return serial;},ClearInterval(id){timers.delete(id);}},

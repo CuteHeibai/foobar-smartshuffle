@@ -60,6 +60,8 @@ function setScroll(y){
   else if(view==='home') homeScroll=homeScrollT=px;
   else if(view==='songs') songsScroll=songsScrollT=px;
   else if(view==='search') searchScroll=searchScrollT=px;
+  else if(view==='stats') ssStatsScroll=ssStatsScrollT=px;
+  else if(view==='artist'||view==='albums'||view==='album')artScroll=artScrollT=px;
   else if(typeof ssIsPersonal==='function'&&ssIsPersonal(view))ssPersonalScroll=ssPersonalScrollT=px;
   repaintMain();
 }
@@ -218,7 +220,7 @@ function drawTitleBar(gr){
    the All Songs group-by; items are [label,value] pairs and the menu is drawn last so it
    floats over the track list. ---- */
 function drawDropPill(gr,x,y,w,h,label,open){
-  gr.FillRoundRect(x,y,w,h,h/2,h/2,(open||hv(x,y,x+w,y+h))?COL.buttonHover:COL.pill);
+  gr.FillRoundRect(x,y,w,h,6,6,(open||hv(x,y,x+w,y+h))?COL.buttonHover:COL.pill);
   tL(gr,label,FONT.pl,COL.text,x+18,y,w-46,h);
   drawIcon(gr,'chevron',COL.text2,x+w-32,y+(h-20)/2,20,20,18);
   return {x0:x,y0:y,x1:x+w,y1:y+h};
@@ -239,7 +241,7 @@ function drawDropMenu(gr,anchor,items,cur,minW){
 }
 
 function drawSortDirBtn(gr,x,y,w,h){
-  gr.FillRoundRect(x,y,w,h,h/2,h/2,hv(x,y,x+w,y+h)?COL.buttonHover:COL.pill);
+  gr.FillRoundRect(x,y,w,h,6,6,hv(x,y,x+w,y+h)?COL.buttonHover:COL.pill);
   drawIcon(gr,plSortDir==='asc'?'sortAsc':'sortDesc',COL.text,x,y,w,h,18);
   HB_PLSORTDIR={x0:x,y0:y,x1:x+w,y1:y+h};
 }
