@@ -181,49 +181,52 @@ function fsMiniNP(gr){   // small cover + title + artist, top-left (lyrics/viz v
   tL(gr,npTitleStr||'尚未播放',FONT.sect2,COL.text,64+s+18,84,W/2,26);
   tL(gr,npArtistStr,FONT.qName,COL.text2,64+s+18,116,W/2,20);
 }
-// A desktop listening desk: original artwork left, track information right.
-function ssFsDefaultGeometry(width,bot){
-  var margin=Math.min(72,Math.round(width*.06)),top=132,gap=Math.min(64,Math.round(width*.05));
-  var avail=Math.max(1,bot-top),sz=Math.max(1,Math.min(440,avail-20,(width-margin*2-gap)*.47));
-  var x=margin,y=top+Math.max(0,Math.round((avail-sz)/2));
-  return {x:x,y:y,size:sz,textX:x+sz+gap,textY:y+Math.max(0,(sz-148)/2),textW:Math.max(1,width-margin-(x+sz+gap))};
+// Default fullscreen shares one listening stage for a recommendation and the current track.
+function ssFsDefaultGeometry(width,bot,desiredText){
+  var margin=Math.min(86,Math.round(width*.06)),gap=Math.max(30,Math.min(52,Math.round(width*.045)));
+  var top=Math.min(64,Math.max(0,Math.round((bot-164)/2))),height=Math.max(1,bot-top);
+  var available=Math.max(2,width-2*margin-gap);
+  var size=Math.max(1,Math.round(Math.min(380,height-22,available*.47)));
+  var textW=Math.max(1,Math.min(available-size,Math.max(238,Math.min(415,desiredText||0))));
+  var x=Math.round((width-size-gap-textW)/2);
+  var y=top+Math.max(0,Math.round((height-size)/2));
+  return {x:x,y:y,size:size,textX:x+size+gap,textY:top+Math.max(0,Math.round((height-164)/2)),textW:textW};
 }
 function drawFsDefault(gr,bot){
-  var m=ssFsDefaultGeometry(W,bot);
-  if(!NP){
-    var album=bot>=245?ssHomeAlbumSelection(getAlbumCatalog().albums)[0]:null;
-    var bw=128,bx=Math.round((W-bw)/2),by2=Math.max(75,Math.round((bot-100)/2))+48;
-    if(album){
-      var margin=Math.min(110,Math.round(W*.06)),blockW=Math.min(1020,W-2*margin);
-      var x=Math.round((W-blockW)/2),cover=Math.round(Math.min(380,blockW*.46,bot-115));
-      var gap=Math.round(Math.min(56,Math.max(20,W*.045)));
-      var y=Math.max(62,Math.round((bot-cover)/2)),tx=x+cover+gap,tw=blockW-cover-gap;
-      var textY=y+Math.max(0,Math.round((cover-154)/2));
-      drawRounded(gr,x,y,cover,9,album.handle,album.album);
-      tL(gr,'唱片推荐',FONT.eyebrow,COL.text2,tx,textY,tw,24);
-      tL(gr,album.album,FONT.title,COL.text,tx,textY+26,tw,55);
-      tL(gr,ssArtistName(album.artist),FONT.meta,COL.text2,tx,textY+85,tw,24);
-      bx=tx;by2=textY+124;bw=Math.min(118,Math.floor(tw*.56));
-      var libraryX=bx+bw+12,libraryW=Math.min(105,tw-bw-12);
-      tC(gr,'浏览音乐库',FONT.plSub,COL.text2,libraryX,by2,libraryW,36);
-      HB_FS.push({x0:libraryX,y0:by2,x1:libraryX+libraryW,y1:by2+36,act:'browse'});
-    }else tC(gr,'尚未播放',FONT.sect2,COL.text,0,by2-48,W,32);
-    var fill=hv(bx,by2,bx+bw,by2+36)?COL.greenHover:COL.green;
-    ssFillContinuousRect(gr,bx,by2,bw,36,9,9,fill);
-    tC(gr,album?'播放专辑':'浏览音乐库',FONT.pl,COL.onPlay,bx,by2,bw,36);
-    HB_FS.push({x0:bx,y0:by2,x1:bx+bw,y1:by2+36,act:album?'featured':'browse',album:album});
-    var exitX=W-Math.min(62,Math.round(W*.075))-106,exitY=24;
-    var exitHot=hv(exitX,exitY,exitX+106,exitY+32);
-    if(exitHot)ssFillContinuousRect(gr,exitX,exitY,106,32,7,7,COL.rowHover);
-    drawIcon(gr,'compress',COL.text2,exitX,exitY,24,32,16);
-    tL(gr,'退出全屏',FONT.pl,COL.text2,exitX+28,exitY,78,32);
-    HB_FS.push({x0:exitX,y0:exitY,x1:exitX+106,y1:exitY+32,act:'exit'});
-    return;
-  }
-  drawRounded(gr,m.x,m.y,m.size,5,NP,'np');
-  tL(gr,'正在聆听',FONT.eyebrow,COL.green,m.textX,m.textY,m.textW,24);
-  tL(gr,npTitleStr||'尚未播放',FONT.title,COL.text,m.textX,m.textY+36,m.textW,58);
-  tL(gr,npArtistStr,FONT.sect2,COL.text2,m.textX,m.textY+108,m.textW,34);
+  var album=!NP&&W>=530&&bot>=245?ssHomeAlbumSelection(getAlbumCatalog().albums)[0]:null;
+  var bw=128,bx=Math.round((W-bw)/2),by=Math.max(30,Math.round((bot-100)/2))+48;
+  if(NP||album){
+    var title=NP?(npTitleStr||'尚未播放'):album.album;
+    var artist=NP?npArtistStr:ssArtistName(album.artist),src=NP?npPlaylistSrc():null;
+    var source=src?'歌单 · '+src:'';
+    var titleW=gr.CalcTextWidth(title,ssScriptFont(title,FONT.title));
+    var artistW=gr.CalcTextWidth(artist,ssScriptFont(artist,FONT.meta));
+    var sourceW=source?gr.CalcTextWidth(source,ssScriptFont(source,FONT.fsSrc)):0;
+    var m=ssFsDefaultGeometry(W,bot,Math.round(Math.max(titleW,artistW,sourceW))+8);
+    drawRounded(gr,m.x,m.y,m.size,9,NP||album.handle,NP?'np':album.album);
+    tL(gr,NP?'正在聆听':'唱片推荐',FONT.eyebrow,NP?COL.green:COL.text2,m.textX,m.textY,m.textW,24);
+    tL(gr,title,FONT.title,COL.text,m.textX,m.textY+26,m.textW,55);
+    tL(gr,artist,FONT.meta,COL.text2,m.textX,m.textY+85,m.textW,24);
+    if(NP){
+      if(source)tL(gr,source,FONT.fsSrc,COL.text2,m.textX,m.textY+124,m.textW,26);
+      return;
+    }
+    bx=m.textX;by=m.textY+124;bw=Math.min(118,Math.floor(m.textW*.54));
+    var libraryX=bx+bw+12,libraryW=Math.min(108,m.textW-bw-12);
+    tC(gr,'浏览音乐库',FONT.plSub,COL.text2,libraryX,by,libraryW,36);
+    HB_FS.push({x0:libraryX,y0:by,x1:libraryX+libraryW,y1:by+36,act:'browse'});
+  }else tC(gr,'尚未播放',FONT.sect2,COL.text,0,by-48,W,32);
+
+  var fill=hv(bx,by,bx+bw,by+36)?COL.greenHover:COL.green;
+  ssFillContinuousRect(gr,bx,by,bw,36,9,9,fill);
+  tC(gr,album?'播放专辑':'浏览音乐库',FONT.pl,COL.onPlay,bx,by,bw,36);
+  HB_FS.push({x0:bx,y0:by,x1:bx+bw,y1:by+36,act:album?'featured':'browse',album:album});
+  var exitX=W-Math.min(62,Math.round(W*.075))-106,exitY=24;
+  var exitHot=hv(exitX,exitY,exitX+106,exitY+32);
+  if(exitHot)ssFillContinuousRect(gr,exitX,exitY,106,32,7,7,COL.rowHover);
+  drawIcon(gr,'compress',COL.text2,exitX,exitY,24,32,16);
+  tL(gr,'退出全屏',FONT.pl,COL.text2,exitX+28,exitY,78,32);
+  HB_FS.push({x0:exitX,y0:exitY,x1:exitX+106,y1:exitY+32,act:'exit'});
 }
 function drawFsLyrics(gr,bot){
   fsMiniNP(gr);
@@ -408,10 +411,6 @@ function drawFullscreen(gr){
   var bot=H-172;
   if(fsView==='lyrics') drawFsLyrics(gr,bot);
   else if(fsView==='viz') drawFsViz(gr,bot);
-  else {
-    var src=NP?npPlaylistSrc():null;
-    if(src){ tL(gr,'正在播放歌单',FONT.fsSrc,COL.text2,72,54,W-144,18); tL(gr,src,FONT.sect,COL.text,72,76,W-144,28); }
-    drawFsDefault(gr,bot);
-  }
+  else drawFsDefault(gr,bot);
   drawFsBar(gr);
 }

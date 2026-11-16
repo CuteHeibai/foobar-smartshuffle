@@ -105,9 +105,9 @@ function ssAlbumGrid(width,scale,coverSize){
   var gap=Math.round(16*scale),size=Math.max(1,Math.min(width,Math.round(coverSize*scale)));
   return {gap:gap,size:size,cols:Math.max(1,Math.floor((width+gap)/(size+gap)))};
 }
-function ssLibraryReadingWidth(width,scale){
-  var grid=ssAlbumGrid(width,scale);
-  return Math.max(1,Math.min(width,4*grid.size+3*grid.gap));
+function ssLibraryReadingRect(r){
+  var w=Math.max(1,Math.min(r.w-2*M.cpad,Math.round(760*ssDensity)));
+  return {x:r.x+Math.round((r.w-w)/2),w:w};
 }
 var ssAlbumTitleCache=new Map(),ssAlbumTitleFont=null;
 function ssAlbumTitleLines(gr,title,w){

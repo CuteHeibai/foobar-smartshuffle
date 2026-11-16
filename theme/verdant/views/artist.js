@@ -6,7 +6,7 @@ function ssBuildCollectionRows(albumOnly,s,width){
   var y=0,header=Math.round(62*s),rowH=Math.round((albumOnly?40:50)*s);
   var namedAlbums=albumOnly?[]:artistAlbums.filter(function(album){return album.named;});
   if(namedAlbums.length){
-    var sectionH=Math.round(34*s),grid=ssAlbumGrid(width,s),gap=grid.gap,cols=grid.cols;
+    var sectionH=Math.round(34*s),grid=ssAlbumGrid(width,s,138),gap=grid.gap,cols=grid.cols;
     var size=grid.size,step=size+ssAlbumLabelHeight(s)+Math.round(10*s);
     ssCollectionRows.push({y:y,h:sectionH,label:'专辑'});y+=sectionH;
     for(var a=0;a<namedAlbums.length;a+=cols){ssCollectionRows.push({y:y,h:step,tiles:namedAlbums.slice(a,a+cols),size:size,gap:gap});y+=step;}
@@ -51,7 +51,7 @@ function ssDisplayAlbumYear(year){return /^[1-9]\d{3}$/.test(year)?year:'';}
 function drawArtist(gr,r){
   HB_TR=[];HB_ARTIST_PLAY=null;
   var albumOnly=view==='album',album=albumOnly?artistAlbums[0]:null,s=ssDensity;
-  var x=r.x+M.cpad,available=Math.max(1,r.w-2*M.cpad),w=ssLibraryReadingWidth(available,s),right=x+w;
+  var content=ssLibraryReadingRect(r),x=content.x,w=content.w,right=x+w;
   var art=Math.round(Math.min(r.w<600?96:112,Math.max(64,r.h*.24))*s),ay=r.y+Math.round(24*s);
   var name=albumOnly?(album?album.album:'专辑已移除'):ssArtistName(viewArtist);
   var top=ay+art+Math.round(60*s),songs=0;
@@ -76,7 +76,7 @@ function drawArtist(gr,r){
   ssFillContinuousRect(gr,infoX,by,bw,button,8,8,hv(link.x0,link.y0,link.x1,link.y1)?COL.rowHover:COL.elev);
   tC(gr,albumOnly?'返回':'歌手资料',FONT.pl,COL.text2,infoX,by,bw,button);
   if(albumOnly)HB_ALBUM_BACK=link;else SS_ARTIST_HB=link;
-  ssBuildCollectionRows(albumOnly,s,available);
+  ssBuildCollectionRows(albumOnly,s,w);
   var layer=ssCollectionViewport(gr,r,top,ssCollectionHeight);
   if(!layer)return;
   try{

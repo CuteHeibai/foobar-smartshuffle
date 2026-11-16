@@ -30,11 +30,14 @@ test('home primary control browses the library while stopped and resumes a pause
  assert.equal(playCalls,1);
 });
 test('home keeps a featured album and reflows the selection without changing tile size',()=>{
- const {c,gr}=harness();c.ssDensity=1.05;
+ const {c,gr,paints}=harness();c.ssDensity=1.05;
  function grid(width){
-  c.drawHome(gr,{x:300,y:40,w:width,h:750});
+  paints.length=0;c.drawHome(gr,{x:300,y:40,w:width,h:750});
   const albums=c.HB_CARD.filter(card=>card.kind==='album'),first=albums[0];
   assert.equal(albums.length,albums.filter(card=>card.y0===first.y0).length);
+  assert.equal(paints[0].w,250);assert.equal(paints[0].x,first.x0);
+  assert.ok(Math.abs((first.x0+albums.at(-1).x1)/2-(300+width/2))<1);
+  assert.equal(c.HB_HOME_ALBUMS.x1,albums.at(-1).x1);
   return [albums.length,first.x1-first.x0];
  }
  assert.deepEqual(grid(1125),[5,165]);

@@ -61,9 +61,10 @@ function ssDrawHomePrimary(gr,x,y,w,h,album){
 function drawHome(gr,r){
   HB_CARD=[];HB_HOME_CONTINUE=HB_HOME_ALBUMS=null;SB=SBH=null;
   HOME_MAXROW=HOME_PLMAX=0;HOME_SHELF_Y0=HOME_SHELF_Y1=-1;
-  var s=ssDensity,x=r.x+M.cpad,w=Math.max(1,r.w-M.cpad*2),right=x+w,bottom=r.y+r.h;
+  var s=ssDensity,bottom=r.y+r.h,available=Math.max(1,r.w-2*M.cpad);
+  var grid=ssAlbumGrid(available,s),gap=grid.gap,size=grid.size,cols=Math.min(5,grid.cols);
+  var w=cols*size+(cols-1)*gap,x=r.x+Math.round((r.w-w)/2),right=x+w;
   var bh=Math.round(38*s),bw=Math.min(w,Math.round(134*s));
-  var grid=ssAlbumGrid(w,s),gap=grid.gap,size=grid.size,cols=grid.cols;
   var selection=ssHomeAlbumSelection(getAlbumCatalog().albums),featured=!NP&&r.h>=Math.round(245*s)?selection[0]:null;
   var albums=selection.slice(featured?1:0,(featured?1:0)+Math.min(5,cols*(r.w>=640*s?1:2)));
   var ty=r.y+Math.round(10*s),titleH=Math.round(43*s);
@@ -72,8 +73,8 @@ function drawHome(gr,r){
   if(showTitle)tL(gr,'唱片室',FONT.title,COL.text,x,ty,Math.max(1,w-(hero?0:bw+gap)),titleH);
   var heroEnd=r.y+Math.round(58*s);
   if(hero){
-    var y=r.y+Math.round(69*s),art=Math.min(Math.round(168*s),Math.floor(w*.40));
-    var tx=x+art+Math.round(25*s),tw=Math.max(1,right-tx);
+    var y=r.y+Math.round(69*s),art=Math.min(Math.round(238*s),Math.floor(w*.40),r.h-Math.round(174*s));
+    var tx=x+art+Math.round(32*s),tw=Math.max(1,right-tx);
     var labelY=y+Math.max(0,Math.round((art-116*s)/2));
     drawRounded(gr,x,y,art,7,NP||featured.handle,NP?'np':featured.album);
     tL(gr,NP?(fb.IsPaused?'已暂停':'正在播放'):'唱片推荐',FONT.eyebrow,COL.text2,tx,labelY,tw,Math.round(20*s));
@@ -113,5 +114,5 @@ function drawHome(gr,r){
     tC(gr,'全部专辑 ›',FONT.plSub,hot?COL.text:COL.text2,linkX,artY,linkW,headingH);
     ssHomeFocusRing(gr,HB_HOME_ALBUMS,6);
   }
-  drawScrollbar(gr,right+8,top,viewportH,homeScroll,maxPx,viewportH,contentH,hv(x,top,right+16,bottom)||drag==='scroll');
+  drawScrollbar(gr,r.x+r.w-10,top,viewportH,homeScroll,maxPx,viewportH,contentH,hv(r.x,top,r.x+r.w,bottom)||drag==='scroll');
 }

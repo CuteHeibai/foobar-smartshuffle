@@ -66,7 +66,7 @@ run('artist collections keep multi-track album headers and put singles into cons
  const tiles=c.ssCollectionRows.filter(r=>r.tiles).flatMap(r=>Array.from(r.tiles));
  assert.deepEqual(Array.from(tiles,a=>a.album),['Album','Single A','Single B']);
  assert.deepEqual(Array.from(tiles.filter(a=>a.named),a=>a.id),['album','single-a','single-b']);
- assert.ok(c.ssCollectionRows.filter(r=>r.tiles).every(r=>r.size===157));
+ assert.ok(c.ssCollectionRows.filter(r=>r.tiles).every(r=>r.size===138));
  assert.deepEqual(Array.from(c.ssCollectionRows.filter(r=>r.label),r=>r.label),['专辑','曲目','单曲']);
  assert.equal(c.ssCollectionRows.filter(r=>r.album).length,1);
  const tracks=c.ssCollectionRows.filter(r=>r.track);assert.equal(tracks.length,4);
@@ -75,14 +75,20 @@ run('artist collections keep multi-track album headers and put singles into cons
  c.ssBuildCollectionRows(false,1,280);
  const narrow=c.ssCollectionRows.filter(r=>r.tiles);
  assert.equal(narrow.flatMap(r=>Array.from(r.tiles)).length,3);
- assert.ok(narrow.every(r=>r.size===157&&r.tiles.length*r.size+(r.tiles.length-1)*r.gap<=280));
+ assert.ok(narrow.every(r=>r.size===138&&r.tiles.length*r.size+(r.tiles.length-1)*r.gap<=280));
 });
 run('opening the drawer reflows library columns at the same cover size',()=>{
  const {c}=harness();vm.runInContext(fs.readFileSync(path.join(root,'views/cards.js'),'utf8'),c);
  const wide=c.ssAlbumGrid(1077,1.05),drawer=c.ssAlbumGrid(751,1.05);
  assert.equal(wide.size,drawer.size);assert.equal(wide.cols,6);assert.equal(drawer.cols,4);
- assert.equal(c.ssLibraryReadingWidth(1077,1.05),711);assert.equal(c.ssLibraryReadingWidth(751,1.05),711);
+
  const narrow=c.ssAlbumGrid(110,.85,166);assert.equal(narrow.cols,1);assert.equal(narrow.size,110);
+ c.M.cpad=24;c.ssDensity=1.05;
+ for(const frame of [{x:300,w:1125},{x:300,w:799},{x:190,w:350}]){
+  const reading=c.ssLibraryReadingRect(frame);
+  assert.ok(Math.abs((reading.x+reading.w/2)-(frame.x+frame.w/2))<1);
+  assert.equal(reading.w,Math.min(frame.w-48,798));
+ }
 });
 run('artist portraits fit the complete source photograph without a circular mask',()=>{
  const {c}=harness(),draws=[];vm.runInContext(fs.readFileSync(path.join(root,'data/discovery.js'),'utf8'),c);
@@ -112,7 +118,25 @@ run('search keeps a compact artist result immediately above hittable song rows',
   tL:(g,text,font,color,x,y,w,h)=>labels.push({text,x,y,w,h})});
  c.drawSearch(gr,c.R.main);
  assert.equal(c.HB_CARD.length,1);assert.equal(c.HB_CARD[0].id,'Artist');assert.ok(c.HB_CARD[0].y1-c.HB_CARD[0].y0<=80);
- assert.equal(c.HB_TR.length,1);assert.equal(c.HB_TR[0].idx,0);assert.equal(c.HB_TR[0].srch,true);assert.equal(c.HB_TR[0].pgx0,24);assert.ok(c.HB_TR[0].pgx1>=56);
- assert.ok(c.HB_TR[0].y0-c.HB_CARD[0].y1<70);assert.ok(c.HB_TR[0].x1<=760);assert.equal(c.HB_TR[0].x1,c.searchBoxRect().x+c.searchBoxRect().w+2);
+ assert.equal(c.HB_TR.length,1);assert.equal(c.HB_TR[0].idx,0);assert.equal(c.HB_TR[0].srch,true);assert.equal(c.HB_TR[0].pgx0,70);assert.ok(c.HB_TR[0].pgx1>=102);
+ assert.ok(c.HB_TR[0].y0-c.HB_CARD[0].y1<70);assert.equal(c.HB_TR[0].x1,838);assert.equal(c.HB_TR[0].x1,c.searchBoxRect().x+c.searchBoxRect().w+2);
+});
+run('fullscreen centers the measured listening stage and reserves its footer',()=>{
+ const {c}=harness();
+ Object.assign(c,{COL:{},blend:()=>0,ssInk:()=>0});
+ vm.runInContext(fs.readFileSync(path.join(root,'views/fullscreen.js'),'utf8'),c);
+ for(const [width,bot] of [[1440,728],[1024,596],[760,428]]){
+  const short=c.ssFsDefaultGeometry(width,bot,70),anotherShort=c.ssFsDefaultGeometry(width,bot,131);
+  const long=c.ssFsDefaultGeometry(width,bot,1300);
+  assert.deepEqual(short,anotherShort);
+  for(const m of [short,long]){
+   assert.ok(Math.abs((m.x+m.textX+m.textW)/2-width/2)<1);
+   assert.ok(m.x>0&&m.textX>m.x+m.size&&m.textX+m.textW<width);
+   assert.ok(m.y+m.size<bot&&m.textY+160<=bot);
+   assert.ok(m.textW>=200&&m.textW<=415);
+  }
+  assert.equal(long.size,short.size);
+  assert.ok(long.textW>=short.textW);
+ }
 });
 console.log(count+' desktop drawer checks passed');

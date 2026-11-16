@@ -4,10 +4,9 @@
 
 // factored out so the blinking caret repaints just this strip (dirtySearch), not the whole view
 var SBOX_H=44, SBOX_TOP=26;   // box height + offset below R.main.y
-function ssSearchWidth(r){return ssLibraryReadingWidth(r.w-M.cpad*2,ssDensity);}
-function searchBoxRect(){ var r=R.main, boxW=ssSearchWidth(r); return {x:r.x+M.cpad-2,y:r.y+SBOX_TOP-4,w:boxW+8,h:SBOX_H+8}; }
+function searchBoxRect(){ var r=R.main,content=ssLibraryReadingRect(r);return {x:content.x-2,y:r.y+SBOX_TOP-4,w:content.w+8,h:SBOX_H+8}; }
 function drawSearchBox(gr,r){
-  var x0=r.x+M.cpad, boxH=SBOX_H, boxY=r.y+SBOX_TOP, boxW=ssSearchWidth(r);
+  var content=ssLibraryReadingRect(r),x0=content.x,boxH=SBOX_H,boxY=r.y+SBOX_TOP,boxW=content.w;
   gr.FillSolidRect(x0-2,boxY-4,boxW+8,boxH+8,COL.base);   // clean bg for partial repaints
   ssFillContinuousRect(gr,x0,boxY,boxW,boxH,boxH/2,boxH/2,COL.hover);
   var txtX=x0+48, txtW=boxW-(txtX-x0)-18;
@@ -28,7 +27,7 @@ function drawSearchBox(gr,r){
 function drawSearch(gr,r){
   HB_CARD=[]; HB_TR=[];
   computeSearch();
-  var pad=M.cpad, x0=r.x+pad, w=ssSearchWidth(r), i;
+  var content=ssLibraryReadingRect(r),x0=content.x,w=content.w,i;
   var boxH=SBOX_H, boxY=r.y+SBOX_TOP;
   if(!searchQuery.length){
     drawSearchBox(gr,r);
@@ -37,7 +36,7 @@ function drawSearch(gr,r){
   }
   if(!searchArts.length && !searchTrks.length){
     drawSearchBox(gr,r);
-    tC(gr,ssSearchBusy?'正在检索本地索引…':ssSearchError||('未找到相关结果：'+searchQuery),FONT.sect,COL.text2,r.x,r.y+Math.round(r.h/2),r.w,24);
+    tC(gr,ssSearchBusy?'正在检索本地索引…':ssSearchError||('未找到相关结果：'+searchQuery),FONT.sect,COL.text2,x0,r.y+Math.round(r.h/2),w,24);
     return;
   }
   var top=boxY+boxH+26, cropY=r.y+r.h, viewH=cropY-top;
