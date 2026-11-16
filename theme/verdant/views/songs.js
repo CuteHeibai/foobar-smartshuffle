@@ -10,7 +10,9 @@ function drawSongs(gr,r){
     if(songsOk || skelVisible('songs')) drawViewSkeleton(gr,r);
     return;
   }
-  var g=songsGroup;
+  var cov=libChoice(), g=songsGroup;
+  // header: gradient wash + mosaic cover + title/meta, mirroring the playlist header
+  gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,blend(artHue(cov.single,'__lib__'),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
   var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0), lx=r.x+M.cpad, ay=r.y+16*s, art=M.artSz;
   drawLibCover(gr,lx,ay,art,8);
   if(songsTracks.length){

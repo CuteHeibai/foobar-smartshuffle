@@ -72,9 +72,9 @@ function ssDrawFooterTitle(gr,text,font,col,x,y,w,h){
 function ssDrawIdleRecord(gr,x,y,size){
   gr.FillRoundRect(x,y,size,size,5,5,COL.elev);
   var inset=size*.12,diameter=size-2*inset,center=size/2;
-  gr.FillEllipse(x+inset,y+inset,diameter,diameter,RGB(48,45,50));
+  gr.FillEllipse(x+inset,y+inset,diameter,diameter,COL.text);
   for(var r=.20;r<=.34;r+=.07){
-    gr.DrawEllipse(x+center-size*r,y+center-size*r,size*r*2,size*r*2,Math.max(1,size*.004),RGB(105,97,108));
+    gr.DrawEllipse(x+center-size*r,y+center-size*r,size*r*2,size*r*2,Math.max(1,size*.004),COL.text2);
   }
   gr.FillEllipse(x+size*.39,y+size*.39,size*.22,size*.22,COL.green);
   gr.FillEllipse(x+size*.48,y+size*.48,size*.04,size*.04,COL.onAccent);
@@ -84,14 +84,13 @@ function drawBar(gr){
   var by=R.barY;
   var s=ssDensity;
   gr.FillSolidRect(0,by,W,M.barH,COL.black);
-  gr.FillSolidRect(0,by,W,1,COL.splitter);
   var playing=fb.IsPlaying&&!fb.IsPaused;
   // left: cover + title/artist
   var cs=Math.round(64*s), cx=Math.round(16*s), cy=by+(M.barH-cs)/2;
   if(NP)drawCover(gr,cx,cy,cs,5,NP,'np');else ssDrawIdleRecord(gr,cx,cy,cs);
   var tx=cx+cs+14*s;
   var personalSpace=NP&&typeof ssPersonalEnabled==='function'&&ssPersonalEnabled()?56*s:0;
-  ssDrawFooterTitle(gr,NP?npTitleStr:'尚未播放',FONT.npTitle,COL.text,tx,NP?by+26*s:by+(M.barH-20*s)/2,Math.max(20,R.barInfoW-tx-12*s-personalSpace),20*s);
+  ssDrawFooterTitle(gr,NP?npTitleStr:'尚未播放',FONT.npTitle,COL.text,tx,by+26*s,Math.max(20,R.barInfoW-tx-12*s-personalSpace),20*s);
   tL(gr,npArtistStr,FONT.npArtist,COL.text2,tx,by+50*s,Math.max(20,R.barInfoW-tx-12*s-personalSpace),18*s);
   if(personalSpace){
     var summary=ssState&&ssState.personal||{},fx=R.barInfoW-54*s,fy=by+(M.barH-28*s)/2;
@@ -100,57 +99,40 @@ function drawBar(gr){
     drawIcon(gr,'clock',summary.now_later?COL.green:COL.text2,fx+28*s,fy,28*s,28*s,18*s);
     HB_CTRL.push({x0:fx+28*s,y0:fy,x1:fx+56*s,y1:fy+28*s,act:'later'});
   }
-  // The transport stays centered. The right group uses two aligned rows.
-  var prefX=W-R.barToolsW+6,toolsRight=W-Math.round(12*s);
-  var modeW=Math.max(1,Math.round((toolsRight-prefX)*.54)),outputX=prefX+modeW;
-  var compactTools=W<1000,controlsY=by+Math.round(50*s),controlH=Math.round(29*s),fsW=Math.round(28*s),fsx=toolsRight-fsW;
-  var drawerW=Math.max(32,Math.min(Math.round(54*s),Math.floor((toolsRight-prefX-fsW)*.27)));
-  var drawerX=fsx-2*drawerW-8*s,volX=prefX+28*s,volW=Math.max(0,drawerX-volX-10*s),volY=controlsY+Math.round(controlH/2)-2;
+  // Anchor to the window, using actual side content rather than unused panel space.
+  var prefX=W-R.barToolsW+6,modeW=R.barToolsW-114;
   var modeName=pbShuffle?'智能随机':(ssState&&ssState.order_name)||'顺序播放';
+  var gearC=by+50*s,fsx=W-46,volW=Math.min(104*s,R.barToolsW-110),volX=fsx-24-volW,volY=gearC-2*s;
   var leftInk=Math.min(R.barInfoW,tx+Math.max(gr.CalcTextWidth(npTitleStr,FONT.npTitle),gr.CalcTextWidth(npArtistStr,FONT.npArtist))+12*s);
-  var rightInk=prefX;
+  var rightInk=Math.min(volX-32,prefX+Math.max(0,(modeW-gr.CalcTextWidth(modeName+' ▾',FONT.pl))/2));
   var transport=ssTransportLayout(W,leftInk,rightInk,s),cxC=transport.center;R.transport=transport;
-  var pcy=by+32*s, pb=(hv(cxC-27*s,by+7*s,cxC+27*s,by+61*s)?46:42)*s, pbx=cxC-pb/2, pby=pcy-pb/2;
-  ctrlBtn(gr,'prev',cxC-50*s,pcy,false,'prev',22*s,26*s);
+  var pcy=by+34*s, pb=(hv(cxC-27*s,by+7*s,cxC+27*s,by+61*s)?52:48)*s, pbx=cxC-pb/2, pby=pcy-pb/2;
+  ctrlBtn(gr,'prev',cxC-58*s,pcy,false,'prev',22*s,26*s);
   gr.FillEllipse(pbx,pby,pb,pb,COL.play);
   drawIcon(gr,playing?'pause':'play',COL.onPlay,pbx,pby,pb,pb,Math.round(pb*0.5));
   HB_CTRL.push({x0:pbx,y0:pby,x1:pbx+pb,y1:pby+pb,act:'play'});
-  ctrlBtn(gr,'next',cxC+50*s,pcy,false,'next',22*s,26*s);
-  var sbW=transport.seekWidth, sbX=cxC-sbW/2, sbY=by+67*s;
+  ctrlBtn(gr,'next',cxC+58*s,pcy,false,'next',22*s,26*s);
+  var sbW=transport.seekWidth, sbX=cxC-sbW/2, sbY=by+74*s;
   var len=fb.PlaybackLength, pos=(drag==='seek')?dragFrac:(len>0?fb.PlaybackTime/len:0);
-  HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,3*s,COL.seekbg,pos);
+  HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,5*s,COL.seekbg,pos);
   tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text2,sbX-54*s,sbY-7*s,46*s,17*s);
   tL(gr,fmtTime(len),FONT.time,COL.text2,sbX+sbW+10*s,sbY-7*s,46*s,17*s);
-  var topY=by+Math.round(11*s),topH=Math.round(28*s);
-  if(compactTools){
-    var settingsW=Math.min(96,toolsRight-prefX);
-    if(hv(toolsRight-settingsW,topY,toolsRight,topY+topH))gr.FillRoundRect(toolsRight-settingsW,topY,settingsW,topH,5,5,COL.rowHover);
-    tC(gr,'播放设置',FONT.pl,COL.text,toolsRight-settingsW,topY,settingsW-16*s,topH);
-    drawIcon(gr,'chevron',COL.text2,toolsRight-18*s,topY,18*s,topH,14*s);
-    HB_CTRL.push({x0:toolsRight-settingsW,y0:topY,x1:toolsRight,y1:topY+topH,act:'player_settings'});
-  }else{
-    if(hv(prefX,topY,outputX,topY+topH))gr.FillRoundRect(prefX,topY,modeW,topH,5,5,COL.rowHover);
-    tC(gr,modeName,FONT.pl,pbShuffle?COL.green:COL.text,prefX,topY,modeW-18*s,topH);
-    drawIcon(gr,'chevron',pbShuffle?COL.green:COL.text2,outputX-22*s,topY,18*s,topH,14*s);
-    HB_CTRL.push({x0:prefX,y0:topY,x1:outputX,y1:topY+topH,act:'playback_mode'});
-    if(hv(outputX,topY,toolsRight,topY+topH))gr.FillRoundRect(outputX,topY,toolsRight-outputX,topH,5,5,COL.rowHover);
-    tC(gr,'音频输出',FONT.plSub,COL.text2,outputX,topY,toolsRight-outputX-18*s,topH);
-    drawIcon(gr,'chevron',COL.text2,toolsRight-18*s,topY,18*s,topH,14*s);
-    HB_CTRL.push({x0:outputX,y0:topY,x1:toolsRight,y1:topY+topH,act:'output'});
-  }
-
-  gr.FillRoundRect(drawerX,controlsY,drawerW*2,controlH,4,4,COL.elev);
+  // right: volume + fullscreen
+  tC(gr,modeName+' ▾',FONT.pl,pbShuffle?COL.green:COL.text,prefX,by+4*s,modeW,30*s);
+  HB_CTRL.push({x0:prefX,y0:by+4*s,x1:prefX+modeW,y1:by+34*s,act:'playback_mode'});
+  tC(gr,'音频输出 ▾',FONT.plSub,COL.text2,W-106,by+4*s,100,30*s);
+  HB_CTRL.push({x0:W-106,y0:by+4*s,x1:W-6,y1:by+34*s,act:'output'});
+  var drawerW=Math.min(64*s,(R.barToolsW-20)/2),drawerY=by+69*s;
   var drawerTabs=['lyrics','queue'];
   for(var d=0;d<drawerTabs.length;d++){
-    var drawerTab=drawerTabs[d],dx=drawerX+d*drawerW;
-    var selected=!!(R.queue&&R.queue.w>0&&rightTab===drawerTab),hot=hv(dx,controlsY,dx+drawerW,controlsY+controlH);
-    if(selected||hot)gr.FillRoundRect(dx,controlsY,drawerW,controlH,4,4,selected?COL.rowActive:COL.rowHover);
-    tC(gr,d===0?'歌词':'队列',FONT.plSub,selected?COL.green:COL.text2,dx,controlsY,drawerW,controlH);
-    HB_CTRL.push({x0:dx,y0:controlsY,x1:dx+drawerW,y1:controlsY+controlH,act:drawerTab});
+    var drawerTab=drawerTabs[d],dx=prefX+d*(drawerW+6*s),selected=typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab===drawerTab;
+    if(selected||hv(dx,drawerY,dx+drawerW,drawerY+23*s))gr.FillRoundRect(dx,drawerY,drawerW,23*s,4,4,selected?COL.rowActive:COL.rowHover);
+    tC(gr,d===0?'歌词':'队列',FONT.plSub,selected?COL.green:COL.text2,dx,drawerY,drawerW,23*s);
+    HB_CTRL.push({x0:dx,y0:drawerY,x1:dx+drawerW,y1:drawerY+23*s,act:drawerTab});
   }
-  drawIcon(gr,'expand',hv(fsx,controlsY,toolsRight,controlsY+controlH)?COL.text:COL.text2,fsx,controlsY,fsW,controlH,17*s);
-  HB_CTRL.push({x0:fsx,y0:controlsY,x1:toolsRight,y1:controlsY+controlH,act:'fullscreen'});
-  drawIcon(gr,'volume',COL.text2,prefX,controlsY,24*s,controlH,17*s);
-  HB_VOL=volW>0?drawTrackBar(gr,volX,volY,volW,4,COL.seekbg,clamp01(vol2pos(fb.Volume))):null;
-  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,COL.error,prefX,controlsY+controlH,toolsRight-prefX,14*s);
+  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,COL.error,prefX+2*(drawerW+6*s),drawerY,Math.max(1,R.barToolsW-2*(drawerW+6*s)-16),23*s);
+  drawIcon(gr,'expand',hv(fsx-8,gearC-16,fsx+30,gearC+16)?COL.text:COL.text2,fsx,gearC-13,26,26,22);
+  HB_CTRL.push({x0:fsx-8,y0:gearC-16,x1:fsx+30,y1:gearC+16,act:'fullscreen'});
+  drawIcon(gr,'volume',COL.text2,volX-32,gearC-13,26,26,22);
+  HB_VOL=drawTrackBar(gr,volX,volY,volW,5,COL.seekbg,clamp01(vol2pos(fb.Volume)));
 }

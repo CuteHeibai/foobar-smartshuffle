@@ -25,11 +25,11 @@ function repaintAll(){ if(typeof ssInvalidateRowRasters==='function')ssInvalidat
    10px gutter below it (see the FillSolidRect(r.x,cropY,...) in each), so the remainder lands on
    the player bar. drawBar runs after main in the partial path, so pairing them covers it -- and
    it is far cheaper than the full-window repaint that used to hide this. */
-function repaintMain(scrollOnly){ if(R.queueOverlay){repaintAll();return;} if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyMain=true; window.RepaintRect(R.main.x,R.main.y,R.main.w,R.main.h); if(!scrollOnly||(view!=='stats'&&view!=='playlist'&&view!=='songs'&&view!=='artist'&&view!=='album'&&view!=='albums'))repaintBar(); }
+function repaintMain(scrollOnly){ if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyMain=true; window.RepaintRect(R.main.x,R.main.y,R.main.w,R.main.h); if(!scrollOnly||(view!=='stats'&&view!=='playlist'&&view!=='songs'&&view!=='artist'&&view!=='album'&&view!=='albums'))repaintBar(); }
 function repaintNav(){ markDirty(); dirtyNav=true; window.RepaintRect(R.navLib.x,R.navLib.y,R.navLib.w,R.navLib.h); }
 // drawNav paints both nav cards, so a hover crossing between them must invalidate their union
 function repaintNavAll(){ markDirty(); dirtyNav=true; window.RepaintRect(R.navTop.x,R.navTop.y,R.navTop.w,(R.navLib.y+R.navLib.h)-R.navTop.y); }
-function repaintQueue(scrollOnly){ if(R.queueOverlay){repaintAll();return;} if(!R.queue||R.queue.w<=0)return; if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyQueue=true; window.RepaintRect(R.queue.x,R.queue.y,R.queue.w,R.queue.h); }
+function repaintQueue(scrollOnly){ if(!R.queue||R.queue.w<=0)return; if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyQueue=true; window.RepaintRect(R.queue.x,R.queue.y,R.queue.w,R.queue.h); }
 // the visualizer's own band, 30 times a second -- see the fullscreen branch of on_paint
 function repaintViz(){ markDirty(); dirtyViz=true; window.RepaintRect(0,VIZ_TOP,W,Math.max(0,(H-172)-VIZ_TOP)); }
 function repaintTitle(){ markDirty(); dirtyTitle=true; window.RepaintRect(0,0,W,TBH); }
@@ -113,20 +113,14 @@ function layout(contentOnly){
   R.navX=g; R.navW=widths.nav;
   R.queueW=widths.right; R.queueX=W-g-R.queueW;
   R.barInfoW=widths.info;R.barToolsW=widths.tools;
-  R.mainX=R.navX+R.navW+g;
-  R.queueOverlay=ssRightForced&&R.queueW>0;
-  if(R.queueOverlay){
-    R.queueX=R.mainX;
-    R.queueW=W-g-R.mainX;
-  }
-  R.mainW=(R.queueOverlay?W-g:R.queueX-(R.queueW>0?g:0))-R.mainX;
+  R.mainX=R.navX+R.navW+g; R.mainW=R.queueX-(R.queueW>0?g:0)-R.mainX;
   var topH=R.top.bottom-R.top.y;
   var compact=R.mainW<800*ssDensity;
-  M.cpad=Math.round((R.mainW<650*ssDensity?20:32)*ssDensity);
-  M.artSz=Math.round(Math.max(72*ssDensity,Math.min(96*ssDensity,R.mainW*.20,topH*.25)));
+  M.cpad=Math.round((R.mainW<650*ssDensity?16:24)*ssDensity);
+  M.artSz=Math.round(Math.max(72*ssDensity,Math.min(110*ssDensity,R.mainW*.20,topH*.25)));
   M.headH=Math.round(66*ssDensity+M.artSz);SHEAD=M.headH;
   R.navTop={x:R.navX,y:top0,w:R.navW,h:M.navTopH};
-  R.navLib={x:R.navX,y:top0+M.navTopH+g,w:R.navW,h:topH-M.navTopH-g};   // wider gap to the library card
+  R.navLib={x:R.navX,y:top0+M.navTopH+g*2,w:R.navW,h:topH-M.navTopH-g*2};   // wider gap to the library card
   R.main={x:R.mainX,y:top0,w:R.mainW,h:topH};
   R.queue={x:R.queueX,y:top0,w:R.queueW,h:topH};
   if(contentOnly)return;
@@ -159,15 +153,13 @@ function drawMainCounted(gr){
 }
 function ssDrawBase(gr){
   HB_DOTS=[];gr.FillSolidRect(0,0,W,H,COL.black);
-  drawTitleBar(gr);if(!R.queueOverlay)drawMainCounted(gr);drawNav(gr);
-  drawQueue(gr);drawBar(gr);ssDrawResizers(gr);
+  drawTitleBar(gr);drawMainCounted(gr);drawNav(gr);drawQueue(gr);drawBar(gr);ssDrawResizers(gr);
 }
 function on_paint(gr){
   ssPaintFrame(gr);
   if(!ssModal&&!ssPopup&&!fsMode&&!ctxMenu&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt)ssDrawResizers(gr);
 }
 function ssPaintFrame(gr){
-  if(R.queueOverlay&&dirtySearch)dirtyAll=true;
   if(ssPaintResizePreview(gr))return;
   if(ssSelectionDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!ssModal&&!ssPopup&&!fsMode){
     ssPaintInteractions(gr);return;
@@ -254,18 +246,11 @@ function seekFrac(x){ return HB_SEEK?clamp01((x-HB_SEEK.x)/HB_SEEK.w):0; }
 function applyVol(x){ if(HB_VOL){ fb.Volume=pos2vol(clamp01((x-HB_VOL.x)/HB_VOL.w)); repaintBar(); } }
 function setQueueScroll(y){if(!SS_QUEUE_SB)return;var s=SS_QUEUE_SB;ssQueueScroll=ssQueueScrollT=Math.round(sbFrac(y,s.top,s.h,s.thumbH)*s.maxPx);repaintQueue();}
 function ssHeaderPlayAt(x,y){if(HB_ARTIST_PLAY&&inRect(x,y,HB_ARTIST_PLAY))return HB_ARTIST_PLAY;return HB_SONGS_PLAY&&inRect(x,y,HB_SONGS_PLAY)?HB_SONGS_PLAY:hit(HB_PLPLAY,x,y)||(HB_PLAYLIST_PLAY&&inRect(x,y,HB_PLAYLIST_PLAY)?HB_PLAYLIST_PLAY:null);}
-function ssOverQueueLayer(x,y){
-  return R.queueOverlay&&R.main&&x>=R.main.x&&x<R.main.x+R.main.w&&y>=R.main.y&&y<R.main.y+R.main.h;
-}
 function on_mouse_lbtn_down(x,y){
   ssPlaylistPlayDown=null;
   if(ssPopup)return;
   if(ssPointerDown(x,y)) return;
   if(ctxMenu||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;   // overlays are modal; dismissal/actions handled on button-up
-  if(!fsMode&&ssOverQueueLayer(x,y)){
-    if(SS_QUEUE_SB&&inRect(x,y,SS_QUEUE_SB)){drag='scrollq';setQueueScroll(y);}
-    return;
-  }
   if(!fsMode&&view==='stats'&&ssStatsPointerDown(x,y))return;
   if(!fsMode&&typeof ssPersonalPointerDown==='function'&&ssPersonalPointerDown(x,y))return;
   if(!fsMode){var playTarget=ssHeaderPlayAt(x,y);if(playTarget){ssPlaylistPlayDown=playTarget;return;}}
@@ -284,11 +269,6 @@ function on_mouse_rbtn_up(x,y){
   if(ssModal) return true;
   if(ctxMenu||confirmDel||renameEdit||dupPrompt||rgPrompt) return true;   // a modal is open: swallow
   var i;
-  if(ssOverQueueLayer(x,y)){
-    var queued=hit(HB_Q,x,y);
-    if(queued&&queued.track_id)ssOpenNativeMenu('context',{track_id:queued.track_id},x,y);
-    return true;
-  }
   for(i=0;i<HB_TR.length;i++)if(inRect(x,y,HB_TR[i])){
     var row=HB_TR[i];
     return ssBatchTrackMenu(row,x,y);
@@ -345,14 +325,6 @@ function doCtrl(act){
   else if(act==='prev') ssSend('previous');
   else if(act==='playback_mode'||act==='shuffle'||act==='repeat') ssShowPlaybackModes(Math.max(8,W-320),R.barY-80);
   else if(act==='preference') ssOpen();
-  else if(act==='player_settings'){
-    var settingsX=Math.max(8,W-250),settingsY=R.barY;
-    ssShowPopup([
-      {label:'播放模式',run:function(){ssShowPlaybackModes(settingsX,settingsY);}},
-      {label:'音频输出',run:function(){ssShowOutputs(settingsX,settingsY);}}
-    ],settingsX,settingsY);
-    return;
-  }
   else if(act==='output') ssShowOutputs(Math.max(0,W-350),R.barY);
   else if(act==='scan_pause') ssSend('scan_pause',{paused:!(ssState&&ssState.scan&&ssState.scan.paused)});
   else if(act==='scan_retry') ssSend('scan_retry');
@@ -362,14 +334,6 @@ function doCtrl(act){
 }
 function on_mouse_lbtn_up(x,y){
   var playlistPressed=ssPlaylistPlayDown;ssPlaylistPlayDown=null;
-  if(!fsMode&&!ssPopup&&!ssModal&&!ctxMenu&&!confirmDel&&!renameEdit&&!drag&&ssOverQueueLayer(x,y)){
-    if(typeof HB_QUEUE_CLOSE!=='undefined'&&HB_QUEUE_CLOSE&&inRect(x,y,HB_QUEUE_CLOSE)){ssSetRightPane(rightTab,false);return;}
-    if(SS_LYRIC_BTN&&inRect(x,y,SS_LYRIC_BTN)){ssNativeLyrics();return;}
-    var paneTab=hit(HB_TABS,x,y);
-    if(paneTab)ssSetRightPane(paneTab.tab,true);
-    else if(x<R.queue.x)ssSetRightPane(rightTab,false);
-    return;
-  }
   if(ssRecycleClick(x,y))return;
   if(!ssPopup&&!ssModal&&SS_ARTIST_HB&&inRect(x,y,SS_ARTIST_HB)){ssArtistMenu(viewArtist,x,y);return;}
   if(ssResizeEnd(x,y))return;
@@ -471,7 +435,6 @@ function on_mouse_lbtn_up(x,y){
   }
   if((t=hit(HB_TABS,x,y))){ssSetRightPane(t.tab,true);return;}
   if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act); return; }
-  if(R.queueOverlay&&R.navTop&&x<R.main.x&&y>=R.navTop.y&&y<R.barY)ssSetRightPane(rightTab,false);
   if(HB_HOME && inRect(x,y,HB_HOME)){ view='home'; repaintAll(); return; }
   if(typeof HB_HOME_CONTINUE!=='undefined'&&view==='home'&&HB_HOME_CONTINUE&&inRect(x,y,HB_HOME_CONTINUE)){ssPlayOrPause();return;}
   if(typeof HB_ARTISTS_NAV!=='undefined'&&HB_ARTISTS_NAV&&inRect(x,y,HB_ARTISTS_NAV)){view='songs';setSongsGroup('artist');songsScroll=songsScrollT=0;repaintAll();return;}
@@ -512,9 +475,8 @@ function playRow(t){
 function on_mouse_lbtn_dblclk(x,y){
   if(ssModal) return;
   if(ctxMenu||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;
-  var overLayer=ssOverQueueLayer(x,y);
-  if(!overLayer&&typeof ssPersonalActionAt==='function'&&ssPersonalActionAt(x,y))return;
-  var t=overLayer?null:hit(HB_TR,x,y);
+  if(typeof ssPersonalActionAt==='function'&&ssPersonalActionAt(x,y))return;
+  var t=hit(HB_TR,x,y);
   if(t&&!(t.srch&&searchTrks[t.idx].reason==='歌词')) ssEnqueueRow(t);
   else if(!t&&(t=hit(HB_Q,x,y))){rightTab='queue';if(t.scope==='priority')playQueueItem(t.queueIndex);else if(t.track_id)ssSend('play_id',{track_id:t.track_id});else playQueueNext(t.pl,t.item);repaintAll();}
 }
@@ -619,7 +581,7 @@ function on_mouse_leave(){
   }
   hoverZoneKey='';
 }
-function on_key_down(key){ if(ssRecycleKey(key)||ssPopupKey(key)||ssKeyDown(key)) return; if(key===27&&R.queueOverlay)ssSetRightPane(rightTab,false); }
+function on_key_down(key){ if(ssRecycleKey(key)||ssPopupKey(key)||ssKeyDown(key)) return; }
 function on_char(code){
   if(ssPopup)return;
   if(ssModal) return;

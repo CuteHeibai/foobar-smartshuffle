@@ -13,19 +13,15 @@ function ssLoadArtists(){
 }
 function ssArtistName(name){var r=ssArtists[name];return r&&r.verified?r.name:name;}
 function ssArtistRecord(name){return ssArtists[name]&&ssArtists[name].verified?ssArtists[name]:null;}
-function ssDrawArtistAvatar(gr,x,y,size,name,portraitFrame){
-  var record=ssArtistRecord(name),key=name+'|'+size+(portraitFrame?'|frame|'+COL.elev:''),img=ssArtistImages[key];
+function ssDrawArtistAvatar(gr,x,y,size,name){
+  var record=ssArtistRecord(name),key=name+'|'+size,img=ssArtistImages[key];
   if(img===undefined){
     img=null;
     if(record&&record.portrait)try{
       var source=gdi.Image(record.portrait),side=Math.min(source.Width,source.Height);
       img=gdi.CreateImage(size,size);var graphics=img.GetGraphics();graphics.SetInterpolationMode(7);
-      if(portraitFrame){
-        var scale=Math.min(size/source.Width,size/source.Height),w=Math.round(source.Width*scale),h=Math.round(source.Height*scale);
-        graphics.FillSolidRect(0,0,size,size,COL.elev);
-        graphics.DrawImage(source,Math.round((size-w)/2),Math.round((size-h)/2),w,h,0,0,source.Width,source.Height);
-      }else graphics.DrawImage(source,0,0,size,size,(source.Width-side)/2,(source.Height-side)/2,side,side);
-      img.ReleaseGraphics(graphics);if(!portraitFrame)img.ApplyMask(circleMask(size));
+      graphics.DrawImage(source,0,0,size,size,(source.Width-side)/2,(source.Height-side)/2,side,side);
+      img.ReleaseGraphics(graphics);img.ApplyMask(circleMask(size));
     }catch(e){img=null;}
     if(Object.keys(ssArtistImages).length>120)ssArtistImages={};ssArtistImages[key]=img;
   }

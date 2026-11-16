@@ -83,7 +83,7 @@ function drawLibraryAlbumCard(gr,x,y,w,album,clipTop,clipBot){
   if(bottom<=top)return;
   if(hv(x,top,x+w,bottom))gr.FillRoundRect(x,y,w,h,5,5,COL.cardHover);
   drawRounded(gr,x,y,w,4,album.handle,album.album);
-  var gap=Math.round(10*ssDensity),titleH=Math.round(22*ssDensity),subH=Math.round(20*ssDensity);
+  var gap=Math.round(8*ssDensity),titleH=Math.round(22*ssDensity),subH=Math.round(19*ssDensity);
   tL(gr,album.album,FONT.card,COL.text,x,y+w+gap,w,titleH);
   tL(gr,ssArtistName(album.artist),FONT.plSub,COL.text2,x,y+w+gap+titleH,w,subH);
   HB_CARD.push({x0:x,y0:top,x1:x+w,y1:bottom,kind:'album',id:album.id});

@@ -144,7 +144,7 @@ function ssPointerUp(x,y){
 }
 function ssDrawNativeQueue(gr,r,x,qy,bottom){
   if(!ssState) return false;
-  var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rows=priority.concat(list), rh=R.queueOverlay?Math.max(57,Math.round(55*ssDensity)):Math.max(42,Math.round(35*UISCALE));
+  var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rows=priority.concat(list), rh=Math.max(42,Math.round(35*UISCALE));
   tL(gr,'接下来',FONT.pl,COL.text,x,qy,r.w-36,28); qy+=29;
   tL(gr,pbShuffle?'本轮剩余 '+(ssState.remaining_count||0)+' 首':(!isHiddenPl(ssState.source_name)&&ssState.source_name)||'顺序播放',FONT.qArtist,COL.green,x,qy,r.w-36,24); qy+=30;
   var viewport=Math.max(0,bottom-qy);SS_QUEUE_MAX=Math.max(0,rows.length*rh-viewport);ssQueueScroll=clampPx(ssQueueScroll,SS_QUEUE_MAX);ssQueueScrollT=clampPx(ssQueueScrollT,SS_QUEUE_MAX);
@@ -152,13 +152,10 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
   var drawScroll=Math.round(ssQueueScroll),top=qy,start=Math.floor(drawScroll/rh),parentGr=gr,layer=ssBeginViewport('queue-list',gr,r.x,top,r.w,viewport);gr=layer.gr;qy-=drawScroll-start*rh;
   for(var i=start;i<rows.length&&qy<bottom;i++){
     var tr=rows[i],hb={x0:x-8,y0:Math.max(top,qy),x1:r.x+r.w-18,y1:Math.min(bottom,qy+rh),rowY:qy,rowH:rh};hb.track_id=tr.id;hb.scope=i<priority.length?'priority':pbShuffle?'remaining':'native';hb.queueIndex=i<priority.length?i:pbShuffle?i-priority.length:tr.item;if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}HB_Q.push(hb);
-    var cover=R.queueOverlay?Math.round(40*ssDensity):0,trackX=x+(cover?cover+12:0),labelW=r.x+r.w-24-trackX;
+    var labelW=r.w-48;
     ssDrawCachedRow(gr,'queue:'+i+':'+tr.id,r.x,qy,r.w,rh,function(gr){
-    var handle=cover&&typeof ssCatalogHandle==='function'?ssCatalogHandle(tr.id):null;
-    if(cover){drawCover(gr,x,qy+(rh-cover)/2,cover,3,handle,tr.title||tr.id);gr.FillSolidRect(x,qy+rh-1,r.w-36,1,COL.line);}
-    var artist=tr.artist||(handle?TF.artist.EvalWithMetadb(handle):'');
-    tL(gr,(i<priority.length?'优先 · ':'')+(tr.title||'未知曲目'),FONT.qName,COL.text,trackX,qy+3,labelW,Math.round(rh*.5)-3);
-    tL(gr,artist,FONT.qArtist,COL.text2,trackX,qy+Math.round(rh*.53),labelW,Math.round(rh*.4));
+    tL(gr,(i<priority.length?'优先 · ':'')+(tr.title||'未知曲目'),FONT.qName,COL.text,x,qy+3,labelW,Math.round(rh*.5)-3);
+    tL(gr,tr.artist||'',FONT.qArtist,COL.text2,x,qy+Math.round(rh*.53),labelW,Math.round(rh*.4));
     });qy+=rh;
   }
   layer.finish();gr=parentGr;
