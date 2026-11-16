@@ -15,8 +15,8 @@ function drawNavRow(gr,y,h,on,hov,pi,name,sub){
 function drawNav(gr){
   HB_PL=[];
   if(typeof HB_PERSONAL!=='undefined')HB_PERSONAL=[];
-  // top card: Home + Search as two compact tabs, same weight as the library rows below
-  panelBg(gr,R.navTop,COL.base);
+  // Home and Search share the navigation rail background.
+  gr.FillSolidRect(R.navTop.x,R.navTop.y,R.navTop.w,R.navTop.h,COL.black);
   var s=ssDensity,m=12*s, g=8*s, bh=34*s, iy=R.navTop.y+Math.round((R.navTop.h-bh)/2);
   var bw=Math.floor((R.navTop.w-2*m-g)/2);
   var hx=R.navTop.x+m, sx2=hx+bw+g;
@@ -35,8 +35,7 @@ function drawNav(gr){
   // window first, so drawNav has to own it now.
   var gapY=R.navTop.y+R.navTop.h;
   gr.FillSolidRect(R.navTop.x,gapY,R.navTop.w,R.navLib.y-gapY,COL.black);
-  // library card
-  panelBg(gr,R.navLib,COL.base);
+  gr.FillSolidRect(R.navLib.x,R.navLib.y,R.navLib.w,R.navLib.h,COL.black);
   tL(gr,'音乐库',FONT.head,COL.text3,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
   var active=plman.ActivePlaylist, pls=visiblePlaylists();
   var footH=72*s, footTop=R.navLib.y+R.navLib.h-footH;   // pinned "add playlist" footer, always visible
@@ -71,9 +70,8 @@ function drawNav(gr){
     if(hy1>hy0) HB_PL.push({x0:R.navLib.x,y0:hy0,x1:R.navLib.x+R.navLib.w,y1:hy1,i:i2});
   }
   // crop partial rows top & bottom, redraw the sticky header block (title + All Songs), then the scrollbar
-  // (clear starts below the panel's rounded corners so a square fill can't square them off)
-  gr.FillSolidRect(R.navLib.x,R.navLib.y+M.radius+2,R.navLib.w,listTop-R.navLib.y-M.radius-2,COL.base);
-  gr.FillSolidRect(R.navLib.x,cropY,R.navLib.w,R.navLib.y+R.navLib.h-cropY,COL.base);
+  gr.FillSolidRect(R.navLib.x,R.navLib.y,R.navLib.w,listTop-R.navLib.y,COL.black);
+  gr.FillSolidRect(R.navLib.x,cropY,R.navLib.w,R.navLib.y+R.navLib.h-cropY,COL.black);
   tL(gr,'音乐库',FONT.head,COL.text3,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
   drawNavRow(gr,pinY,pinH,view==='songs'&&songsGroup!=='artist',hv(R.navLib.x,pinY,R.navLib.x+R.navLib.w,pinY+pinH),-1,'全部歌曲',fmtNum(libCount())+' 首歌曲');
   HB_ALLSONGS={x0:R.navLib.x,y0:pinY,x1:R.navLib.x+R.navLib.w,y1:pinY+pinH};

@@ -194,14 +194,17 @@ function drawFsDefault(gr,bot){
     var album=bot>=245?ssHomeAlbumSelection(getAlbumCatalog().albums)[0]:null;
     var bw=128,bx=Math.round((W-bw)/2),by2=Math.max(75,Math.round((bot-100)/2))+48;
     if(album){
-      var blockW=Math.min(490,W-42),x=Math.round((W-blockW)/2),cover=Math.round(Math.min(132,W*.24));
-      var y=Math.max(65,Math.round((bot-cover)/2)),tx=x+cover+22,tw=blockW-cover-22;
-      drawRounded(gr,x,y,cover,7,album.handle,album.album);
-      tL(gr,'从一张唱片开始',FONT.eyebrow,COL.text2,tx,y,tw,22);
-      tL(gr,album.album,FONT.sect2,COL.text,tx,y+22,tw,33);
-      tL(gr,ssArtistName(album.artist),FONT.meta,COL.text2,tx,y+56,tw,21);
-      bx=tx;by2=y+84;bw=Math.min(110,Math.floor(tw*.48));
-      var libraryX=bx+bw+9,libraryW=tw-bw-9;
+      var margin=Math.min(110,Math.round(W*.06)),blockW=Math.min(1020,W-2*margin);
+      var x=Math.round((W-blockW)/2),cover=Math.round(Math.min(380,blockW*.46,bot-115));
+      var gap=Math.round(Math.min(56,Math.max(20,W*.045)));
+      var y=Math.max(62,Math.round((bot-cover)/2)),tx=x+cover+gap,tw=blockW-cover-gap;
+      var textY=y+Math.max(0,Math.round((cover-154)/2));
+      drawRounded(gr,x,y,cover,9,album.handle,album.album);
+      tL(gr,'唱片推荐',FONT.eyebrow,COL.text2,tx,textY,tw,24);
+      tL(gr,album.album,FONT.title,COL.text,tx,textY+26,tw,55);
+      tL(gr,ssArtistName(album.artist),FONT.meta,COL.text2,tx,textY+85,tw,24);
+      bx=tx;by2=textY+124;bw=Math.min(118,Math.floor(tw*.56));
+      var libraryX=bx+bw+12,libraryW=Math.min(105,tw-bw-12);
       tC(gr,'浏览音乐库',FONT.plSub,COL.text2,libraryX,by2,libraryW,36);
       HB_FS.push({x0:libraryX,y0:by2,x1:libraryX+libraryW,y1:by2+36,act:'browse'});
     }else tC(gr,'尚未播放',FONT.sect2,COL.text,0,by2-48,W,32);
@@ -386,15 +389,15 @@ function drawFsBar(gr){
     HB_CTRL.push({x0:pbx,y0:pby,x1:pbx+pb,y1:pby+pb,act:'play'});
     ctrlBtn(gr,'next',cxC+84,cy,false,'next');
   }
-  var inset=Math.min(72,Math.round(W*.075));
+  var idle=!NP&&fsView==='default';
+  var inset=idle?Math.max(10,cxC-165):Math.min(72,Math.round(W*.075));
   ctrlBtn(gr,'shuffle',NP?cxC-150:inset+18,cy,pbShuffle,'shuffle');
   ctrlBtn(gr,pbRepeat===2?'repeat1':'repeat',NP?cxC+150:inset+60,cy,pbRepeat>0,'repeat');
   fsIcon(gr,'equalizer',fsView==='viz'?COL.green:COL.text2,NP?72:inset+96,cy-13,26,'viz');
   fsIcon(gr,'mic',fsView==='lyrics'?COL.green:COL.text2,NP?114:inset+138,cy-13,26,'lyrics');
   var rx=W-72;
-  var idle=!NP&&fsView==='default';
   if(!idle)fsIcon(gr,'compress',COL.text2,rx-26,cy-13,26,'exit');
-  var volW=idle?Math.min(120,Math.max(42,W-356)):120,volX=rx-(idle?18:72)-volW,volY=cy-2;
+  var volW=idle?96:120,volX=idle?inset+234:rx-72-volW,volY=cy-2;
   drawIcon(gr,'volume',COL.text2,volX-32,cy-12,24,24,20);
   HB_VOL=drawTrackBar(gr,volX,volY,volW,4,rail,clamp01(vol2pos(fb.Volume)));
 }

@@ -58,7 +58,7 @@ function F(sz,bold){ return gf(bold?'Inter Medium':'Inter', sz, 0); }
 function ssCreateFonts(){return {
   // Page 28; sections 20/16; body 14; supporting text 12. Medium is reserved for hierarchy.
   lib:F(16,1), pl:F(14,0), plSub:F(12,0),
-  eyebrow:F(12,1), title:gf('Inter',28,1), meta:F(12,0),
+  eyebrow:F(12,1), title:gf('Inter',26,1), meta:F(12,0),
   rowTitle:F(14,0), rowArtist:F(12,0), rowNum:F(13,0), rowCell:F(13,0), head:F(12,1),
   tab:F(16,1), sect:F(16,1), qName:F(14,0), qArtist:F(12,0),
   npTitle:F(15,0), npArtist:F(12,0), time:F(12,0),

@@ -9,14 +9,15 @@ function harness(){
 }
 test('home shows real album navigation when verified artist list is empty inside a clipped viewport',()=>{
  const {c,paints,layers,texts,gr}=harness(),r={x:240,y:40,w:900,h:750};c.drawHome(gr,r);
- const cards=c.HB_CARD.filter(a=>a.kind==='album');assert.ok(cards.length>=3);assert.equal(cards[0].id,'album-7');assert.equal(cards[0].y0,cards[1].y0);assert.ok(cards[0].x1<cards[1].x0);
- assert.equal(layers.length,1);assert.equal(layers[0].done,true);assert.ok(paints.every(a=>a.gr===layers[0].gr));assert.ok(cards.every(a=>a.y0>=layers[0].y&&a.y1<=r.y+r.h));assert.ok(texts.includes('专辑选览'));
- c.homeScroll=c.homeScrollT=c.HOME_MAXROW;paints.length=0;c.drawHome(gr,r);assert.equal(c.ssHomeAlbums.length,6);assert.equal(c.HB_CARD.at(-1).id,'album-3');assert.ok(c.HB_CARD.every(a=>a.y0>=layers[1].y&&a.y1<=r.y+r.h));
+ const cards=c.HB_CARD.filter(a=>a.kind==='album');assert.ok(cards.length>=3);assert.equal(c.HB_HOME_CONTINUE.album.id,'album-7');assert.equal(cards[0].id,'album-0');assert.equal(cards[0].y0,cards[1].y0);assert.ok(cards[0].x1<cards[1].x0);
+ assert.equal(layers.length,1);assert.equal(layers[0].done,true);assert.ok(paints.some(a=>a.gr===gr));assert.ok(paints.slice(1).every(a=>a.gr===layers[0].gr));assert.ok(cards.every(a=>a.y0>=layers[0].y&&a.y1<=r.y+r.h));assert.ok(texts.includes('唱片推荐'));
+ c.homeScroll=c.homeScrollT=c.HOME_MAXROW;paints.length=0;c.drawHome(gr,r);assert.equal(c.ssHomeAlbums.length,6);assert.equal(c.HB_CARD.at(-1).id,'album-4');assert.ok(c.HB_CARD.every(a=>a.y0>=layers[1].y&&a.y1<=r.y+r.h));
 });
 
 test('home primary control browses the library while stopped and resumes a paused track',()=>{
  const {c,gr}=harness(),r={x:240,y:40,w:900,h:750};
  let playCalls=0;
+ c.getAlbumCatalog=()=>({albums:[]});
  Object.assign(c,{view:'home',songsScroll:25,songsScrollT:25,repaintAll(){},ssPlayOrPause(){playCalls++;}});
  c.drawHome(gr,r);
  assert.equal(c.HB_HOME_CONTINUE.act,'browse');
@@ -28,7 +29,7 @@ test('home primary control browses the library while stopped and resumes a pause
  c.ssActivateHomeAction(c.HB_HOME_CONTINUE);
  assert.equal(playCalls,1);
 });
-test('home grid reflows from six columns to four without changing cover size',()=>{
+test('home keeps a featured album and reflows the selection without changing tile size',()=>{
  const {c,gr}=harness();c.ssDensity=1.05;
  function grid(width){
   c.drawHome(gr,{x:300,y:40,w:width,h:750});
@@ -36,7 +37,7 @@ test('home grid reflows from six columns to four without changing cover size',()
   assert.equal(albums.length,albums.filter(card=>card.y0===first.y0).length);
   return [albums.length,first.x1-first.x0];
  }
- assert.deepEqual(grid(1125),[6,165]);
+ assert.deepEqual(grid(1125),[5,165]);
  assert.deepEqual(grid(799),[4,165]);
 });
 
@@ -48,17 +49,17 @@ test('a short window keeps the primary action inside the main panel and clears o
  assert.equal(c.SB,null);assert.equal(c.SBH,null);
 });
 
-test('the idle homepage leads with real covers and reserves the large cover for active tracks',()=>{
- const {c,gr}=harness(),r={x:240,y:40,w:1125,h:750};
- c.ssDensity=1.05;c.drawHome(gr,r);
- const idleFirst=c.HB_CARD.find(card=>card.kind==='album');
- assert.ok(idleFirst.y0-r.y<140);
- Object.assign(c,{NP:{},npTitleStr:'Paused track',npArtistStr:'Artist'});c.fb.IsPaused=true;
- c.drawHome(gr,r);
- assert.equal(c.HB_HOME_CONTINUE.act,'transport');
- assert.ok(c.HB_CARD.find(card=>card.kind==='album').y0>idleFirst.y0);
-});
 
+test('the idle homepage can play its featured album through the native collection action',()=>{
+ const {c,gr}=harness(),r={x:240,y:40,w:1125,h:750};
+ let sent;
+ c.ssPlayCollection=(op,albums)=>{sent={op,albums};};
+ c.drawHome(gr,r);
+ assert.equal(c.HB_HOME_CONTINUE.act,'featured');
+ assert.ok(c.HB_HOME_CONTINUE.y1<c.HB_CARD[0].y0);
+ c.ssActivateHomeAction(c.HB_HOME_CONTINUE);
+ assert.equal(sent.op,'play_album');assert.equal(sent.albums[0].id,'album-7');
+});
 test('album names reserve two title lines and the selection avoids repeated names',()=>{
  const {c}=harness(),gr={CalcTextWidth:s=>Array.from(s).length*8};
  const long='TV Soundtrack Special Edition';
