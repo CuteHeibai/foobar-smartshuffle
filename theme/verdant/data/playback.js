@@ -45,9 +45,9 @@ function playAlbum(id){
   if(view!=='album'||viewAlbum!==id)return false;
   return ssPlayCollection('play_album');
 }
-function ssPlayCollection(op){
+function ssPlayCollection(op,albums){
   var tracks=[];
-  for(var album of artistAlbums)for(var song of album.tracks)tracks.push(ssTrackID(song.handle));
+  for(var album of albums||artistAlbums)for(var song of album.tracks)tracks.push(ssTrackID(song.handle));
   if(!tracks.length)return false;
   ssSend(op,{tracks:tracks});return true;
 }

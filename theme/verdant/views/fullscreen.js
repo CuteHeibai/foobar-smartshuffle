@@ -7,9 +7,10 @@ function enterFullscreen(){ fsMode=true; try{ if(UIWizard && UIWizard.WindowStat
 function exitFullscreen(){ fsMode=false; vizMenuOpen=false; stopViz(); repaintAll(); }
 // the style list belongs to the viz view: leaving it (or fullscreen) must not leave a menu armed
 function setFsView(v){ fsView=v; vizMenuOpen=false; if(v==='viz') startViz(); else stopViz(); if(v==='lyrics'){ loadLyrics(); lySnap=true; } repaintAll(); }
-function doFsAct(act){
+function doFsAct(act,album){
   if(act==='exit') exitFullscreen();
   else if(act==='browse'){view='songs';songsScroll=songsScrollT=0;exitFullscreen();}
+  else if(act==='featured'&&album)ssPlayCollection('play_album',[album]);
   else if(act==='lyrics') setFsView(fsView==='lyrics'?'default':'lyrics');
   else if(act==='viz') setFsView(fsView==='viz'?'default':'viz');
 }
@@ -190,13 +191,24 @@ function ssFsDefaultGeometry(width,bot){
 function drawFsDefault(gr,bot){
   var m=ssFsDefaultGeometry(W,bot);
   if(!NP){
-    var titleY=Math.max(18,Math.round((bot-100)/2));
-    tC(gr,'尚未播放',FONT.sect2,COL.text,0,titleY,W,32);
-    var bw=128,bx=Math.round(W/2-bw/2),by2=titleY+48;
+    var album=bot>=245?ssHomeAlbumSelection(getAlbumCatalog().albums)[0]:null;
+    var bw=128,bx=Math.round((W-bw)/2),by2=Math.max(75,Math.round((bot-100)/2))+48;
+    if(album){
+      var blockW=Math.min(490,W-42),x=Math.round((W-blockW)/2),cover=Math.round(Math.min(132,W*.24));
+      var y=Math.max(65,Math.round((bot-cover)/2)),tx=x+cover+22,tw=blockW-cover-22;
+      drawRounded(gr,x,y,cover,7,album.handle,album.album);
+      tL(gr,'从一张唱片开始',FONT.eyebrow,COL.text2,tx,y,tw,22);
+      tL(gr,album.album,FONT.sect2,COL.text,tx,y+22,tw,33);
+      tL(gr,ssArtistName(album.artist),FONT.meta,COL.text2,tx,y+56,tw,21);
+      bx=tx;by2=y+84;bw=Math.min(110,Math.floor(tw*.48));
+      var libraryX=bx+bw+9,libraryW=tw-bw-9;
+      tC(gr,'浏览音乐库',FONT.plSub,COL.text2,libraryX,by2,libraryW,36);
+      HB_FS.push({x0:libraryX,y0:by2,x1:libraryX+libraryW,y1:by2+36,act:'browse'});
+    }else tC(gr,'尚未播放',FONT.sect2,COL.text,0,by2-48,W,32);
     var fill=hv(bx,by2,bx+bw,by2+36)?COL.greenHover:COL.green;
     ssFillContinuousRect(gr,bx,by2,bw,36,9,9,fill);
-    tC(gr,'浏览音乐库',FONT.pl,COL.onPlay,bx,by2,bw,36);
-    HB_FS.push({x0:bx,y0:by2,x1:bx+bw,y1:by2+36,act:'browse'});
+    tC(gr,album?'播放专辑':'浏览音乐库',FONT.pl,COL.onPlay,bx,by2,bw,36);
+    HB_FS.push({x0:bx,y0:by2,x1:bx+bw,y1:by2+36,act:album?'featured':'browse',album:album});
     var exitX=W-Math.min(62,Math.round(W*.075))-106,exitY=24;
     var exitHot=hv(exitX,exitY,exitX+106,exitY+32);
     if(exitHot)ssFillContinuousRect(gr,exitX,exitY,106,32,7,7,COL.rowHover);

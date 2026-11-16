@@ -420,7 +420,7 @@ function on_mouse_lbtn_up(x,y){
       vizMenuOpen=false; repaintAll(); return;
     }
     if(HB_VIZ && fsView==='viz' && inRect(x,y,HB_VIZ)){ vizMenuOpen=true; repaintAll(); return; }
-    if((t=hit(HB_FS,x,y))){ doFsAct(t.act); return; }
+    if((t=hit(HB_FS,x,y))){ doFsAct(t.act,t.album); return; }
     if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act); return; }
     return;
   }

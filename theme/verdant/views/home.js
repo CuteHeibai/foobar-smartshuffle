@@ -1,30 +1,35 @@
 ﻿/* Desktop home: playback entry, quick playlists and an album selection. */
-var HB_HOME_CONTINUE=null,HB_HOME_ALBUMS=null,ssHomeFocus='';
+var HB_HOME_CONTINUE=null,HB_HOME_ALBUMS=null,HB_HOME_FEATURED=null,ssHomeFocus='';
 var ssHomeAlbumSource=null,ssHomeAlbums=[];
 
 function ssHomeAlbumSelection(albums){
   if(ssHomeAlbumSource===albums)return ssHomeAlbums;
   ssHomeAlbumSource=albums;ssHomeAlbums=[];
-  var artists=new Set(),seen=new Set();
+  var artists=new Set(),titles=new Set();
   var ranked=albums.slice().sort(function(a,b){return (parseInt(b.year,10)||0)-(parseInt(a.year,10)||0);});
   for(var album of ranked){
-    if(ssHomeAlbums.length===12)break;
-    if(artists.has(album.artist))continue;
-    artists.add(album.artist);seen.add(album.id);ssHomeAlbums.push(album);
+    if(ssHomeAlbums.length===6)break;
+    var title=album.album.trim().toLowerCase();
+    if(artists.has(album.artist)||titles.has(title))continue;
+    artists.add(album.artist);titles.add(title);ssHomeAlbums.push(album);
   }
   for(var album of ranked){
-    if(ssHomeAlbums.length===12)break;
-    if(!seen.has(album.id))ssHomeAlbums.push(album);
+    if(ssHomeAlbums.length===6)break;
+    var title=album.album.trim().toLowerCase();
+    if(titles.has(title))continue;
+    titles.add(title);ssHomeAlbums.push(album);
   }
   return ssHomeAlbums;
 }
 function ssHomeActionAt(x,y){
   if(HB_HOME_CONTINUE&&inRect(x,y,HB_HOME_CONTINUE))return HB_HOME_CONTINUE;
+  if(HB_HOME_FEATURED&&inRect(x,y,HB_HOME_FEATURED))return HB_HOME_FEATURED;
   return HB_HOME_ALBUMS&&inRect(x,y,HB_HOME_ALBUMS)?HB_HOME_ALBUMS:null;
 }
 function ssActivateHomeAction(target){
   if(target.act==='transport'){ssPlayOrPause();return;}
   if(target.act==='playlist'){playPlaylist(target.pl);return;}
+  if(target.act==='featured'){ssPlayCollection('play_album',[target.album]);return;}
   ssHomeFocus='';
   if(target.act==='albums'){view='albums';artScroll=artScrollT=0;}
   else{view='songs';songsScroll=songsScrollT=0;}
@@ -35,6 +40,7 @@ function ssHomeKey(key){
   if(key!==9&&key!==13&&key!==27)return false;
   var actions=[];
   if(HB_HOME_CONTINUE)actions.push(HB_HOME_CONTINUE);
+  if(HB_HOME_FEATURED)actions.push(HB_HOME_FEATURED);
   if(HB_HOME_ALBUMS)actions.push(HB_HOME_ALBUMS);
   for(var button of HB_PLPLAY)if(button.act==='playlist')actions.push(button);
   var focused=actions.findIndex(function(target){return target.focus===ssHomeFocus;});
@@ -85,12 +91,13 @@ function ssDrawHomeShortcuts(gr,x,y,w,grid,pls,top,bottom){
   if(sbY>=top&&sbY+8<=bottom)drawScrollbarH(gr,x,sbY,w,plScroll,HOME_PLMAX,w,shelfW,hv(x,hy,right,sbY+8)||drag==='scrollh');
 }
 function drawHome(gr,r){
-  HB_CARD=[];HB_HOME_CONTINUE=null;HB_HOME_ALBUMS=null;SB=SBH=null;
+  HB_CARD=[];HB_HOME_CONTINUE=HB_HOME_ALBUMS=HB_HOME_FEATURED=null;SB=SBH=null;
   HOME_MAXROW=HOME_PLMAX=0;HOME_SHELF_Y0=HOME_SHELF_Y1=-1;
   var s=ssDensity,x=r.x+M.cpad,w=Math.max(1,r.w-M.cpad*2),right=x+w,bottom=r.y+r.h;
   var bh=Math.round(36*s),bw=Math.min(w,Math.round(128*s));
   var grid=ssAlbumGrid(w,s),gap=grid.gap,size=grid.size,cols=grid.cols;
-  var albums=ssHomeAlbumSelection(getAlbumCatalog().albums),pls=visiblePlaylists().slice(0,3);
+  var selection=ssHomeAlbumSelection(getAlbumCatalog().albums);
+  var albums=selection.slice(0,cols*(r.w>=640*s?1:2)),pls=visiblePlaylists().slice(0,3);
   var ty=r.y+Math.round(10*s),titleH=Math.round(43*s);
   var showTitle=r.h>=Math.round(55*s),fullTrack=NP&&r.h>=Math.round(210*s);
   gr.FillSolidRect(r.x,r.y,r.w,r.h,COL.base);
@@ -109,7 +116,7 @@ function drawHome(gr,r){
   var artY=r.y+Math.round((fullTrack?186:65)*s),headingH=Math.round(27*s);
   var top=artY+Math.round(35*s),viewportH=bottom-top;
   if(viewportH<1)return;
-  var cardH=size+M.cardTextH,rowStep=cardH+Math.round(12*s);
+  var cardH=size+ssAlbumLabelHeight(s),rowStep=cardH+Math.round(12*s);
   var albumHeight=albums.length?Math.ceil(albums.length/cols)*rowStep-Math.round(12*s):Math.round(34*s);
   var shelfOffset=albumHeight+Math.round(20*s),contentH=pls.length?shelfOffset+Math.round(103*s):albumHeight;
   var maxPx=Math.max(0,contentH-viewportH);
@@ -128,7 +135,18 @@ function drawHome(gr,r){
   }finally{layer.finish();}
 
   var linkW=albums.length?Math.min(Math.round(98*s),Math.floor(w/2)):0;
-  tL(gr,'专辑选览',FONT.sect,COL.text,x,artY,w-linkW,headingH);
+  var recentYear=new Date().getFullYear()-4;
+  var recent=albums.length>0&&albums.every(function(album){return Number(album.year)>=recentYear;});
+  tL(gr,recent?'近年发行':'专辑选览',FONT.sect,COL.text,x,artY,Math.min(w-linkW,Math.round(102*s)),headingH);
+  if(!NP&&albums.length&&w>=Math.round(430*s)){
+    var playX=x+Math.round(108*s),playW=Math.min(Math.round(195*s),w-linkW-(playX-x));
+    var play={x0:playX,y0:artY,x1:playX+playW,y1:artY+headingH,act:'featured',focus:'featured',album:albums[0]};
+    var playHot=hv(play.x0,play.y0,play.x1,play.y1);
+    if(playHot)ssFillContinuousRect(gr,playX,artY,playW,headingH,6,6,COL.rowHover);
+    drawIcon(gr,'play',COL.green,playX+3,artY,22,headingH,14);
+    tL(gr,'播放 '+albums[0].album,FONT.plSub,COL.green,playX+27,artY,playW-30,headingH);
+    HB_HOME_FEATURED=play;ssHomeFocusRing(gr,play,6);
+  }
   if(linkW){
     var linkX=x+size*cols+gap*(cols-1)-linkW;
     HB_HOME_ALBUMS={x0:linkX,y0:artY,x1:linkX+linkW,y1:artY+headingH,act:'albums',focus:'albums'};

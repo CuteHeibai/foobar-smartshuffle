@@ -90,9 +90,9 @@ function artistHarness(){
   const h=harness(),c=h.c;
   h.load('views/cards.js');h.load('views/artist.js');
   Object.assign(c,{view:'artist',viewArtist:'Artist',viewAlbum:'',artScroll:0,artScrollT:0,HB_CARD:[],SS_ARTIST_HB:null,HB_ARTIST_PLAY:null,
-    coverCol:()=>0,ssDrawArtistAvatar(){},ssArtistName:String,drawRounded(){},ssRowHover:()=>false,tR(){},
+    coverCol:()=>0,ssScriptFont:(s,f)=>f,ssDrawArtistAvatar(){},ssArtistName:String,drawRounded(){},ssRowHover:()=>false,tR(){},
     ssBeginViewport:(key,gr)=>({gr,finish(){}}),drawScrollbar(){},clampPx:(value,max)=>Math.max(0,Math.min(value,max))});
-  return {h,c,gr:{FillGradRect(){},FillSolidRect(){},FillPolygon(){},FillEllipse(){}}};
+  return {h,c,gr:{FillGradRect(){},FillSolidRect(){},FillPolygon(){},FillEllipse(){},CalcTextWidth:s=>s.length*8}};
 }
 test('artist play button stays clear of the artist information link and disappears with no songs',()=>{
   const {c,gr}=artistHarness();

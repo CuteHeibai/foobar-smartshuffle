@@ -80,6 +80,15 @@ function ssDrawIdleRecord(gr,x,y,size){
   gr.DrawEllipse(ix,iy,d,d,Math.max(1,Math.round(size*.035)),COL.text3);
   gr.FillEllipse(Math.round(x+(size-dot)/2),Math.round(y+(size-dot)/2),dot,dot,COL.text3);
 }
+function ssDrawFooterTool(gr,x,y,s,act,icon,active,label){
+  var size=Math.max(34,Math.round(34*s)),r=size/2;
+  var box={x0:x-r,y0:y-r,x1:x+r,y1:y+r,act:act};
+  var hot=hv(box.x0,box.y0,box.x1,box.y1);
+  if(hot)ssFillContinuousRect(gr,box.x0,box.y0,size,size,7,7,COL.rowHover);
+  drawIcon(gr,icon,active?COL.green:hot?COL.text:COL.text2,box.x0,box.y0,size,size,Math.round(19*s));
+  HB_CTRL.push(box);
+  return hot?label:'';
+}
 function drawBar(gr){
   HB_CTRL=[];
   var by=R.barY;
@@ -119,18 +128,14 @@ function drawBar(gr){
   HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,4*s2,COL.seekbg,pos,COL.green);
   tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text3,sbX-Math.round(54*s2),sbY-Math.round(7*s2),Math.round(46*s2),Math.round(17*s2));
   tL(gr,fmtTime(len),FONT.time,COL.text3,sbX+sbW+Math.round(10*s2),sbY-Math.round(7*s2),Math.round(46*s2),Math.round(17*s2));
-  drawIcon(gr,fsMode?'compress':'expand',hv(fsx-12*s2,ry-12*s2,fsx+12*s2,ry+12*s2)?COL.text:COL.text2,fsx-12*s2,ry-12*s2,24*s2,24*s2,20*s2);
-  HB_CTRL.push({x0:fsx-14*s2,y0:ry-14*s2,x1:fsx+14*s2,y1:ry+14*s2,act:'fullscreen'});
   var qOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab==='queue';
-  drawIcon(gr,'queue',qOn?COL.green:COL.text2,qx-10*s2,ry-10*s2,20*s2,20*s2,17*s2);
-  HB_CTRL.push({x0:qx-14*s2,y0:ry-14*s2,x1:qx+14*s2,y1:ry+14*s2,act:'queue'});
   var lOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab==='lyrics';
-  drawIcon(gr,'lyric',lOn?COL.green:COL.text2,lx2-10*s2,ry-10*s2,20*s2,20*s2,17*s2);
-  HB_CTRL.push({x0:lx2-14*s2,y0:ry-14*s2,x1:lx2+14*s2,y1:ry+14*s2,act:'lyrics'});
-  drawIcon(gr,'volume',hv(vix-10*s2,ry-10*s2,vix+10*s2,ry+10*s2)?COL.text:COL.text2,vix-10*s2,ry-10*s2,20*s2,20*s2,17*s2);
-  HB_CTRL.push({x0:vix-12*s2,y0:ry-12*s2,x1:vix+12*s2,y1:ry+12*s2,act:'output'});
-  drawIcon(gr,'shuffle',pbShuffle?COL.green:COL.text2,shx-10*s2,ry-10*s2,20*s2,20*s2,17*s2);
-  HB_CTRL.push({x0:shx-14*s2,y0:ry-14*s2,x1:shx+14*s2,y1:ry+14*s2,act:'playback_mode'});
+  var hint=ssDrawFooterTool(gr,fsx,ry,s2,'fullscreen','expand',false,'全屏');
+  hint=ssDrawFooterTool(gr,qx,ry,s2,'queue','queue',qOn,'播放队列')||hint;
+  hint=ssDrawFooterTool(gr,lx2,ry,s2,'lyrics','lyric',lOn,'歌词')||hint;
+  hint=ssDrawFooterTool(gr,vix,ry,s2,'output','volume',false,'音频输出')||hint;
+  hint=ssDrawFooterTool(gr,shx,ry,s2,'playback_mode','shuffle',pbShuffle,'播放模式')||hint;
+  if(hint)tR(gr,hint,FONT.plSub,COL.text2,shx-Math.round(18*s2),by+Math.round(4*s2),fsx-shx+Math.round(36*s2),Math.round(19*s2));
   HB_VOL=drawTrackBar(gr,volX,ry-Math.round(2*s2),volW,4*s2,COL.seekbg,clamp01(vol2pos(fb.Volume)));
   if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,COL.error,shx-Math.round(20*s2),ry+Math.round(14*s2),Math.max(1,fsx-shx+Math.round(40*s2)),Math.round(20*s2));
 }

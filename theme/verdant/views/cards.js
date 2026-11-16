@@ -109,13 +109,38 @@ function ssLibraryReadingWidth(width,scale){
   var grid=ssAlbumGrid(width,scale);
   return Math.max(1,Math.min(width,4*grid.size+3*grid.gap));
 }
+var ssAlbumTitleCache=new Map(),ssAlbumTitleFont=null;
+function ssAlbumTitleLines(gr,title,w){
+  if(ssAlbumTitleFont!==FONT.card){ssAlbumTitleFont=FONT.card;ssAlbumTitleCache.clear();}
+  var key=w+'|'+title,cached=ssAlbumTitleCache.get(key);
+  if(cached)return cached;
+  var font=ssScriptFont(title,FONT.card),lines=[title];
+  if(title&&gr.CalcTextWidth(title,font)>w){
+    var chars=Array.from(title),lo=1,hi=chars.length;
+    while(lo<hi){
+      var mid=(lo+hi+1)>>1;
+      if(gr.CalcTextWidth(chars.slice(0,mid).join(''),font)<=w)lo=mid;else hi=mid-1;
+    }
+    var first=chars.slice(0,lo).join(''),space=first.lastIndexOf(' ');
+    if(space>first.length*.64)lo=Array.from(first.slice(0,space)).length;
+    lines=[chars.slice(0,lo).join('').trim(),chars.slice(lo).join('').trim()];
+  }
+  if(ssAlbumTitleCache.size>=512)ssAlbumTitleCache.clear();
+  ssAlbumTitleCache.set(key,lines);
+  return lines;
+}
+function ssAlbumLabelHeight(s){return Math.round(66*s);}
+function ssDrawAlbumLabels(gr,title,detail,x,y,w,s){
+  var lines=ssAlbumTitleLines(gr,title,w),lh=Math.round(20*s),top=y+Math.round(7*s);
+  tL(gr,lines[0],FONT.card,COL.text,x,top,w,lh);
+  if(lines[1])tL(gr,lines[1],FONT.card,COL.text,x,top+lh,w,lh);
+  tL(gr,detail,FONT.plSub,COL.text2,x,top+2*lh,w,Math.round(18*s));
+}
 function drawLibraryAlbumCard(gr,x,y,w,album,clipTop,clipBot){
-  var h=w+M.cardTextH,top=Math.max(y,clipTop),bottom=Math.min(y+h,clipBot);
+  var h=w+ssAlbumLabelHeight(ssDensity),top=Math.max(y,clipTop),bottom=Math.min(y+h,clipBot);
   if(bottom<=top)return;
   if(hv(x,top,x+w,bottom))ssFillContinuousRect(gr,x,y,w,h,5,5,COL.cardHover);
   drawRounded(gr,x,y,w,4,album.handle,album.album);
-  var gap=Math.round(8*ssDensity),titleH=Math.round(22*ssDensity),subH=Math.round(19*ssDensity);
-  tL(gr,album.album,FONT.card,COL.text,x,y+w+gap,w,titleH);
-  tL(gr,ssArtistName(album.artist),FONT.plSub,COL.text2,x,y+w+gap+titleH,w,subH);
+  ssDrawAlbumLabels(gr,album.album,ssArtistName(album.artist),x,y+w,w,ssDensity);
   HB_CARD.push({x0:x,y0:top,x1:x+w,y1:bottom,kind:'album',id:album.id});
 }
