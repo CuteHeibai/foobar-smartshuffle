@@ -10,7 +10,7 @@ function harness(title='A very long title that must scroll across its own viewpo
     window:{GetProperty:(k,d)=>d,SetInterval(fn,ms){timers.set(++serial,{fn,ms});return serial;},ClearInterval(id){timers.delete(id);}},
     gdi:{Font:(Name,Size,Style)=>({Name,Size,Style}),CreateImage(Width,Height){const im={Width,Height,disposed:false,GetGraphics:graphics,ReleaseGraphics(){},Dispose(){this.disposed=true;}};images.push(im);return im;}},
     fb:{IsPlaying:true,IsPaused:false,PlaybackLength:180,PlaybackTime:1,Volume:-10},NP:{RawPath:'file://song.flac',SubSong:0},npTitleStr:title,npArtistStr:'Artist',
-    R:{barY:680,barInfoW:300,barToolsW:300},W:1180,M:{barH:96},fsMode:false,ssPopup:null,ssModal:false,renameEdit:null,ctxMenu:null,confirmDel:null,dupPrompt:null,rgPrompt:null,sgMenuOpen:false,plSortMenuOpen:false,vizMenuOpen:false,
+    R:{barY:680,barInfoW:300,barToolsW:300},W:1180,M:{barH:96},fsMode:false,ssPopup:null,ssModal:false,renameEdit:null,confirmDel:null,dupPrompt:null,rgPrompt:null,sgMenuOpen:false,plSortMenuOpen:false,vizMenuOpen:false,
     pbShuffle:false,ssState:null,ssOutputError:'',ssError:'',drag:null,HB_CTRL:[],hv:()=>false,drawIcon(){},drawCover(){},vol2pos:()=>.5,
     repaintBar(){repaints++;},repaintAll(){throw Error('marquee must never request a full window repaint');}};
   vm.createContext(c);for(const file of ['core/tokens.js','core/util.js','core/corners.js','views/bar.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),c);
@@ -41,7 +41,7 @@ test('viewport, font, title and track changes restart the reading pause and disp
   }
 });
 test('fullscreen and modal overlays stop the timer before any footer repaint',()=>{
-  for(const key of ['fsMode','ssPopup','ssModal','renameEdit','ctxMenu','confirmDel','dupPrompt','rgPrompt','sgMenuOpen','plSortMenuOpen','vizMenuOpen']){
+  for(const key of ['fsMode','ssPopup','ssModal','renameEdit','confirmDel','dupPrompt','rgPrompt','sgMenuOpen','plSortMenuOpen','vizMenuOpen']){
     const h=harness();h.draw();h.c[key]=true;h.advance(2000);assert.equal(h.timers.size,0,key+' must suspend marquee');assert.equal(h.repaints,0,key+' must not trigger a full overlay paint');
   }
   const h=harness();h.draw();h.c.NP=null;h.advance(2000);assert.equal(h.timers.size,0);h.draw();assert.equal(h.images[0].disposed,true);

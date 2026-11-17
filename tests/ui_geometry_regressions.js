@@ -160,6 +160,27 @@ test('top menus open submenus by click and remain open when the pointer leaves',
  c.ssPopupMove(20,60);assert.equal(c.ssPopup.levels.length,1);c.ssPopupClick(20,60);assert.equal(c.ssPopup.levels.length,2);
  c.ssPopupMove(1000,700);c.ssMenuLeave();h.flush();assert.ok(c.ssPopup);c.ssPopupClick(1000,700);assert.equal(c.ssPopup,null);
 });
+test('track context promotes playback and properties and preserves native commands',()=>{
+ const {c,load}=context();load('ui/menus.js');
+ const play={label:'播放',command:17},props={label:'属性',command:28},queue={label:'添加到播放队列',command:19},tools={label:'工具',children:[{label:'组件命令',command:29}]};
+ const add={label:'加入待播队列',run(){}},recycle={label:'移到回收站',danger:true,run(){}};
+ const items=c.ssTrackContextItems([queue,play,tools,{separator:true},props],[add],[recycle]);
+ assert.deepEqual(Array.from(items.filter(item=>!item.separator),item=>item.label),['播放','加入待播队列','属性','更多操作']);
+ const more=items.at(-1);assert.equal(more.children[0],queue);assert.equal(more.children[1],tools);assert.equal(more.children.at(-1),recycle);
+ c.ssShowPopup(items,50,70,'native-token',true,'context');let command;c.ssSend=(op,args)=>command={op,token:args.token,id:args.command};
+ c.ssPopupChoose(more.children[1].children[0]);assert.deepEqual(command,{op:'menu_execute',token:'native-token',id:29});
+});
+test('context submenus flip at desktop edges and keep keyboard selection visible',()=>{
+ const {c,load}=context();load('ui/menus.js');c.W=760;c.H=600;c.UISCALE=1;c.mx=c.my=-1;const g=graphics();
+ const destination=Array.from({length:35},(_,i)=>({label:'歌单 '+(i+1),run(){}}));
+ c.ssShowPopup([{label:'添加到歌单',children:destination}],740,570,'',false,'context');c.ssDrawPopup(g);
+ const root=c.ssPopup.levels[0],target=c.SS_MENU_HB[0];assert.ok(root.rect.x+root.rect.w<740&&root.rect.y+root.rect.h<570);
+ c.ssPopupClick(target.x0+12,target.y0+10);c.ssDrawPopup(g);
+ const child=c.ssPopup.levels[1];assert.ok(child.rect.x+child.rect.w<=root.rect.x);assert.ok(child.rect.y>=c.TBH&&child.rect.y+child.rect.h<c.H);
+ c.ssPopupKey(38);c.ssDrawPopup(g);
+ assert.equal(child.selected,34);assert.ok(c.SS_MENU_HB.some(h=>h.depth===1&&h.index===34));
+ c.ssPopupKey(37);assert.equal(c.ssPopup.levels.length,1);c.ssPopupKey(27);assert.equal(c.ssPopup,null);
+});
 test('preference movement caches static controls instead of redrawing their text every frame',()=>{
  const {c}=context();c.W=1180;c.H=780;c.ssModal=true;c.ssDraft={x:0,y:0};c.ssState={preview:null};c.ssApplyId=c.ssMessage=c.ssError='';c.ssReady=()=>false;c.ssPreferenceLabel=()=> '均衡';c.ssGeometry=()=>({x:100,y:80,w:940,h:600,grid:{x:600,y:200,size:240}});c.ssDrawBase=()=>{};c.ssDrawGlassBall=()=>{};let controls=0;c.drawPreference=()=>controls++;const g=graphics();for(let i=0;i<40;i++)c.ssPaintModal(g);assert.equal(controls,1);
 });

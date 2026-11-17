@@ -331,7 +331,7 @@ test('new playlist tracks get artwork and artist lookups without a restart and t
  c.ssFlight=null;
  c.ssOpenNativeMenu('context',{tracks:[c.ssTrackID(newTrack)]},0,0);
  c.ssAcceptMenu(c.ssFlight,{response:{menu:{token:'context',items:[{label:'转换',command:1}]}}});
- const options=c.ssPopup.levels[0].items;
+ const options=c.ssPopup.levels[0].items.find(item=>item.label==='更多操作').children;
  const refresh=options.find(item=>item.label==='补齐封面和歌手资料');assert.ok(refresh);
  assert.ok(options.some(item=>item.command===1));
  c.ssFlight=null;refresh.run();
@@ -373,13 +373,13 @@ test('context menu preserves native commands when selected IDs have no available
  const h=metadataHarness(),c=h.c;
  c.ssOpenNativeMenu('context',{track_id:'file://D:/absent.flac|0'},0,0);
  c.ssAcceptMenu(c.ssFlight,{response:{menu:{token:'context',track_id:'file://D:/absent.flac|0',items:[{label:'转换',command:1}]}}});
- const options=c.ssPopup.levels[0].items;
+ const options=c.ssPopup.levels[0].items.find(item=>item.label==='更多操作').children;
  assert.ok(!options.some(item=>item.label==='补齐封面和歌手资料'));
  assert.ok(options.some(item=>item.command===1));
 });
 
 test('context menus stay open after mouse leaves and close on outside click',()=>{
- const h=harness(),c=h.c;c.ssShowPopup([{label:'Tagging'}],10,40,'native',true);c.ssPopup.root='';c.ssPopup.levels[0].rect={x:10,y:40,w:230,h:100};
+ const h=harness(),c=h.c;c.ssShowPopup([{label:'Tagging'}],10,40,'native',true,'context');c.ssPopup.levels[0].rect={x:10,y:40,w:230,h:100};
  c.ssPopupMove(700,500);c.ssMenuLeave();h.flush();assert.ok(c.ssPopup,'track context menu must remain open');c.ssPopupClick(700,500);assert.equal(c.ssPopup,null);
 });
 test('a valid GdiBitmap without Dispose remains available for artist rendering',()=>{
@@ -424,7 +424,7 @@ test('multi-select context menu sends the full selected occurrence set to native
  c.songsTracks=[0,1,2].map(i=>({h:{Path:'track'+i,SubSong:0}}));c.HB_TR=[0,1,2].map(i=>({songs:true,ti:i,x0:0,x1:600,y0:i*50,y1:(i+1)*50}));c.HB_PL=[];c.HB_Q=[];
  c.utils.IsKeyPressed=()=>false;c.ssToggleTrackSelection(c.HB_TR[0]);c.ssToggleTrackSelection(c.HB_TR[1]);c.ssToggleTrackSelection(c.HB_TR[2]);
  let request;c.ssOpenNativeMenu=(kind,args,x,y,extra)=>request={kind,args,extra};c.ssBatchTrackMenu(c.HB_TR[1],100,60);
- assert.equal(request.args.tracks.length,3);assert.ok(request.extra.find(i=>i.label==='移动到歌单').disabled);assert.ok(request.extra.find(i=>i.label==='添加到歌单').children[0].run);
+ assert.equal(request.args.tracks.length,3);assert.ok(!request.extra.some(i=>i.label==='移动到歌单'));assert.ok(request.extra.find(i=>i.label==='添加到歌单').children[0].run);
 });
 test('a double click inserts and starts one song without creating a route playlist',()=>{
  const h=harness(),c=h.c;h.load('data/library.js');c.vizMenuOpen=false;c.window.GetProperty=(k,d)=>d;const app=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);

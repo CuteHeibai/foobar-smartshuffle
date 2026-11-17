@@ -3,11 +3,14 @@
    every module shares one global scope, so load order is set there. */
 
 function openPlaylistMenu(pl,x,y){
-  var items=[];
-  if(!plman.IsPlaylistLocked(pl)) items.push({label:'添加文件…',act:'addfiles'},{label:'添加文件夹…',act:'addfolder'});
-  items.push({label:'重命名',act:'rename'},{label:'删除',act:'delete',danger:true});
-  ctxMenu={kind:'pl', pl:pl, name:plman.GetPlaylistName(pl), x:x, y:y, items:items};
-  repaintAll();
+  var items=[],name=plman.GetPlaylistName(pl);
+  function addToPlaylist(add){firstRow=firstRowT=0;view='playlist';repaintAll();add(pl);}
+  if(!plman.IsPlaylistLocked(pl))items.push({label:'添加文件…',run:function(){addToPlaylist(addFilesToPl);}},{label:'添加文件夹…',run:function(){addToPlaylist(addFolderToPl);}},{separator:true});
+  items.push({label:'重命名',run:function(){startRename(pl);}},{separator:true},
+    {label:'删除歌单…',danger:true,run:function(){confirmDel={pl:pl,name:name};repaintAll();}});
+  ssShowPopup(items,x,y,'',false,'context');
+  var row=hit(HB_PL,x,y)||hit(HB_CARD,x,y);
+  if(row)ssSetContextTargets([row]);
 }
 // right-click a playlist row. Locked/auto playlists offer nothing -> fall through to JSplitter's menu
 function openTrackMenu(pl,item,x,y){
@@ -73,7 +76,7 @@ function removeTrackFromPl(pl,item){
   if(playing && !wasPaused) verifyAdvanced(h);
   invalidateItems(); updateNP(); repaintAll();
 }
-function startRename(pl){ renameEdit={pl:pl, text:plman.GetPlaylistName(pl)}; ctxMenu=null; caretOn=true; startCaret(); applyKeyMode(); repaintAll(); }
+function startRename(pl){ renameEdit={pl:pl, text:plman.GetPlaylistName(pl)}; caretOn=true; startCaret(); applyKeyMode(); repaintAll(); }
 function commitRename(){ if(!renameEdit) return; var t=renameEdit.text.replace(/^\s+|\s+$/g,''); if(t) plman.RenamePlaylist(renameEdit.pl,t); renameEdit=null; applyKeyMode(); repaintAll(); }
 function cancelRename(){ renameEdit=null; applyKeyMode(); repaintAll(); }
 function doDeletePlaylist(pl){

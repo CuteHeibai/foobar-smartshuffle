@@ -184,15 +184,19 @@ function ssBatchTrackMenu(row,x,y){
   function transfer(target,moving,create){var fields={};for(var k in args)fields[k]=args[k];fields.move=moving;fields.new_playlist=!!create;if(target)fields.target_guid=target;ssSend('tracks_transfer',fields);}
   copy.push({label:'新建歌单',run:function(){transfer('',false,true);}});move.push({label:'新建歌单',run:function(){transfer('',true,true);}});
   for(var i=0;i<lists.length;i++)(function(p){if(isHiddenPl(p.name)||!p.writable||p.index===row.pl)return;copy.push({label:p.name,run:function(){transfer(p.guid,false,false);}});move.push({label:p.name,run:function(){transfer(p.guid,true,false);}});})(lists[i]);
-  var extra=[{label:'已选择 '+args.tracks.length+' 首歌曲',disabled:true},{label:'添加到歌单',children:copy},{label:'移动到歌单',disabled:!canMove,children:move},{label:'加入待播队列',run:function(){ssSend('queue_add',args);}},{separator:true}];
-  if(canMove)extra.splice(4,0,{label:'从此歌单移除所选歌曲',run:function(){ssSend('tracks_remove',args);}});
+  if(copy.length>1){copy.splice(1,0,{separator:true});move.splice(1,0,{separator:true});}
+  var extra=[{label:'加入待播队列',run:function(){ssSend('queue_add',args);}},{label:'添加到歌单',children:copy}];
+  if(args.tracks.length>1)extra.unshift({label:'已选 '+args.tracks.length+' 首歌曲',heading:true});
+  if(canMove)extra.push({label:'移动到歌单',children:move},{label:'从此歌单移除',run:function(){ssSend('tracks_remove',args);}});
   if(typeof ssPersonalEnabled==='function'&&ssPersonalEnabled()){
+    extra.push({separator:true});
     extra.push({label:'收藏所选歌曲',run:function(){ssPersonalSet('favorites',args.tracks,true);}});
     extra.push({label:'取消收藏所选歌曲',run:function(){ssPersonalSet('favorites',args.tracks,false);}});
     extra.push({label:'添加到稍后听',run:function(){ssPersonalSet('later',args.tracks,true);}});
     extra.push({label:'从稍后听移除',run:function(){ssPersonalSet('later',args.tracks,false);}});
-    extra.push({separator:true});
   }
-  ssOpenNativeMenu('context',args,x,y,extra);repaintAll();return true;
+  ssOpenNativeMenu('context',args,x,y,extra);
+  ssSetContextTargets(HB_TR.filter(function(target){return ssMainSelect.isSelected(ssMainRowIndex(target));}));
+  repaintAll();return true;
 }
 function ssEnqueueRow(row){var h=row.pl!==undefined?getItems(row.pl)[row.item]:row.songs?songsTracks[row.ti].h:row.srch?searchTrks[row.idx].h:row.lib?artistAlbums[row.block].tracks[row.idx].handle:null,id=row.track_id||(h?ssTrackID(h):'');if(id){rightTab='queue';ssSend('queue_add',{tracks:[id],play:true});repaintAll();}}

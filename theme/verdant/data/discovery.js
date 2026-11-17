@@ -85,7 +85,7 @@ function ssArtistMenu(name,x,y){
     items.push({separator:true});
   }
   items.push({label:r?'重新联网核验…':'联网核验歌手…',run:function(){ssArtistLookup(name,x,y);}});
-  ssShowPopup(items,x,y);
+  ssShowPopup(items,x,y,'',false,'context');
 }
 function ssPlaySearchHit(index){
   var row=searchTrks[index];if(!row)return false;

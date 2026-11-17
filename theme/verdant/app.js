@@ -81,7 +81,7 @@ var navRevealPl=-1;
 function revealPlaylist(i){ navRevealPl=i; }
 var plDropHover=false, HB_PLADD_FILES=null, HB_PLADD_FOLDER=null;   // empty-playlist "add songs" zone
 // playlist edit: context menu, inline rename, delete confirm
-var HB_DOTS=[], ctxMenu=null, CTX_HB=[], renameEdit=null, confirmDel=null, CONF_HB=null, RENAME_HB=null;
+var HB_DOTS=[], renameEdit=null, confirmDel=null, CONF_HB=null, RENAME_HB=null;
 
 var rightTab=typeof ssRightTab==='string'?ssRightTab:'lyrics';
 var view='home', viewArtist='', viewAlbum='', artistAlbums=[], homeScroll=0, artScroll=0, artScrollT=0,ssOpenCatalog=null,ssAlbumBack=null;
@@ -157,7 +157,7 @@ function ssDrawBase(gr){
 }
 function on_paint(gr){
   ssPaintFrame(gr);
-  if(!ssModal&&!ssPopup&&!fsMode&&!ctxMenu&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt)ssDrawResizers(gr);
+  if(!ssModal&&!ssPopup&&!fsMode&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt)ssDrawResizers(gr);
 }
 function ssPaintFrame(gr){
   if(ssPaintResizePreview(gr))return;
@@ -165,7 +165,7 @@ function ssPaintFrame(gr){
     ssPaintInteractions(gr);return;
   }
   if(ssHoverDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!fsMode&&!ssModal&&!ssPopup&&
-     !renameEdit&&!ctxMenu&&!confirmDel&&!dupPrompt&&!rgPrompt&&!sgMenuOpen&&!plSortMenuOpen){
+     !renameEdit&&!confirmDel&&!dupPrompt&&!rgPrompt&&!sgMenuOpen&&!plSortMenuOpen){
     ssPaintInteractions(gr);return;
   }
   ssSyncLyricPanel();
@@ -193,7 +193,7 @@ function ssPaintFrame(gr){
   // A partial paint skips drawOverlays, so a modal's dim backdrop would not be reapplied over the
   // region it redraws (the bar's 1 Hz repaint would flash back to full brightness). While an
   // overlay owns the screen, every paint takes the full path.
-  var modal=ssPopup||renameEdit||ctxMenu||confirmDel||dupPrompt||rgPrompt;
+  var modal=ssPopup||renameEdit||confirmDel||dupPrompt||rgPrompt;
   if(dirtyAll || !anyPartial || modal || stale || !ssSceneImage){ // full paint, or an OS/stale paint we can't scope
     clearDirty();
     var baseGraphics=ssBeginScene();ssDrawBase(baseGraphics);ssEndScene(gr,baseGraphics);ssPaintInteractions(gr);
@@ -254,7 +254,7 @@ function on_mouse_lbtn_down(x,y){
   ssPlaylistPlayDown=ssTrackPlayDown=null;
   if(ssPopup)return;
   if(ssPointerDown(x,y)) return;
-  if(ctxMenu||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;   // overlays are modal; dismissal/actions handled on button-up
+  if(confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;   // overlays are modal; dismissal/actions handled on button-up
   if(!fsMode&&view==='stats'&&ssStatsPointerDown(x,y))return;
   if(!fsMode&&typeof ssPersonalPointerDown==='function'&&ssPersonalPointerDown(x,y))return;
   if(!fsMode){var playTarget=ssHeaderPlayAt(x,y);if(playTarget){ssPlaylistPlayDown=playTarget;return;}}
@@ -273,14 +273,14 @@ function on_mouse_lbtn_down(x,y){
 function on_mouse_rbtn_up(x,y){
   if(ssPopup){ssClosePopup();return true;}
   if(ssModal) return true;
-  if(ctxMenu||confirmDel||renameEdit||dupPrompt||rgPrompt) return true;   // a modal is open: swallow
+  if(confirmDel||renameEdit||dupPrompt||rgPrompt) return true;   // a modal is open: swallow
   var i;
   for(i=0;i<HB_TR.length;i++)if(inRect(x,y,HB_TR[i])){
     var row=HB_TR[i];
     return ssBatchTrackMenu(row,x,y);
   }
-  for(i=0;i<HB_CARD.length;i++)if(HB_CARD[i].kind==='artist'&&inRect(x,y,HB_CARD[i])){ssArtistMenu(HB_CARD[i].id,x,y);return true;}
-  for(i=0;i<HB_Q.length;i++)if(inRect(x,y,HB_Q[i])&&HB_Q[i].track_id){ssOpenNativeMenu('context',{track_id:HB_Q[i].track_id},x,y);return true;}
+  for(i=0;i<HB_CARD.length;i++)if(HB_CARD[i].kind==='artist'&&inRect(x,y,HB_CARD[i])){ssArtistMenu(HB_CARD[i].id,x,y);ssSetContextTargets([HB_CARD[i]]);return true;}
+  for(i=0;i<HB_Q.length;i++)if(inRect(x,y,HB_Q[i])&&HB_Q[i].track_id){ssOpenNativeMenu('context',{track_id:HB_Q[i].track_id},x,y);ssSetContextTargets([HB_Q[i]]);return true;}
   for(i=0;i<HB_PL.length;i++){ if(inRect(x,y,HB_PL[i])){ openPlaylistMenu(HB_PL[i].i,x,y); return true; } }
   for(i=0;i<HB_CARD.length;i++){ if(inRect(x,y,HB_CARD[i]) && HB_CARD[i].kind==='pl'){ openPlaylistMenu(HB_CARD[i].id,x,y); return true; } }
   return false;   // elsewhere: let JSplitter's own panel menu through (Reload / Configure / Properties)
@@ -382,22 +382,6 @@ function on_mouse_lbtn_up(x,y){
     if(CONF_HB && inRect(x,y,CONF_HB.del)){ doDeletePlaylist(confirmDel.pl); return; }
     confirmDel=null; repaintAll(); return;   // cancel / click outside
   }
-  if(ctxMenu){
-    t=hit(CTX_HB,x,y);
-    if(t){
-      var act=t.act, pl=ctxMenu.pl, nm=ctxMenu.name, itm=ctxMenu.item;
-      if(act==='trkremove'){ ctxMenu=null; removeTrackFromPl(pl,itm); return; }
-      // navigate to the target first, so the tracks land somewhere the user can see
-      if(act==='addfiles'||act==='addfolder'){
-        ctxMenu=null; firstRow=firstRowT=0; view='playlist'; repaintAll();
-        if(act==='addfiles') addFilesToPl(pl); else addFolderToPl(pl);
-      }
-      else if(act==='rename'){ startRename(pl); }
-      else { confirmDel={pl:pl,name:nm}; ctxMenu=null; repaintAll(); }
-      return;
-    }
-    ctxMenu=null; repaintAll(); return;      // click outside menu -> close
-  }
   if(renameEdit){
     if(RENAME_HB){
       if(inRect(x,y,RENAME_HB.save)){ if(RENAME_HB.canSave) commitRename(); return; }
@@ -485,8 +469,8 @@ function playRow(t){
 }
 // Double-click inserts this song at the head of the user queue and starts it.
 function on_mouse_lbtn_dblclk(x,y){
-  if(ssModal||fsMode||utils.IsKeyPressed(17)||ssRowPlayAt(x,y))return;
-  if(ctxMenu||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;
+  if(ssPopup||ssModal||fsMode||utils.IsKeyPressed(17)||ssRowPlayAt(x,y))return;
+  if(confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;
   if(typeof ssPersonalActionAt==='function'&&ssPersonalActionAt(x,y))return;
   var t=hit(HB_TR,x,y);
   if(t&&!(t.srch&&searchTrks[t.idx].reason==='歌词')) ssEnqueueRow(t);
@@ -509,7 +493,6 @@ function hoverSig(x,y){
   if(renameEdit){ if(RENAME_HB){ if(inRect(x,y,RENAME_HB.save)) return 'rns'; if(inRect(x,y,RENAME_HB.cancel)) return 'rnc'; } return 'rn'; }
   if(rgPrompt){ if(RG_HB){ if(inRect(x,y,RG_HB.scan)) return 'rgs'; if(inRect(x,y,RG_HB.cancel)) return 'rgc'; } return 'rg'; }
   if(confirmDel){ if(CONF_HB && inRect(x,y,CONF_HB.del)) return 'cfd'; if(CONF_HB && inRect(x,y,CONF_HB.cancel)) return 'cfc'; return 'cf'; }
-  if(ctxMenu){ i=hitIdx(CTX_HB,x,y); return (i<0)?'cx':('cx'+i); }
   if(sgMenuOpen){ i=hitIdx(SG_HB,x,y); return (i<0)?'sg':('sg'+i); }
   if(plSortMenuOpen){ i=hitIdx(PL_SORT_HB,x,y); return (i<0)?'ps':('ps'+i); }
   if((i=hitIdx(HB_DOTS,x,y))>=0) return 'd'+i;
@@ -561,7 +544,7 @@ function on_mouse_move(x,y,mask){
     var rowOnly=sk===scrollKey&&z===hoverZoneKey&&/^(r\d+|q\d+|)$/.test(sig)&&/^(r\d+|q\d+|)$/.test(hoverKey);
     hoverKey=sig; scrollKey=sk;
     // an overlay owns the whole screen and on_paint forces a full paint while one is open
-    if(renameEdit||ctxMenu||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
+    if(renameEdit||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
     else if(rowOnly&&!fsMode&&ssSceneImage)ssRequestRowHover();
     else { repaintZone(hoverZoneKey); if(z!==hoverZoneKey) repaintZone(z); }   // clear the old highlight, then draw the new
   }
@@ -587,7 +570,7 @@ function on_mouse_leave(){
   mx=-1; my=-1;
   if(hoverKey!==''||scrollKey!==''){
     var wasRow=/^[rq]\d+$/.test(hoverKey);hoverKey=''; scrollKey='';
-    if(renameEdit||ctxMenu||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
+    if(renameEdit||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
     else if(wasRow&&ssSceneImage&&!fsMode)ssRequestRowHover();
     else repaintZone(hoverZoneKey);
   }
@@ -618,7 +601,7 @@ function on_char(code){
      above: in Search and while renaming a playlist a space is a character the user meant to
      type, not a transport command. A modal owns the keyboard while it is open, so Space must
      not reach playback from underneath one either. */
-  if(code===32 && !ctxMenu && !confirmDel && !dupPrompt && !rgPrompt &&
+  if(code===32 && !confirmDel && !dupPrompt && !rgPrompt &&
      !sgMenuOpen && !plSortMenuOpen && !vizMenuOpen){
     try{ ssPlayOrPause(); }catch(e){}
   }

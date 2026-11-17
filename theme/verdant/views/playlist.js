@@ -56,11 +56,9 @@ function drawPlaylist(gr,r){
     var j=order[d]; var h=items[j]; if(!h){ continue; }
     var isPlaying=(loc && loc.IsValid && loc.PlaylistIndex===p.i && loc.PlaylistItemIndex===j)
                   || (shufHere && sameHandle(h,NP));   // playing from this playlist's hidden shuffle copy
-    // the row whose context menu is open stays lit (brighter than hover)
-    var isMenuRow=!!(ctxMenu && ctxMenu.kind==='track' && ctxMenu.pl===p.i && ctxMenu.item===j);
-    var isHover=ssRowHover(r.x,ry,r.x+r.w,ry+rh)||isMenuRow;
+    var isHover=ssRowHover(r.x,ry,r.x+r.w,ry+rh);
     ssDrawCachedRow(gr,'pl:'+p.i+':'+j+':'+d,r.x,ry,r.w,rh,function(gr){
-    if(isHover) ssFillContinuousRect(gr,lx-8,ry,rx-lx+16,rh,4,4,isMenuRow?COL.rowActive:COL.rowHover);
+    if(isHover) ssFillContinuousRect(gr,lx-8,ry,rx-lx+16,rh,4,4,COL.rowHover);
     var titleCol=isPlaying?COL.green:COL.text;
     if(isHover) drawIcon(gr,'play',COL.text,lx,ry,numW,rh,14);
     else tL(gr,String(d+1),FONT.rowNum,isPlaying?COL.green:COL.text2,lx,ry,numW,rh);

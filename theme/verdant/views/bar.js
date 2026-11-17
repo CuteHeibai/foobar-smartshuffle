@@ -99,7 +99,7 @@ var ssFooterMarquee=null,ssFooterMarqueeTimer=null;
 function ssFooterMarqueeAllowed(){
   return !!NP&&(fb.IsPlaying||fb.IsPaused)&&!fsMode&&
     !(typeof ssPopup!=='undefined'&&ssPopup)&&!(typeof ssModal!=='undefined'&&ssModal)&&
-    !(typeof renameEdit!=='undefined'&&renameEdit)&&!(typeof ctxMenu!=='undefined'&&ctxMenu)&&
+    !(typeof renameEdit!=='undefined'&&renameEdit)&&
     !(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof dupPrompt!=='undefined'&&dupPrompt)&&
     !(typeof rgPrompt!=='undefined'&&rgPrompt)&&!(typeof sgMenuOpen!=='undefined'&&sgMenuOpen)&&
     !(typeof plSortMenuOpen!=='undefined'&&plSortMenuOpen)&&!(typeof vizMenuOpen!=='undefined'&&vizMenuOpen);

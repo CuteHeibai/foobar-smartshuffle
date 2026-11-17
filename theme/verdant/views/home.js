@@ -34,7 +34,7 @@ function ssActivateHomeAction(target){
   repaintAll();
 }
 function ssHomeKey(key){
-  if(view!=='home'||fsMode||drag||ctxMenu||confirmDel||renameEdit||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen)return false;
+  if(view!=='home'||fsMode||drag||confirmDel||renameEdit||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen)return false;
   if(key!==9&&key!==13&&key!==27)return false;
   var actions=[];
   if(HB_HOME_CONTINUE)actions.push(HB_HOME_CONTINUE);

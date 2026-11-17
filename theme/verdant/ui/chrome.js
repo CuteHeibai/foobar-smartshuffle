@@ -135,7 +135,7 @@ function dlgBtn(gr,x,y,w,h,label,col,hcol,txt){
 }
 // themed context menu + modal overlays, painted on top of everything
 function drawOverlays(gr){
-  CTX_HB=[]; CONF_HB=null; RENAME_HB=null; RG_HB=null;
+  CONF_HB=null; RENAME_HB=null; RG_HB=null;
   if(renameEdit){
     var rw=Math.min(420,W-40), rhh=196, ry0=Math.round((H-rhh)/2), rx0=modalPanel(gr,rw,rhh,ry0);
     tL(gr,'重命名歌单',FONT.sect,COL.text,rx0+28,ry0+22,rw-56,26);
@@ -152,22 +152,6 @@ function drawOverlays(gr){
       save:dlgBtn(gr,dx,by,bw,bh,'保存',canSave?COL.green:COL.accentMuted,canSave?COL.greenHover:COL.accentMuted,canSave?COL.onAccent:COL.text3),
       canSave:canSave
     };
-  }
-  if(ctxMenu){
-    var ih=42, pad=6, i, it, iw=190;
-    // width follows the longest label (16px left inset + 24px breathing room on the right)
-    for(i=0;i<ctxMenu.items.length;i++) iw=Math.max(iw,Math.round(gr.CalcTextWidth(ctxMenu.items[i].label,FONT.pl))+40);
-    iw=Math.min(iw,Math.max(120,W-20));
-    var h=ctxMenu.items.length*ih+pad*2;
-    var mnx=Math.max(10,Math.min(ctxMenu.x,W-iw-10)), mny=Math.max(10,Math.min(ctxMenu.y,H-h-10));
-    gr.FillSolidRect(mnx+3,mny+4,iw,h,COL.shadow);       // soft shadow
-    ssFillContinuousRect(gr,mnx,mny,iw,h,8,8,COL.popupAlt);
-    for(i=0;i<ctxMenu.items.length;i++){
-      var iy=mny+pad+i*ih; it=ctxMenu.items[i];
-      if(hv(mnx,iy,mnx+iw,iy+ih)) ssFillContinuousRect(gr,mnx+4,iy,iw-8,ih,5,5,ssInk(20));
-      tL(gr,it.label,FONT.pl,it.danger?COL.dangerHover:COL.text,mnx+16,iy,iw-24,ih);
-      CTX_HB.push({x0:mnx,y0:iy,x1:mnx+iw,y1:iy+ih,act:it.act});
-    }
   }
   if(confirmDel&&confirmDel.kind==='file')ssDrawRecycleConfirm(gr);
   else if(confirmDel){

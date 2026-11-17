@@ -18,7 +18,7 @@ function ssPaintPopup(gr){
     if(ssSceneImage&&ssSceneW===W&&ssSceneH===H){ssPopupImage=ssSceneImage;ssPopupImageOwned=false;}
     else{ssPopupImage=gdi.CreateImage(Math.max(1,W),Math.max(1,H));ssPopupImageOwned=true;var background=ssPopupImage.GetGraphics();ssDrawBase(background);ssPopupImage.ReleaseGraphics(background);}
   }
-  gr.DrawImage(ssPopupImage,0,0,W,H,0,0,W,H);drawTitleBar(gr);ssDrawPopup(gr);
+  gr.DrawImage(ssPopupImage,0,0,W,H,0,0,W,H);drawTitleBar(gr);ssDrawContextTargets(gr);ssDrawPopup(gr);
 }
 function ssDropModalImage(){if(ssModalImage){try{ssModalImage.Dispose();}catch(e){}}ssModalImage=null;if(ssPreferenceImage)try{ssPreferenceImage.Dispose();}catch(e){}ssPreferenceImage=null;ssPreferenceKey='';ssTrail=[];if(ssPreferenceFrame)window.ClearTimeout(ssPreferenceFrame);ssPreferenceFrame=0;ssPreferencePartial=false;}
 function ssRepaintPreference(){
