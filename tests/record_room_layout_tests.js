@@ -87,7 +87,7 @@ run('artist collections keep multi-track album headers and put singles into cons
  const tiles=c.ssCollectionRows.filter(r=>r.tiles).flatMap(r=>Array.from(r.tiles));
  assert.deepEqual(Array.from(tiles,a=>a.album),['Album','Single A','Single B']);
  assert.deepEqual(Array.from(tiles.filter(a=>a.named),a=>a.id),['album','single-a','single-b']);
- assert.ok(c.ssCollectionRows.filter(r=>r.tiles).every(r=>r.size===138));
+ assert.ok(c.ssCollectionRows.filter(r=>r.tiles).every(r=>r.size===157));assert.ok(c.ssCollectionRows.filter(r=>r.tiles).every(r=>r.gap===24));
  assert.deepEqual(Array.from(c.ssCollectionRows.filter(r=>r.label),r=>r.label),['专辑','曲目','单曲']);
  assert.equal(c.ssCollectionRows.filter(r=>r.album).length,1);
  const tracks=c.ssCollectionRows.filter(r=>r.track);assert.equal(tracks.length,4);
@@ -96,12 +96,12 @@ run('artist collections keep multi-track album headers and put singles into cons
  c.ssBuildCollectionRows(false,1,280);
  const narrow=c.ssCollectionRows.filter(r=>r.tiles);
  assert.equal(narrow.flatMap(r=>Array.from(r.tiles)).length,3);
- assert.ok(narrow.every(r=>r.size===138&&r.tiles.length*r.size+(r.tiles.length-1)*r.gap<=280));
+ assert.ok(narrow.every(r=>r.size===157&&r.tiles.length*r.size+(r.tiles.length-1)*r.gap<=280));
 });
 run('opening the drawer reflows library columns at the same cover size',()=>{
  const {c}=harness();vm.runInContext(fs.readFileSync(path.join(root,'views/cards.js'),'utf8'),c);
  const wide=c.ssAlbumGrid(1077,1.05),drawer=c.ssAlbumGrid(751,1.05);
- assert.equal(wide.size,drawer.size);assert.equal(wide.cols,6);assert.equal(drawer.cols,4);
+ assert.equal(wide.size,drawer.size);assert.equal(wide.cols,5);assert.equal(drawer.cols,4);assert.equal(wide.gap,Math.round(24*1.05));
 
  const narrow=c.ssAlbumGrid(110,.85,166);assert.equal(narrow.cols,1);assert.equal(narrow.size,110);
  c.M.cpad=24;c.ssDensity=1.05;

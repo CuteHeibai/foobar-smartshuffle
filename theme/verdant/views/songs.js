@@ -47,9 +47,11 @@ function drawSongs(gr,r){
   var showAlbum=flat&&!compact, showArtist=(g==='album');
   var playW=ssTrackPlayWidth(s),durW=64,cgap=12;
   var playX=lx+tind,titleX=playX+playW+cgap;
-  var colW=showAlbum?Math.min(270,Math.round((rx-titleX-durW-cgap*2)*0.26)):(showArtist?Math.round((rx-titleX-durW-cgap*2)*0.28):0);
-  var colX=rx-durW-cgap-colW;
-  var titleW=(colW?colX:rx-durW)-cgap-titleX;
+  /* Duration stays on a capped reading measure; the hit row and favorite gutter still reach the panel. */
+  var readR=Math.min(rx,titleX+Math.round(900*s));
+  var colW=showAlbum?Math.min(270,Math.round((readR-titleX-durW-cgap*2)*0.26)):(showArtist?Math.round((readR-titleX-durW-cgap*2)*0.28):0);
+  var colX=readR-durW-cgap-colW;
+  var titleW=(colW?colX:readR-durW)-cgap-titleX;
 
   var listTop=r.y+SHEAD+8;
   var rowsTop=listTop+34, cropY=r.y+r.h, viewH=cropY-rowsTop;
@@ -93,7 +95,7 @@ function drawSongs(gr,r){
       }
       if(showAlbum) tL(gr,t.album,FONT.rowCell,COL.text2,colX,ry,colW,gh);
       else if(showArtist) tL(gr,t.artist,FONT.rowCell,COL.text2,colX,ry,colW,gh);
-      tR(gr,t.len,FONT.rowCell,COL.text2,rx-durW,ry,durW,gh);
+      tR(gr,t.len,FONT.rowCell,COL.text2,readR-durW,ry,durW,gh);
       },flat);
       HB_TR.push({x0:lx-8,y0:vy0,x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:playX,pgx1:playX+playW,playOnHover:true,playVisible:isPlaying,playId:t.h?ssTrackID(t.h):row.ti,favoriteX:rx+4*s});
     } else {
@@ -129,7 +131,7 @@ function drawSongs(gr,r){
   tL(gr,'歌曲',FONT.head,COL.text2,titleX,listTop,titleW,20);
   if(showAlbum) tL(gr,'专辑',FONT.head,COL.text2,colX,listTop,colW,20);
   else if(showArtist) tL(gr,'歌手',FONT.head,COL.text2,colX,listTop,colW,20);
-  drawIcon(gr,'clock',COL.text2,rx-16,listTop,16,20,15);
+  drawIcon(gr,'clock',COL.text2,readR-16,listTop,16,20,15);
   gr.DrawLine(lx,listTop+26,rx,listTop+26,1,COL.line);
   drawScrollbar(gr,rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,rowsTop,viewH,songsScroll,maxPx,viewH,contentH,hv(r.x,r.y,r.x+r.w,cropY)||drag==='scroll');
   drawGroupMenu(gr);

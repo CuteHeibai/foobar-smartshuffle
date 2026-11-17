@@ -70,7 +70,7 @@ function drawSearch(gr,r){
   }
   // ---- songs ----
   if(searchTrks.length){
-    var trackW=Math.min(w,Math.round(852*s));
+    var trackW=Math.min(w,Math.round(900*s));
     tL(gr,'歌曲',FONT.sect2,COL.text,x0,cy,trackW,28);
     var ry0=cy+38;
     for(i=0;i<searchTrks.length;i++){
@@ -80,7 +80,7 @@ function drawSearch(gr,r){
       var tr=searchTrks[i];
       var hot=ssRowHover(x0-8,Math.max(ry,top),x0+trackW+8,Math.min(ry+rh,cropY));
       if(hot)ssFillContinuousRect(gr,x0-8,ry,trackW+16,rh,4,4,COL.rowHover);
-      var playW=ssTrackPlayWidth(s),artX=x0+playW,cs=Math.round(40*s),textX=artX+cs+Math.round(12*s);
+      var playW=ssTrackPlayWidth(s),artX=x0+playW+Math.round(12*s),cs=Math.round(40*s),textX=artX+cs+Math.round(12*s);
       var active=ssIsCurrentTrack(tr.h);
       ssDrawTrackLead(gr,x0,ry,playW,rh,i+1,active);
       drawCover(gr,artX,ry+(rh-cs)/2,cs,4,tr.h,tr.album||tr.title);

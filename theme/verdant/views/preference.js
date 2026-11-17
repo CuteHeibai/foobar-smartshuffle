@@ -145,26 +145,31 @@ function ssPointerUp(x,y){
 function ssDrawNativeQueue(gr,r,x,qy,bottom){
   if(!ssState) return false;
   var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rows=priority.concat(list);
-  var rh=Math.max(46,Math.round(37*UISCALE),ssTrackTextMetrics(ssDensity,true).height+4),nextLabelHeight=Math.max(24,Math.round(20*UISCALE));
+  var rh=Math.max(46,Math.round(37*UISCALE),ssTrackTextMetrics(ssDensity,true).height+4);
   tL(gr,NP?'接下来':'待播放',FONT.sect,COL.text,x,qy,r.w-36,28); qy+=29;
   var count=NP?(ssState.remaining_count||0):rows.length;
   tL(gr,pbShuffle?(NP?'本轮剩余 ':'')+count+' 首':(!isHiddenPl(ssState.source_name)&&ssState.source_name)||'顺序播放',FONT.qArtist,COL.text2,x,qy,r.w-36,24); qy+=30;
-  var viewport=Math.max(0,bottom-qy),contentH=rows.length?rows.length*rh+nextLabelHeight:0;
+  var viewport=Math.max(0,bottom-qy),contentH=rows.length*rh;
   SS_QUEUE_MAX=Math.max(0,contentH-viewport);ssQueueScroll=clampPx(ssQueueScroll,SS_QUEUE_MAX);ssQueueScrollT=clampPx(ssQueueScrollT,SS_QUEUE_MAX);
   if(viewport<1)return true;
-  var drawScroll=Math.round(ssQueueScroll),top=qy,start=Math.max(0,Math.floor((drawScroll-nextLabelHeight)/rh));
+  var drawScroll=Math.round(ssQueueScroll),top=qy,start=Math.max(0,Math.floor(drawScroll/rh));
   var parentGr=gr,layer=ssBeginViewport('queue-list',gr,r.x,top,r.w,viewport);
-  gr=layer.gr;qy+=start?start*rh+nextLabelHeight-drawScroll:-drawScroll;
+  gr=layer.gr;qy+=start*rh-drawScroll;
   for(var i=start;i<rows.length&&qy<bottom;i++){
-    var tr=rows[i],next=i===0,rowH=next?rh+nextLabelHeight:rh;
-    var hb={x0:x-8,y0:Math.max(top,qy),x1:r.x+r.w-18,y1:Math.min(bottom,qy+rowH),rowY:qy,rowH:rowH,next:next};
+    var tr=rows[i],next=i===0;
+    var hb={x0:x-8,y0:Math.max(top,qy),x1:r.x+r.w-18,y1:Math.min(bottom,qy+rh),rowY:qy,rowH:rh,next:next};
     hb.track_id=tr.id;hb.scope=i<priority.length?'priority':pbShuffle?'remaining':'native';hb.queueIndex=i<priority.length?i:pbShuffle?i-priority.length:tr.item;if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}HB_Q.push(hb);
-    ssDrawCachedRow(gr,'queue:'+i+':'+tr.id,r.x,qy,r.w,rowH,function(gr){
+    ssDrawCachedRow(gr,'queue:'+i+':'+tr.id+(next?':next':''),r.x,qy,r.w,rh,function(gr){
+      var lx=x;
       if(next){
-        tL(gr,'下一首',FONT.eyebrow,COL.text2,x,qy+4,r.w-48,nextLabelHeight);
+        var m=ssTrackTextMetrics(ssDensity,true),topY=qy+Math.round((rh-m.title-m.detail)/2);
+        var pw=Math.ceil(gr.CalcTextWidth('下一首',FONT.qArtist))+Math.round(12*ssDensity);
+        ssFillContinuousRect(gr,x,topY+2,pw,m.title-4,6,6,ssAccent(24));
+        tL(gr,'下一首',FONT.qArtist,COL.green,x,topY,pw,m.title);
+        lx=x+pw+8;
       }
-      ssDrawTrackLabels(gr,(i<priority.length&&!next?'优先 · ':'')+(tr.title||'未知曲目'),tr.artist||'',COL.text,x,qy+(next?nextLabelHeight:0),r.w-48,rh,ssDensity,true);
-    });qy+=rowH;
+      ssDrawTrackLabels(gr,(i<priority.length&&!next?'优先 · ':'')+(tr.title||'未知曲目'),tr.artist||'',COL.text,lx,qy,r.w-48-(lx-x),rh,ssDensity,true);
+    });qy+=rh;
   }
   layer.finish();gr=parentGr;
   SS_QUEUE_SB=drawSBV(gr,r.x+r.w-10,top,viewport,ssQueueScroll,SS_QUEUE_MAX,viewport,contentH,hv(r.x,top,r.x+r.w,bottom)||drag==='scrollq',SB_QUEUE);

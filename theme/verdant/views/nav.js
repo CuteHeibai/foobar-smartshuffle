@@ -100,6 +100,8 @@ function drawNav(gr){
     }
   }
   gr.DrawLine(R.navLib.x+16,listTop-6,R.navLib.x+R.navLib.w-16,listTop-6,1,COL.line);
+  if(navScroll>0)gr.DrawLine(R.navLib.x+12,listTop,R.navLib.x+R.navLib.w-12,listTop,1,COL.line);
+  if(navScroll<maxPx)gr.DrawLine(R.navLib.x+12,cropY,R.navLib.x+R.navLib.w-12,cropY,1,COL.line);
   drawScrollbarN(gr,R.navLib.x+R.navLib.w-9,listTop,viewH,navScroll,maxPx,viewH,contentH,hv(R.navLib.x,R.navLib.y,R.navLib.x+R.navLib.w,R.navLib.y+R.navLib.h)||drag==='scrolln');
   drawAddPlaylist(gr,footTop,footH);
 }

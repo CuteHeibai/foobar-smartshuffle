@@ -17,7 +17,7 @@ function ssAccent(a){return ssAlpha(COL.green,a);}
 function ssPalette(mode){
   if(mode==='light')return {
     black:RGB(244,245,247),base:RGB(255,255,255),elev:RGB(246,247,249),hover:RGB(235,236,240),
-    text:RGB(18,18,18),text2:RGB(89,89,89),text3:RGB(112,112,112),
+    text:RGB(18,18,18),text2:RGB(72,72,72),text3:RGB(92,92,92),
     green:RGB(10,110,240),greenC:RGB(10,110,240),greenHover:RGB(0,92,214),
     rowHover:RGBA(16,17,19,10),rowActive:RGBA(10,110,240,18),line:RGB(228,230,234),seekbg:RGB(219,222,227),
     splitter:RGB(228,230,234),gridLine:RGBA(16,17,19,40),gridAxis:RGBA(16,17,19,80),

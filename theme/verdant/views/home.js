@@ -108,11 +108,11 @@ function drawHome(gr,r){
     ssDrawHomePrimary(gr,showTitle?right-bw:x,ty,bw,bh,null);
   }
 
-  var grid=ssAlbumGrid(shelfW,s),size=grid.size,cols=Math.min(split?4:6,grid.cols);
+  /* One cover module and one gap everywhere; beside the featured record the shelf shows at most three columns. */
+  var grid=ssAlbumGrid(shelfW,s),size=grid.size,cols=Math.min(split?3:6,grid.cols);
   var albums=selection.slice(0,Math.min(split?cols*2:6,8));
   var visibleCols=Math.max(1,Math.min(cols,albums.length));
-  var gap=visibleCols>1?Math.min(Math.round(42*s),Math.floor((shelfW-visibleCols*size)/(visibleCols-1))):grid.gap;
-  gap=Math.max(grid.gap,gap);
+  var gap=grid.gap;
   var shelfEnd=shelfX+visibleCols*size+(visibleCols-1)*gap;
   var top=artY+Math.round(34*s),viewportH=bottom-top;
   if(viewportH<1)return;

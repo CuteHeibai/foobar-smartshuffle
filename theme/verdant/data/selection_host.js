@@ -161,7 +161,7 @@ function ssDrawSelection(gr){
   for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i],at=ssMainRowIndex(h);if(ssMainSelect.isSelected(at))ssFillContinuousRect(gr,h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,lifting&&ssSelectOwner===ssMainSelect?COL.elev:ssAccent(28));}
   if(lifting&&ssSelectOwner!==ssMainSelect&&p.origin){var rows=ssSelectContext.rows;for(i=0;i<rows.length;i++)if(rows[i].index===p.origin.index){var slot=rows[i];ssFillContinuousRect(gr,slot.x0,slot.y0,slot.x1-slot.x0,slot.y1-slot.y0,4,4,COL.elev);break;}}
   for(var h of HB_Q)if(ssQueueRowSelected(h))
-    ssFillContinuousRect(gr,h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,ssAccent(28));
+    ssFillContinuousRect(gr,h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,ssInk(14));
   if(!p)return;
   if(p.rect){var r=p.rect,w=r.x1-r.x0,h2=r.y1-r.y0;if(w>0&&h2>0){gr.FillSolidRect(r.x0,r.y0,w,h2,ssAccent(28));gr.DrawRect(r.x0,r.y0,w,h2,1,COL.green);}}
   if(p.indicator){var q=p.indicator;gr.DrawLine(q.x0,q.y,q.x1,q.y,2,COL.green);}

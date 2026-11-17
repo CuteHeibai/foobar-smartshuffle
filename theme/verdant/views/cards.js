@@ -102,7 +102,7 @@ function drawArtistCard(gr,x,y,w,a,clipTop,clipBot){
 // Drawer width changes the column count, while cover size follows window density.
 function ssAlbumGrid(width,scale,coverSize){
   if(coverSize===undefined)coverSize=157;
-  var gap=Math.round(16*scale),size=Math.max(1,Math.min(width,Math.round(coverSize*scale)));
+  var gap=Math.round(24*scale),size=Math.max(1,Math.min(width,Math.round(coverSize*scale)));
   return {gap:gap,size:size,cols:Math.max(1,Math.floor((width+gap)/(size+gap)))};
 }
 function ssLibraryReadingRect(r){

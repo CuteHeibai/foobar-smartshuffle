@@ -44,8 +44,13 @@ test('home opens a parallel album shelf and reflows it without changing tile siz
   assert.equal(c.HB_HOME_ALBUMS.x1,Math.max(...albums.map(card=>card.x1)));
   return [albums.filter(card=>card.y0===first.y0).length,first.x1-first.x0];
  }
- assert.deepEqual(grid(1125),[4,157]);
+ assert.deepEqual(grid(1125),[3,157]);
  assert.deepEqual(grid(799),[2,157]);
+ grid(1125);
+ const g1125=c.HB_CARD.filter(card=>card.kind==='album');
+ assert.equal(g1125[1].x0-g1125[0].x1,24,'the shelf keeps the shared column gap');
+ assert.equal(c.HB_HOME_ALBUMS.x1,g1125[2].x1,'the link ends on the capped shelf, not the panel');
+ assert.ok(c.HB_HOME_ALBUMS.x1<300+c.M.cpad+1125-40);
 });
 
 test('a short window keeps the primary action inside the main panel and clears old scroll targets',()=>{
