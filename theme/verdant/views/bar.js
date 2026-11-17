@@ -57,7 +57,7 @@ function ssDrawTransport(gr,by,height,s,layout,trackBg){
 function ssFooterToolLayout(s){
   var end=W-Math.round(28*s),gap=Math.max(44,Math.round(46*s)),queue=end-gap,lyrics=queue-gap;
   var volW=Math.min(Math.round(76*s),Math.max(48,R.barToolsW-236)),volX=lyrics-Math.round(30*s)-volW;
-  var output=volX-Math.round(30*s),modeWidth=Math.round((W>=1080*s?104:38)*s);
+  var output=volX-Math.round(30*s),modeWidth=Math.round((W>=1080?104:38)*s);
   var modeLeft=output-Math.round(24*s)-modeWidth;
   return {end:end,queue:queue,lyrics:lyrics,volW:volW,volX:volX,output:output,modeLeft:modeLeft,modeWidth:modeWidth};
 }

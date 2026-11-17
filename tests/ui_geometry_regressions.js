@@ -105,11 +105,11 @@ test('Ctrl left-click toggles songs; right-click keeps its menu and holding left
  c.on_mouse_rbtn_up(20,20);assert.equal(menus,1);
  c.utils.IsKeyPressed=k=>k===1;c.ssSelectionDown(20,20);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'pending');h.advance(170);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'reorder');assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0]);
 });
-test('Chinese and Japanese text share YaHei UI while English retains Inter',()=>{
+test('published font fallbacks use YaHei UI, Yu Gothic UI and Inter with ClearType',()=>{
  const {c}=context(),g=graphics(),draws=[],hints=[];g.SetTextRenderingHint=v=>hints.push(v);g.DrawString=(s,f)=>draws.push({s,f});
  c.tL(g,'歌曲列表',c.FONT.rowTitle,1,0,0,200,32);c.tL(g,'English song',c.FONT.rowTitle,1,0,40,200,32);
  c.tL(g,'夜に駆ける',c.FONT.rowTitle,1,0,80,200,32);
- assert.equal(draws[0].f.Name,'Microsoft YaHei UI');assert.equal(draws[1].f.Name,'Inter');assert.equal(draws[2].f.Name,draws[0].f.Name);assert.equal(draws[2].f.Size,draws[0].f.Size);assert.deepEqual(hints,[3,3,3]);
+ assert.equal(draws[0].f.Name,'Microsoft YaHei UI');assert.equal(draws[1].f.Name,'Inter');assert.equal(draws[2].f.Name,'Yu Gothic UI');assert.deepEqual(hints,[5,5,5]);
 });
 test('scene restore copies align source and destination to whole pixels',()=>{
  const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[{x0:10.2,y0:49.3,x1:480.8,y1:99.3}];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=40;c.my=70;let copies=[];const g=graphics();g.DrawImage=(im,...args)=>copies.push(args);c.ssPaintInteractions(g);assert.ok(copies.length);assert.ok(copies.every(args=>args.every(Number.isInteger)));

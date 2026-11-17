@@ -20,7 +20,7 @@ test('long footer title starts a bounded animation and caches antialiased untrim
   const h=harness();h.draw();assert.equal(h.timers.size,1,'an overlong now-playing title needs an animation timer');
   const copy=h.titleCopy();assert.ok(copy,'the title must be composited through its own bitmap crop');
   assert.equal(copy.x,94);assert.equal(copy.y,706);assert.equal(copy.w,194);assert.equal(copy.h,20);assert.equal(copy.sw,copy.w);assert.equal(copy.sh,copy.h);
-  const text=h.words.find(w=>w.s===h.c.npTitleStr);assert.equal(text.hint,3,'use grayscale antialiasing on the title bitmap');assert.equal((text.flags>>>20)&15,0,'long title bitmap must contain the whole title without ellipsis');
+  const text=h.words.find(w=>w.s===h.c.npTitleStr);assert.equal(text.hint,5,'use the release rendering mode on the title bitmap');assert.equal((text.flags>>>20)&15,0,'long title bitmap must contain the whole title without ellipsis');
   h.advance(1500);h.draw();assert.equal(h.images.length,1,'moving frames should reuse the rendered title');assert.ok(h.titleCopy().sx>0);
 });
 test('fitting title and absent track create no animation or title bitmap',()=>{
@@ -61,12 +61,14 @@ test('ordinary and full-screen playback share control order and the lower seek r
   const ordinarySeek=c.HB_SEEK;
   c.HB_CTRL=[];c.fsMode=true;c.drawFsBar(h.gr);
   const full=c.HB_CTRL.filter(b=>['prev','play','next'].includes(b.act));
-  assert.equal(JSON.stringify(full),JSON.stringify(ordinary));
+  assert.deepEqual(Array.from(full,b=>b.act),Array.from(ordinary,b=>b.act));
+  assert.ok(full[1].x1-full[1].x0>ordinary[1].x1-ordinary[1].x0);
+  assert.ok(c.HB_SEEK.w>ordinarySeek.w);
   assert.ok(c.HB_SEEK.y0>full[1].y1&&ordinarySeek.y0>ordinary[1].y1);
   assert.equal(c.HB_CTRL.filter(b=>b.act==='playback_mode').length,1);
   assert.ok(!c.HB_CTRL.some(b=>b.act==='shuffle'||b.act==='repeat'));
-  const mode=c.HB_CTRL.find(b=>b.act==='playback_mode'),status=h.words.find(w=>w.s==='顺序播放');
-  assert.ok(status&&status.x>mode.x0&&status.x+status.w<=mode.x1&&status.y===mode.y0,'the mode text sits within the same hit target and baseline as its icon');
+  const mode=c.HB_CTRL.find(b=>b.act==='playback_mode'),status=h.words.findLast(w=>w.s==='顺序播放');
+  assert.ok(status&&status.x>mode.x0&&status.x+status.w<=mode.x1&&Math.abs(status.y-mode.y0)<=.5,'the mode text sits within the same hit target and baseline as its icon');
 
 });
 test('an idle player leaves a rail without time labels or dragging, and only enables play with a source',()=>{

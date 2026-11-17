@@ -142,22 +142,17 @@ run('search keeps a compact artist result immediately above hittable song rows',
  assert.equal(c.HB_TR.length,1);assert.equal(c.HB_TR[0].idx,0);assert.equal(c.HB_TR[0].srch,true);assert.equal(c.HB_TR[0].playVisible,false);assert.equal(c.HB_TR[0].playOnHover,true);assert.equal(c.HB_TR[0].pgx0,24);assert.ok(c.HB_TR[0].pgx1>=56);
  assert.ok(c.HB_TR[0].y0-c.HB_CARD[0].y1<70);assert.equal(c.HB_TR[0].x1,884);assert.equal(c.HB_TR[0].x1,c.searchBoxRect().x+c.searchBoxRect().w+2);
 });
-run('fullscreen centers the measured listening stage and reserves its footer',()=>{
+run('fullscreen scales the centered cover and leaves separate space for text and transport',()=>{
  const {c}=harness();
  Object.assign(c,{COL:{},blend:()=>0,ssInk:()=>0});
  vm.runInContext(fs.readFileSync(path.join(root,'views/fullscreen.js'),'utf8'),c);
- for(const [width,bot] of [[1440,728],[1024,596],[760,428]]){
-  const short=c.ssFsDefaultGeometry(width,bot,70),anotherShort=c.ssFsDefaultGeometry(width,bot,131);
-  const long=c.ssFsDefaultGeometry(width,bot,1300);
-  assert.deepEqual(short,anotherShort);
-  for(const m of [short,long]){
-   assert.ok(Math.abs((m.x+m.textX+m.textW)/2-width/2)<1);
-   assert.ok(m.x>0&&m.textX>m.x+m.size&&m.textX+m.textW<width);
-   assert.ok(m.y+m.size<bot&&m.textY+160<=bot);
-   assert.ok(m.textW>=200&&m.textW<=415);
-  }
-  assert.equal(long.size,short.size);
-  assert.ok(long.textW>=short.textW);
+ const sizes=[];
+ for(const [width,height] of [[1180,780],[1440,900],[1920,1080]]){
+  const s=c.ssFsScale(width,height),bot=height-Math.round(172*s),m=c.ssFsDefaultGeometry(width,bot,s);
+  assert.ok(Math.abs(m.x+m.size/2-width/2)<1&&Math.abs(m.textX+m.textW/2-width/2)<1);
+  assert.ok(m.y+m.size<m.textY&&m.textY+Math.round(126*s)<=bot);
+  sizes.push(m.size);
  }
+ assert.ok(sizes[2]>sizes[1]&&sizes[1]>sizes[0]);
 });
 console.log(count+' desktop drawer checks passed');
