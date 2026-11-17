@@ -20,6 +20,19 @@ function harness(saved={}){
 run('new desktop opens with content space, drawer is optional',()=>{
  const {c}=harness();assert.equal(c.ssRightOpen,false);assert.equal(c.ssLayoutWidths(1440).right,0);
 });
+run('the standard DPI minimum is registered and stays within the monitor work area',()=>{
+ const {c}=harness();c.window.DPI=120;c.ssState.display={work_width:1920,work_height:1080};
+ c.ssApplyWindowMinimum();assert.equal(c.window.MinWidth,1150);assert.equal(c.window.MinHeight,750);
+ c.ssState.display.work_height=720;c.ssApplyWindowMinimum();assert.equal(c.window.MinHeight,720);
+});
+run('programmatic resize below the panel minimum requests one corrected window size',()=>{
+ const {c}=harness();const jobs=[],requests=[];
+ Object.assign(c.window,{Width:700,Height:450,SetTimeout(fn){jobs.push(fn);return jobs.length;}});
+ c.UIWizard={WindowState:2,SetWindowSize:(...args)=>requests.push(args)};
+ c.ssClampWindowSize(700,450);c.ssClampWindowSize(700,450);assert.equal(jobs.length,1);
+ jobs.shift()();assert.deepEqual(requests,[[920,600]]);
+ c.ssClampWindowSize(700,450);c.window.Width=1180;c.window.Height=780;jobs.shift()();assert.equal(requests.length,1);
+});
 run('drawer choice persists without altering playback or queue',()=>{
  const {c,props,requests}=harness(),before=JSON.stringify(c.ssState);
  c.ssSetRightPane('queue',true);assert.equal(c.rightTab,'queue');assert.ok(c.R.queue.w>=220);

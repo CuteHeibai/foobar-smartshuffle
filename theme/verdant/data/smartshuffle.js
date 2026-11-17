@@ -32,6 +32,7 @@ function ssAcceptState(s){
   if(ssState&&s.pid&&ssState.pid!==s.pid)ssSeenOpen=0;
   if(ssStarting)ssSeenOpen=s.ui_open||0;
   ssState=s;
+  if(typeof ssApplyWindowMinimum==='function')ssApplyWindowMinimum();
   if(s.theme&&typeof ssApplyAppearance==='function')ssApplyAppearance(s.theme.appearance);
   if(!ssStarting&&typeof ssApplyDefaultWindow==='function'){
     try{ssApplyDefaultWindow(false);}catch(e){console.log('Smart Shuffle window size: '+String(e));}

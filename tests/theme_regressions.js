@@ -76,15 +76,21 @@ test('native submenu response retains hierarchy, disabled state and exact comman
   c.ssPopupKey(40);c.ssPopupKey(39);c.ssPopupKey(40);c.ssPopupKey(13);
   assert.equal(h.writes.at(-1).op,'menu_execute');assert.equal(h.writes.at(-1).token,'native-7');assert.equal(h.writes.at(-1).command,42);
 });
-test('default geometry occupies forty percent on laptop, desktop, ultrawide and portrait monitors',()=>{
+test('default geometry follows forty percent unless the desktop minimum takes precedence',()=>{
   const {c}=harness();
   for(const [width,height] of [[1280,680],[1920,1040],[2560,1400],[3840,2080],[5120,1400],[1080,1880]]){
     c.ssState={display:{work_width:width,work_height:height}};
     const size=c.ssDefaultWindowSize();
-    assert.ok(Math.abs(size.width*size.height/(width*height)-.4)<.002);
-    assert.ok(size.width<=width*.94+1&&size.height<=height*.94+1);
-    if(width>height)assert.ok(size.width/size.height>=1.45&&size.width/size.height<=1.86);
+    const minimum=c.ssWindowMinimum();
+    assert.ok(size.width>=minimum.width&&size.height>=minimum.height);
+    assert.ok(size.width<=width&&size.height<=height);
+    if(size.width>minimum.width&&size.height>minimum.height){
+      assert.ok(Math.abs(size.width*size.height/(width*height)-.4)<.002);
+      if(width>height)assert.ok(size.width/size.height>=1.45&&size.width/size.height<=1.86);
+    }
   }
+  c.ssState={display:{work_width:1280,work_height:680}};
+  assert.equal(c.ssDefaultWindowSize().width,920);assert.equal(c.ssDefaultWindowSize().height,600);
   c.ssState=null;assert.equal(c.ssDefaultWindowSize(),null);
   for(const width of [0,-1,NaN,Infinity]){c.ssState={display:{work_width:width,work_height:1040}};assert.equal(c.ssDefaultWindowSize(),null);}
 });
@@ -113,7 +119,7 @@ test('stale open counter at theme startup does not cover the default lyrics',()=
 function layoutHarness(){
   const h=harness(),c=h.c,props=new Map();
   c.window.GetProperty=(key,dflt)=>props.has(key)?props.get(key):dflt;c.window.SetProperty=(key,value)=>props.set(key,value);
-  c.W=1180;c.H=780;c.M={gap:8,navW:210,queueW:350,barH:96,navTopH:84};c.R={};c.UIWizard=null;c.applyCaption=()=>{};
+  c.W=1180;c.H=780;c.ssDensity=1;c.M={gap:10,navW:240,queueW:300,barH:96,navTopH:58,rowH:50};c.R={};c.UIWizard=null;c.applyCaption=()=>{};
   const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
   vm.runInContext(app.slice(app.indexOf('function layout('),app.indexOf('// bitmaps are keyed')),c);
   c.ssRightOpen=true;c.layout();return {h,c,props};
@@ -152,13 +158,20 @@ test('splitter drags coalesce geometry updates and save the constrained width',(
   c.ssResizeEnd(359,120);assert.equal(props.get(c.SS_WIDTH_KEYS.nav),c.R.navW);assert.equal(c.ssResizing,null);
   c.ssModal=true;assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),false);
 });
-test('splitter movement uses cached pane previews and avoids repeated native chrome work',()=>{
- const {h,c}=layoutHarness();let clones=0,chrome=0;const image={Clone(){clones++;return {Dispose(){}};}};c.ssSceneImage=image;c.ssSceneW=c.W;c.ssSceneH=c.H;c.ssHideLyrics=()=>{};c.repaintAll=()=>{};c.UIWizard={set FrameStyle(v){chrome++;},set MoveStyle(v){chrome++;},set DisableWindowSizing(v){chrome++;},SetCaptionAreaSize(){chrome++;}};
+test('splitter movement reflows the panes without scaling a snapshot or touching window chrome',()=>{
+ const {h,c}=layoutHarness();let clones=0,chrome=0,paints=0;const image={Clone(){clones++;return {Dispose(){}};}};c.ssSceneImage=image;c.ssSceneW=c.W;c.ssSceneH=c.H;c.ssHideLyrics=()=>{};c.repaintAll=()=>{paints++;};c.UIWizard={set FrameStyle(v){chrome++;},set MoveStyle(v){chrome++;},set DisableWindowSizing(v){chrome++;},SetCaptionAreaSize(){chrome++;}};
  c.ssResizeBegin(c.R.main.x-c.M.gap/2,120);
  for(let frame=0;frame<10;frame++){c.ssResizeMove(250+frame*4,120);h.flush();}
- assert.equal(chrome,0,'pane resizing must not reconfigure native window chrome every frame');assert.equal(clones,1);
- let copies=0;assert.equal(c.ssPaintResizePreview({FillSolidRect(){},SetInterpolationMode(){},DrawImage(){copies++;}}),true);assert.ok(copies>=5,'the live preview must include panes, title and footer');
- c.ssResizeEnd(286,120);assert.equal(c.ssResizePreview,null);assert.equal(c.ssResizing,null);
+ assert.equal(chrome,0);assert.equal(clones,0);assert.equal(paints,10);
+ c.ssResizeEnd(286,120);assert.equal(c.ssResizing,null);
+});
+
+test('outer resize preserves the text font objects, nominal row height and UI scale',()=>{
+ const {c}=layoutHarness(),density=c.ssDensity,fonts=c.FONT,rowHeight=c.M.rowH;
+ c.UISCALE=1.25;
+ for(const [width,height] of [[920,600],[1440,900],[1180,780]]){
+   c.W=width;c.H=height;c.layout();assert.equal(c.ssDensity,density);assert.equal(c.FONT,fonts);assert.equal(c.M.rowH,rowHeight);assert.equal(c.UISCALE,1.25);
+ }
 });
 
 test('settings reset clears every width and restores the window without changing playback state',()=>{
@@ -201,10 +214,10 @@ test('top menus remain open during pointer travel until explicitly dismissed',()
   c.ssPopupMove(242,60);assert.equal(c.ssMenuLeaveTimer,0);c.ssPopupMove(250,60);
   h.flush();assert.ok(c.ssPopup);c.ssPopupMove(600,300);h.flush();assert.ok(c.ssPopup);c.ssPopupKey(27);assert.equal(c.ssPopup,null);
 });
-test('window resizing scales real font sizes, row heights and covers while retaining custom widths',()=>{
+test('window resizing keeps text metrics stable and lays out square covers and custom widths',()=>{
   const {h,c}=layoutHarness();c.gdi={Font:(name,size,style)=>({name,size,style})};h.load('core/tokens.js');
   c.ssWidths.nav=290;c.W=850;c.H=600;c.layout();const small={font:c.FONT.rowTitle.size,row:c.M.rowH,cover:c.M.artSz,scale:c.ssDensity};
-  c.W=1800;c.H=1100;c.layout();assert.ok(c.FONT.rowTitle.size>small.font);assert.ok(c.M.rowH>small.row);assert.ok(c.M.artSz>small.cover);assert.ok(c.ssDensity>small.scale);
+  c.W=1800;c.H=1100;c.layout();assert.equal(c.FONT.rowTitle.size,small.font);assert.equal(c.M.rowH,small.row);assert.ok(c.M.artSz>=small.cover);assert.equal(c.ssDensity,small.scale);
   assert.equal(c.ssWidths.nav,290);assert.equal(c.R.navW,280);
 });
 test('recycle action requires a matching preparation and explicit confirmation; cancel never applies',()=>{
@@ -268,7 +281,7 @@ test('artist cards use verified names and their own portraits, never album cover
 
 
 test('minimized host surface never replaces the last usable content geometry',()=>{
- const h=harness(),c=h.c;c.window.GetProperty=(k,d)=>d;
+ const h=harness(),c=h.c;c.window.GetProperty=(k,d)=>d;c.UIWizard={WindowState:0};
  const app=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
  c.W=1180;c.H=780;c.layout=()=>{throw Error('minimizing must not recalculate typography');};c.on_size(199,34);assert.equal(c.W,1180);assert.equal(c.H,780);
 });

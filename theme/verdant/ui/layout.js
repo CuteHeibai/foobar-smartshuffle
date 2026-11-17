@@ -1,6 +1,7 @@
 ﻿/* User-sized columns. Requested widths survive small-window clamping and restarts. */
 var SS_WIDTH_KEYS={nav:'SmartShuffle: library width',right:'SmartShuffle: lyrics width'};
-var ssWidths={},ssResizing=null,ssResizeTimer=0,ssSplitHot='',ssLayoutReportTimer=0,ssResizePreview=null;
+var ssWidths={},ssResizing=null,ssResizeTimer=0,ssSplitHot='',ssLayoutReportTimer=0;
+var ssWindowClampTimer=0;
 var ssRightOpen=false,ssRightTab='lyrics',ssRightForced=false;
 try{ssRightOpen=window.GetProperty('SmartShuffle: right pane open',false)===true;ssRightTab=window.GetProperty('SmartShuffle: right pane tab','lyrics')==='queue'?'queue':'lyrics';}catch(e){}
 function ssSetRightPane(tab,open){
@@ -12,8 +13,33 @@ function ssSetRightPane(tab,open){
   if(tab==='lyrics'&&ssRightOpen){loadLyrics();lySnap=true;}else stopLyAnim();
   ssHideLyrics();layout();ssDropModalImage();ssDropSceneImage();ssSyncLyricPanel();ssReportLayout();repaintAll();
 }
-// Work-area proportions, not a fixed requested pixel size. Native code supplies
-// the monitor containing the player, so taskbars and secondary screens are respected.
+function ssWindowMinimum(){
+  var display=ssState&&ssState.display,dpi=Number(window.DPI)||96;
+  return {width:Math.min(Math.round(920*dpi/96),Number(display&&display.work_width)||Infinity),
+    height:Math.min(Math.round(600*dpi/96),Number(display&&display.work_height)||Infinity)};
+}
+function ssApplyWindowMinimum(){
+  var size=ssWindowMinimum();
+  try{
+    if(window.MinWidth!==size.width)window.MinWidth=size.width;
+    if(window.MinHeight!==size.height)window.MinHeight=size.height;
+  }catch(e){}
+}
+function ssClampWindowSize(w,h){
+  var minimum=ssWindowMinimum();
+  if((w>=minimum.width&&h>=minimum.height)||!UIWizard||ssWindowClampTimer)return;
+  // UIWizard reports 2 for an ordinary restored window.
+  try{if(UIWizard.WindowState!==2)return;}catch(e){return;}
+  ssWindowClampTimer=window.SetTimeout(function(){
+    ssWindowClampTimer=0;
+    var width=window.Width,height=window.Height,size=ssWindowMinimum();
+    try{
+      if(UIWizard.WindowState===2&&width>0&&height>0&&(width<size.width||height<size.height))
+        UIWizard.SetWindowSize(Math.max(width,size.width),Math.max(height,size.height));
+    }catch(e){console.log('Smart Shuffle window minimum: '+String(e));}
+  },16);
+}
+// Use the current monitor's work area for the initial window proportions.
 function ssDefaultWindowSize(){
   var display=ssState&&ssState.display;
   if(!display)return null;
@@ -23,7 +49,8 @@ function ssDefaultWindowSize(){
   var width=Math.sqrt(area*ratio),height=area/width;
   if(width>w*.94){width=w*.94;height=area/width;}
   if(height>h*.94){height=h*.94;width=area/height;}
-  return {width:Math.round(width),height:Math.round(height)};
+  var minimum=ssWindowMinimum();
+  return {width:Math.max(minimum.width,Math.round(width)),height:Math.max(minimum.height,Math.round(height))};
 }
 function ssApplyDefaultWindow(force){
   if(typeof UIWizard==='undefined'||!UIWizard)return false;
@@ -38,25 +65,6 @@ function ssApplyDefaultWindow(force){
 for(var ssWidthKey in SS_WIDTH_KEYS){
   var ssWidthValue=0;try{ssWidthValue=Number(window.GetProperty(SS_WIDTH_KEYS[ssWidthKey],0));}catch(e){}
   ssWidths[ssWidthKey]=isFinite(ssWidthValue)&&ssWidthValue>0?ssWidthValue:0;
-}
-function ssResponsiveMetrics(w,h){
-  var density=Math.round(Math.max(.85,Math.min(1.25,Math.sqrt(Math.min(w/1180,h/780))))*20)/20;
-  if(typeof ssDensity!=='undefined'&&density===ssDensity)return;
-  ssDensity=density;
-  if(typeof SS_BASE_UI_SCALE!=='undefined')UISCALE=SS_BASE_UI_SCALE*density;
-  if(typeof ssCreateFonts==='function'){SS_FONT_META=[];SS_FIT_FONTS=[];SS_SCRIPT_FONTS={};FONT=ssCreateFonts();LH_F=[];LH_V=[];}
-  var base={pad:8,gap:10,navW:240,queueW:300,barH:96,navTopH:58,rowH:50,cardTextH:52,radius:6};
-  for(var key in base)M[key]=Math.round(base[key]*density);
-  if(typeof ssTrackTextMetrics==='function')M.rowH=Math.max(M.rowH,ssTrackTextMetrics(density,false).height);
-  TBH=Math.round(32*UISCALE);CAPBW=Math.round(46*UISCALE);
-  if(typeof SG_IND!=='undefined'){
-    SG_IND=Math.round(32*density);SG_GAP1=Math.round(24*density);SG_GAP2=Math.round(14*density);SG_PADB1=Math.round(12*density);SG_PADB2=Math.round(10*density);
-    SG_ART1=Math.round(56*density);SG_ART2=Math.round(44*density);SG_TGAP=Math.round(18*density);SG_SLABP=Math.round(10*density);
-    SG_H1=SG_GAP1+SG_ART1+SG_PADB1;SG_H1B=SG_H1+SG_SLABP*2;SG_H2=SG_GAP2+SG_ART2+SG_PADB2;SG_TRH=Math.max(Math.round(44*density),typeof ssTrackTextMetrics==='function'?ssTrackTextMetrics(density,false).title:0);SG_CROP=Math.round(96*density);
-    if(songsRows)buildSongsRows();
-  }
-  if(typeof plCardCache!=='undefined')plCardCache={};if(typeof artCardCache!=='undefined'){artCardCache={};artCardN=0;}
-  if(typeof CORN!=='undefined')CORN=null;
 }
 function ssFitWidths(left,right,budget,minLeft,minRight){
   left=Math.max(minLeft,Math.min(left,budget-minRight));right=Math.max(minRight,Math.min(right,budget-minLeft));
@@ -83,26 +91,10 @@ function ssSplitAt(x,y){
   }
   return '';
 }
-function ssDropResizePreview(){if(ssResizePreview&&ssResizePreview.image)try{ssResizePreview.image.Dispose();}catch(e){}ssResizePreview=null;}
-function ssAbortResize(){if(ssResizeTimer)window.ClearTimeout(ssResizeTimer);ssResizeTimer=0;ssResizing=null;ssDropResizePreview();ssResizeCursor(false);}
-function ssCaptureResizePreview(){
-  ssDropResizePreview();if(typeof ssSceneImage==='undefined'||!ssSceneImage||ssSceneW!==W||ssSceneH!==H)return;
-  var panes={},keys=['navTop','navLib','main','queue'];
-  for(var i=0;i<keys.length;i++){var r=R[keys[i]];panes[keys[i]]={x:r.x,y:r.y,w:r.w,h:r.h};}
-  ssResizePreview={image:ssSceneImage.Clone(0,0,W,H),panes:panes,width:W,height:H,barY:R.barY};
-}
-function ssPaintResizePreview(gr){
-  var p=ssResizePreview;if(!ssResizing||!p||p.width!==W||p.height!==H)return false;
-  gr.FillSolidRect(0,0,W,H,COL.black);gr.SetInterpolationMode(5);
-  gr.DrawImage(p.image,0,0,W,TBH,0,0,W,TBH);
-  gr.DrawImage(p.image,0,R.barY,W,H-R.barY,0,p.barY,W,H-p.barY);
-  var keys=['navTop','navLib','main','queue'];
-  for(var i=0;i<keys.length;i++){var to=R[keys[i]],from=p.panes[keys[i]];if(to.w>0&&from.w>0)gr.DrawImage(p.image,to.x,to.y,to.w,to.h,from.x,from.y,from.w,from.h);}
-  return true;
-}
+function ssAbortResize(){if(ssResizeTimer)window.ClearTimeout(ssResizeTimer);ssResizeTimer=0;ssResizing=null;ssResizeCursor(false);}
 function ssResizeBegin(x,y){
   var key=ssSplitAt(x,y);if(!key)return false;
-  ssCaptureResizePreview();ssResizing={key:key,x:x};ssHideLyrics();ssResizeCursor(true);return true;
+  ssResizing={key:key,x:x};ssHideLyrics();ssResizeCursor(true);return true;
 }
 function ssResizeCursor(on){try{window.SetCursor(on?32644:32512);}catch(e){}}
 function ssResizeMove(x,y){
@@ -123,7 +115,7 @@ function ssResizeEnd(x,y){
   ssResizeApply();var key=ssResizing.key;
   // Save the visible, constrained width rather than an out-of-window pointer position.
   ssWidths[key]=key==='nav'?R.navW:R.queueW;
-  window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);ssResizing=null;ssDropResizePreview();ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();return true;
+  window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);ssResizing=null;ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();return true;
 }
 function ssDrawResizers(gr){
   if(fsMode||ssModal||ssPopup||!R.main||!R.queue||!R.top)return;
@@ -136,8 +128,7 @@ function ssDrawResizers(gr){
   }
 }
 function ssResetLayout(){
-  if(ssResizeTimer){window.ClearTimeout(ssResizeTimer);ssResizeTimer=0;}
-  ssResizing=null;ssDropResizePreview();ssSplitHot='';
+  ssAbortResize();ssSplitHot='';
   if(fsMode&&typeof exitFullscreen==='function')exitFullscreen();
   if(typeof rightTab!=='undefined')rightTab='lyrics';
   ssRightTab='lyrics';ssRightOpen=false;window.SetProperty('SmartShuffle: right pane open',false);window.SetProperty('SmartShuffle: right pane tab','lyrics');

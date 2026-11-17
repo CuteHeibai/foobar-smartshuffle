@@ -43,7 +43,7 @@ function ssPalette(mode){
   };
 }
 var COL=ssPalette(SS_APPEARANCE);
-var M = { pad:8, gap:10, navW:240, queueW:300, barH:84, navTopH:58, rowH:50, cardTextH:52, radius:6, cpad:24, headH:280, artSz:200 };
+var M = { pad:8, gap:10, navW:240, queueW:300, barH:96, navTopH:58, rowH:50, cardTextH:52, radius:6, cpad:24, headH:280, artSz:200 };
 var PALETTE=[RGB(105,75,68),RGB(108,95,78),RGB(130,74,85),RGB(81,91,101),RGB(133,108,76),RGB(102,105,87),RGB(119,93,100),RGB(95,107,111),RGB(115,87,66),RGB(94,86,91)];
 
 /* ------------------------- fonts (create once) -------------------------
@@ -51,7 +51,7 @@ var PALETTE=[RGB(105,75,68),RGB(108,95,78),RGB(130,74,85),RGB(81,91,101),RGB(133
    from the panel property (or the display DPI). That is why props.js loads first, and why a
    scale change needs a panel reload rather than just a repaint.
    Regular text uses Inter; headings use its medium weight. */
-var SS_BASE_UI_SCALE=UISCALE,ssDensity=1;
+var ssDensity=1;
 var SS_FONT_META=[],SS_FIT_FONTS=[],SS_SCRIPT_FONTS={};
 function gf(name,sz,style){var size=Math.max(1,Math.round(sz*UISCALE)),font=gdi.Font(name,size,style||0);SS_FONT_META.push({font:font,name:name,size:size,style:style||0});return font;}
 function F(sz,bold){ return gf(bold?'Inter Medium':'Inter', sz, 0); }

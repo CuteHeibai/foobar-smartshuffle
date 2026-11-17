@@ -105,7 +105,6 @@ function snapShelf(px){ var st=HOME_STRIDE||1; return clampPx(Math.round(px/st)*
 
 
 function layout(contentOnly){
-  ssResponsiveMetrics(W,H);
   var g=M.gap, top0=TBH+g;   // one uniform gap on every side, incl. below the title bar and above the bar
   R.barY=H-M.barH;
   R.top={x:g,y:top0,bottom:R.barY-g};
@@ -130,7 +129,7 @@ function layout(contentOnly){
   applyKeyMode();
 }
 // bitmaps are keyed by geometry; and the panel's surface is rebuilt, so the next paint must be full
-function on_size(w,h){ if(w<400||h<200)return;if(typeof ssAbortResize==='function')ssAbortResize();if(W!==w||H!==h)ssRightForced=false;W=w; H=h; layout(); ssDropModalImage();ssDropSceneImage(); plCardCache={}; artCardCache={}; artCardN=0; skelImgs={}; dirtyAll=true;ssReportLayout(); }
+function on_size(w,h){ if(w>0&&h>0)ssClampWindowSize(w,h);if(w<400||h<200)return;if(typeof ssAbortResize==='function')ssAbortResize();if(W!==w||H!==h)ssRightForced=false;W=w; H=h; layout(); ssDropModalImage();ssDropSceneImage(); plCardCache={}; artCardCache={}; artCardN=0; skelImgs={}; dirtyAll=true;ssReportLayout(); }
 
 // name/count come from the per-playlist caches, not fresh interop: this runs on every paint of the playlist view
 function activePl(){ var i=plman.ActivePlaylist; return {i:i, name:i>=0?plName(i):'', count:i>=0?plCount(i):0}; }
@@ -160,7 +159,6 @@ function on_paint(gr){
   if(!ssModal&&!ssPopup&&!fsMode&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt)ssDrawResizers(gr);
 }
 function ssPaintFrame(gr){
-  if(ssPaintResizePreview(gr))return;
   if(ssSelectionDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!ssModal&&!ssPopup&&!fsMode){
     ssPaintInteractions(gr);return;
   }

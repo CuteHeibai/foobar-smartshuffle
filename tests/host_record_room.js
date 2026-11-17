@@ -25,6 +25,33 @@
   }catch(e){result.cleanup=String(e)+(e.stack?'\n'+String(e.stack):'');writeResult();}
  }
  function reset(){ssModal=false;fsMode=false;view='home';ssDropModalImage();ssDropSceneImage();ssSetRightPane('queue',false);}
+ function checkResize(){
+  var font=FONT.rowTitle,rowHeight=M.rowH,min=ssWindowMinimum(),requested={nav:ssWidths.nav,right:ssWidths.right};
+  var savedNav=window.GetProperty(SS_WIDTH_KEYS.nav,0),savedRight=window.GetProperty(SS_WIDTH_KEYS.right,0);
+  var image=null,gr=null;
+  try{
+   check(window.MinWidth===min.width&&window.MinHeight===min.height,'Host panel reports its DPI-aware minimum');result.minimum=min;
+   on_size(min.width,min.height);ssSetRightPane('queue',true);
+   image=gdi.CreateImage(W,H);gr=image.GetGraphics();
+   function paint(){dirtyAll=true;on_paint(gr);}
+   paint();
+   for(var side of ['nav','right']){
+    var pane=side==='nav'?R.navLib:R.queue,old=pane.w;
+    var x=side==='nav'?R.main.x-M.gap/2:R.queue.x-M.gap/2,y=R.main.y+40;
+    check(ssResizeBegin(x,y),'Minimum window accepts the '+side+' divider');
+    var target=x+(side==='nav'?(old>225?-28:28):(old>255?28:-28));
+    ssResizing.x=target;ssResizeApply();paint();
+    pane=side==='nav'?R.navLib:R.queue;
+    check(old!==pane.w&&R.navLib.x+R.navLib.w<R.main.x&&R.main.x+R.main.w<R.queue.x&&R.main.y+R.main.h<R.barY,'Live '+side+' reflow keeps panes and footer disjoint');
+    ssResizeEnd(target,y);
+   }
+   check(FONT.rowTitle===font&&M.rowH===rowHeight,'Window and divider resize preserve the text and row sizes');
+  }finally{
+   if(gr)image.ReleaseGraphics(gr);if(image&&typeof image.Dispose==='function')image.Dispose();
+   ssAbortResize();ssWidths.nav=requested.nav;ssWidths.right=requested.right;
+   window.SetProperty(SS_WIDTH_KEYS.nav,savedNav);window.SetProperty(SS_WIDTH_KEYS.right,savedRight);
+  }
+ }
  function capture(job){
   check(appearanceReady(job.mode),'Native and rendered appearance agree: '+job.mode+' '+job.page+' '+W);
   if(job.page==='stats')check(!!ssStats.data&&!ssStats.error,'Statistics page receives native data at '+job.mode+' '+W);
@@ -77,6 +104,7 @@
   W=standard[0];H=standard[1];layout(true);check(ssRightOpen&&rightTab==='lyrics'&&R.queue.w>0,'The standard window keeps the selected drawer visible');result.standardRightWidth=R.queue.w;
   W=maximized[0];H=maximized[1];layout(true);check(R.queue.w>0&&rightTab==='lyrics','Maximizing keeps the selected drawer visible');
   ssSetRightPane('lyrics',false);layout(true);check(!ssRightOpen&&R.queue.w===0,'Explicit close releases drawer width');
+  checkResize();
   var catalog=getAlbumCatalog();result.libraryAlbums=catalog.albums.length;if(!catalog.albums.length)result.limitations.push('Artist and album pages have no real album fixture; empty-state captures only.');
   ['light','dark'].forEach(function(mode){[maximized,standard].forEach(function(size){['home','artist','album','albums','playlist','songs','search','favorites','history','later','stats','queue','lyrics','fullscreen','modal'].forEach(function(page){jobs.push({mode:mode,w:size[0],h:size[1],page:page});});});});
   next();

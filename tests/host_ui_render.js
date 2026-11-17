@@ -7,10 +7,13 @@
  function sampleInk(ink){var image=gdi.CreateImage(8,8),g=image.GetGraphics();g.FillSolidRect(0,0,8,8,ink);image.ReleaseGraphics(g);return colour(image,0,0,8,8);}
  function white(value){return ((value>>16)&255)>240&&((value>>8)&255)>240&&(value&255)>240;}
  try{
+  ssApplyWindowMinimum();var minimum=ssWindowMinimum();
+  check(window.MinWidth===minimum.width&&window.MinHeight===minimum.height,'JSplitter has the DPI-aware minimum panel dimensions');
+  result.minimum=minimum;
   var bitmap=gdi.CreateImage(500,240),g=bitmap.GetGraphics();
   result.font_family=FONT.rowTitle.Name;check(FONT.rowTitle.Name==='Inter','Actual theme resolves the bundled Inter font family');
   check(ssScriptFont('中文歌曲',FONT.rowTitle).Name==='Microsoft YaHei UI','Chinese resolves to an explicit sans serif family instead of a KaiTi fallback');
-  var aa=gdi.CreateImage(300,60),ag=aa.GetGraphics();ag.FillSolidRect(0,0,300,60,COL.base);tL(ag,'English antialias Aa',FONT.rowTitle,RGB(255,255,255),8,8,280,40);aa.ReleaseGraphics(ag);
+  var aa=gdi.CreateImage(300,60),ag=aa.GetGraphics();ag.FillSolidRect(0,0,300,60,RGB(0,0,0));tL(ag,'English antialias Aa',FONT.rowTitle,RGB(255,255,255),8,8,280,40);aa.ReleaseGraphics(ag);
   check(aa.GetColourScheme(32).some(function(c){var v=c&255;return v>35&&v<220;}),'English glyph edges contain antialiasing coverage in the actual bitmap');
   for(var n=0;n<3;n++){
    UISCALE=[1,1.5,2][n];FONT=ssCreateFonts();
@@ -88,21 +91,36 @@
    }finally{if(pg)im.ReleaseGraphics(pg);ssQuietRows=quiet;ssInvalidateRowRasters();if(typeof im.Dispose==='function')im.Dispose();}
   })();
   (function(){
-   var oldWidth=W,oldHeight=H,oldNav=ssWidths.nav,oldProperty=window.GetProperty(SS_WIDTH_KEYS.nav,0),basePainter=ssDrawBase,fullFrames=0;
+   var oldWidth=W,oldHeight=H,oldNav=ssWidths.nav,oldRight=ssWidths.right,oldOpen=ssRightOpen,oldForced=ssRightForced;
+   var oldNavProperty=window.GetProperty(SS_WIDTH_KEYS.nav,0),oldRightProperty=window.GetProperty(SS_WIDTH_KEYS.right,0),basePainter=ssDrawBase,fullFrames=0;
    var image,ig,started,count=24;
    try{
     W=2560;H=1440;layout(true);ssDropSceneImage();image=gdi.CreateImage(W,H);
     ssDrawBase=function(gr){fullFrames++;return basePainter(gr);};
     ig=image.GetGraphics();repaintAll();on_paint(ig);image.ReleaseGraphics(ig);
     started=Date.now();for(var f=0;f<count;f++){ig=image.GetGraphics();repaintAll();on_paint(ig);image.ReleaseGraphics(ig);}result.full_pane_frame_ms=(Date.now()-started)/count;
-    fullFrames=0;check(ssResizeBegin(R.main.x-M.gap/2,R.top.y+80),'Actual pane divider starts a live resize preview');
-    var preview=ssResizePreview.image,navStart=R.main.x-M.gap/2;started=Date.now();
+    fullFrames=0;check(ssResizeBegin(R.main.x-M.gap/2,R.top.y+80),'Actual pane divider starts live reflow');
+    var font=FONT.rowTitle,rowHeight=M.rowH,navStart=R.main.x-M.gap/2;started=Date.now();
     for(f=0;f<count;f++){ssResizing.x=navStart+f*2;ssResizeApply();ig=image.GetGraphics();on_paint(ig);image.ReleaseGraphics(ig);}
-    result.resize_preview_frame_ms=(Date.now()-started)/count;
-    check(fullFrames===0&&ssResizePreview.image===preview,'Twenty-four live resize frames reuse one bitmap without drawing library content');
+    result.resize_reflow_frame_ms=(Date.now()-started)/count;
+    check(fullFrames===count&&FONT.rowTitle===font&&M.rowH===rowHeight,'Live divider frames redraw at the new geometry with identical glyph and row sizes');
     ssResizeEnd(navStart+46,R.top.y+80);ig=image.GetGraphics();on_paint(ig);image.ReleaseGraphics(ig);
-    check(!ssResizePreview&&!ssResizing&&fullFrames===1,'Releasing a divider disposes its preview and paints the final exact layout once');
-   }finally{ssAbortResize();ssDrawBase=basePainter;ssWidths.nav=oldNav;window.SetProperty(SS_WIDTH_KEYS.nav,oldProperty);W=oldWidth;H=oldHeight;layout(true);ssDropSceneImage();if(image)try{image.Dispose();}catch(e){}repaintAll();}
+    check(!ssResizing&&fullFrames===count+1,'Releasing a divider paints the final exact layout once');
+    W=minimum.width;H=minimum.height;ssRightOpen=true;ssRightForced=true;layout(true);ssDropSceneImage();
+    var compact=gdi.CreateImage(W,H),cg=compact.GetGraphics();
+    try{
+     var rightStart=R.queue.x-M.gap/2,oldQueueWidth=R.queue.w;
+     check(ssResizeBegin(rightStart,R.top.y+80),'Right divider is draggable in the minimum-size frame');
+     ssResizing.x=rightStart+35;ssResizeApply();on_paint(cg);
+     check(R.queue.w<oldQueueWidth&&R.main.x+R.main.w<R.queue.x&&R.main.y+R.main.h<=R.barY,'Right divider reflows bounded columns at the minimum window size');
+     check(FONT.rowTitle===font&&M.rowH===rowHeight,'Minimum window and right divider preserve the rendered font and row height');
+     ssResizeEnd(rightStart+35,R.top.y+80);
+    }finally{compact.ReleaseGraphics(cg);if(typeof compact.Dispose==='function')compact.Dispose();}
+   }finally{
+    ssAbortResize();ssDrawBase=basePainter;ssWidths.nav=oldNav;ssWidths.right=oldRight;ssRightOpen=oldOpen;ssRightForced=oldForced;
+    window.SetProperty(SS_WIDTH_KEYS.nav,oldNavProperty);window.SetProperty(SS_WIDTH_KEYS.right,oldRightProperty);
+    W=oldWidth;H=oldHeight;layout(true);ssDropSceneImage();if(image)try{image.Dispose();}catch(e){}repaintAll();
+   }
   })();
   for(var pi=0;pi<plman.PlaylistCount;pi++){if(isHiddenPl(plman.GetPlaylistName(pi)))continue;var handles=plman.GetPlaylistItems(pi);if(handles.Count>=2){result.context={playlist:pi,items:[0,1],tracks:[ssTrackID(handles[0]),ssTrackID(handles[1])],path:handles[0].Path,raw:handles[0].RawPath};break;}}
   check(!!result.context,'Real JSplitter handles supply a native playlist context payload');result.ok=true;
