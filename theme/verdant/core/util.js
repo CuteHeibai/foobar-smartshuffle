@@ -15,6 +15,10 @@ function ssHeaderBoxes(art,compact,scale){
   var eyeH=16*scale,gap=6*scale,metaH=22*scale,titleY=eyeH+gap,metaY=compact?art+12*scale:art-metaH;
   return {eyeY:0,eyeH:eyeH,titleY:titleY,titleH:Math.max(1,Math.min(76*scale,(compact?art:metaY-gap)-titleY)),metaY:metaY,metaH:metaH};
 }
+function ssTrackPlayWidth(s){return Math.max(32,Math.round(36*s));}
+function ssDrawTrackPlay(gr,x,y,w,h,active){
+  drawIcon(gr,'play',active?COL.green:COL.text2,x,y,w,h,17);
+}
 function ssDrawTrackLabels(gr,title,detail,color,x,y,w,h,s,compact){
   if(!detail){ssDrawFixedLabel(gr,title,FONT.rowTitle,color,x,y,w,h);return;}
   var text=ssTrackTextMetrics(s,compact),top=y+Math.round((h-text.title-text.detail)/2);

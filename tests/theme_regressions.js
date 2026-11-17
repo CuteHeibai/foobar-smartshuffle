@@ -6,7 +6,7 @@ function harness(){
   let paints=0,next=0,now=Date.now();const timers=new Map(),writes=[];
   const c={console,Date:{now:()=>now},Math,Number,JSON,isFinite,UISCALE:1,W:1100,H:740,TBH:32,CAPBW:46,
     window:{Width:1100,Height:740,ID:123,Repaint(){paints++;},RepaintRect(){paints++;},SetTimeout(fn){timers.set(++next,fn);return next;},ClearTimeout(id){timers.delete(id);},SetInterval(){return 1;},ClearInterval(){}},
-    fb:{ProfilePath:'P:\\',IsPlaying:false},plman:{ActivePlaylist:0},utils:{WriteTextFile(p,t){writes.push(JSON.parse(t));return true;}},
+    fb:{ProfilePath:'P:\\',IsPlaying:false},plman:{ActivePlaylist:0},utils:{IsKeyPressed:()=>false,WriteTextFile(p,t){writes.push(JSON.parse(t));return true;}},
     repaintAll(){paints++;},applyKeyMode(){},pbShuffle:true,fsMode:false,ssLyricVisible:true,confirmDel:null,
     RGB:(r,g,b)=>(0xff000000|(r<<16)|(g<<8)|b),RGBA:(r,g,b,a)=>((a<<24)|(r<<16)|(g<<8)|b),
     ssInk:a=>((a<<24)|0xffffff),ssAccent:a=>((a<<24)|0x1ed760),ssAlpha:(c,a)=>((a<<24)|(c&0xffffff)),

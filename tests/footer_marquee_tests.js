@@ -52,4 +52,31 @@ test('marquee repaints only the bar and never changes transport or click target 
   assert.ok(h.titleCopy().x+h.titleCopy().w<=h.c.HB_CTRL[0].x0,'clipping must stop before transport buttons');
   h.c.ssStopFooterMarquee();assert.equal(h.timers.size,0);assert.equal(h.images[0].disposed,true);
 });
+test('ordinary and full-screen playback share control order and the lower seek rail',()=>{
+  const h=harness('Track'),c=h.c;
+  c.H=776;c.fsView='default';c.HB_FS=[];
+  vm.runInContext(fs.readFileSync(path.join(root,'views/fullscreen.js'),'utf8'),c);
+  h.draw();
+  const ordinary=c.HB_CTRL.filter(b=>['prev','play','next'].includes(b.act));
+  const ordinarySeek=c.HB_SEEK;
+  c.HB_CTRL=[];c.fsMode=true;c.drawFsBar(h.gr);
+  const full=c.HB_CTRL.filter(b=>['prev','play','next'].includes(b.act));
+  assert.equal(JSON.stringify(full),JSON.stringify(ordinary));
+  assert.ok(c.HB_SEEK.y0>full[1].y1&&ordinarySeek.y0>ordinary[1].y1);
+  assert.equal(c.HB_CTRL.filter(b=>b.act==='playback_mode').length,1);
+  assert.ok(!c.HB_CTRL.some(b=>b.act==='shuffle'||b.act==='repeat'));
+  const mode=c.HB_CTRL.find(b=>b.act==='playback_mode'),status=h.words.find(w=>w.s==='顺序播放');
+  assert.ok(status&&Math.abs((status.x+status.w/2)-(mode.x0+mode.x1)/2)<=1,'the mode text belongs above its own button');
+
+});
+test('an idle player leaves a rail without time labels or dragging, and only enables play with a source',()=>{
+  const h=harness(),c=h.c;
+  Object.assign(c,{NP:null,npTitleStr:'',npArtistStr:'',plman:{ActivePlaylist:0,GetPlaylistName:()=> 'Music'},plCount:()=>2});
+  c.fb.IsPlaying=false;h.draw();
+  assert.ok(c.HB_CTRL.some(b=>b.act==='play'));
+  assert.equal(c.HB_SEEK,null);
+  assert.ok(!h.words.some(word=>word.s==='0:00'));
+  c.plCount=()=>0;h.draw();
+  assert.ok(!c.HB_CTRL.some(b=>b.act==='play'));
+});
 console.log(passed+' footer marquee checks passed');if(failed)process.exitCode=1;

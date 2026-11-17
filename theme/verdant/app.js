@@ -74,7 +74,7 @@ function stopScrollAnim(){ if(scrollTimer){ window.ClearInterval(scrollTimer); s
 
 function hv(x0,y0,x1,y1){ return mx>=x0 && mx<x1 && my>=y0 && my<y1; }
 var HB_PL=[], HB_TR=[], HB_CTRL=[], HB_TABS=[], HB_SEEK=null, HB_VOL=null, HB_Q=[];
-var HB_CARD=[],HB_PLPLAY=[],HB_PLAYLIST_PLAY=null,HB_SONGS_PLAY=null,HB_ARTIST_PLAY=null,HB_ALBUMS=null,HB_ALBUM_BACK=null,ssPlaylistPlayDown=null, HB_HOME=null, HB_CAP=null, HB_MENU=[], SB=null;
+var HB_CARD=[],HB_PLPLAY=[],HB_PLAYLIST_PLAY=null,HB_SONGS_PLAY=null,HB_ARTIST_PLAY=null,HB_ALBUMS=null,HB_ALBUM_BACK=null,ssPlaylistPlayDown=null,ssTrackPlayDown=null, HB_HOME=null, HB_CAP=null, HB_MENU=[], SB=null;
 var navScroll=0, NAV_MAX=0, SBN=null, HB_ADDPL=null, navDropHover=false;
 // deferred "scroll this playlist into view" -- only drawNav knows the row geometry, so it consumes this
 var navRevealPl=-1;
@@ -246,8 +246,12 @@ function seekFrac(x){ return HB_SEEK?clamp01((x-HB_SEEK.x)/HB_SEEK.w):0; }
 function applyVol(x){ if(HB_VOL){ fb.Volume=pos2vol(clamp01((x-HB_VOL.x)/HB_VOL.w)); repaintBar(); } }
 function setQueueScroll(y){if(!SS_QUEUE_SB)return;var s=SS_QUEUE_SB;ssQueueScroll=ssQueueScrollT=Math.round(sbFrac(y,s.top,s.h,s.thumbH)*s.maxPx);repaintQueue();}
 function ssHeaderPlayAt(x,y){if(HB_ARTIST_PLAY&&inRect(x,y,HB_ARTIST_PLAY))return HB_ARTIST_PLAY;return HB_SONGS_PLAY&&inRect(x,y,HB_SONGS_PLAY)?HB_SONGS_PLAY:hit(HB_PLPLAY,x,y)||(HB_PLAYLIST_PLAY&&inRect(x,y,HB_PLAYLIST_PLAY)?HB_PLAYLIST_PLAY:null);}
+function ssRowPlayAt(x,y){
+  var row=hit(HB_TR,x,y);
+  return row&&row.playVisible&&x>=row.pgx0&&x<row.pgx1?row:null;
+}
 function on_mouse_lbtn_down(x,y){
-  ssPlaylistPlayDown=null;
+  ssPlaylistPlayDown=ssTrackPlayDown=null;
   if(ssPopup)return;
   if(ssPointerDown(x,y)) return;
   if(ctxMenu||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;   // overlays are modal; dismissal/actions handled on button-up
@@ -262,6 +266,8 @@ function on_mouse_lbtn_down(x,y){
   if(SBN && inRect(x,y,SBN)){ drag='scrolln'; setScrollN(y); return; }
   if(SB && inRect(x,y,SB)){ drag='scroll'; setScroll(y); return; }
   var card=hit(HB_CARD,x,y);if(card&&card.kind==='album')return;
+  var trackButton=fsMode?null:ssRowPlayAt(x,y);
+  if(trackButton&&!utils.IsKeyPressed(17)){ssTrackPlayDown={view:view,id:trackButton.playId};return;}
   ssSelectionDown(x,y);
 }
 function on_mouse_rbtn_up(x,y){
@@ -316,14 +322,15 @@ function computeSearch(){
   var idx=getSearchIdx(), cnt=0;
   for(i=0;i<idx.length && cnt<150;i++){ if(idx[i].key.indexOf(q)>=0){ searchTrks.push(idx[i]); cnt++; } }
 }
-function doCtrl(act){
+function doCtrl(act,button){
+  if(fsMode&&(act==='lyrics'||act==='viz')){doFsAct(act);return;}
   if(act==='lyrics'||act==='queue'){ssSetRightPane(act,!(ssRightOpen&&rightTab===act&&R.queue&&R.queue.w>0));return;}
   else if(act==='favorite')ssPersonalNow('favorites');
   else if(act==='later')ssPersonalNow('later');
   else if(act==='play') ssPlayOrPause();
   else if(act==='next') ssSend('next');
   else if(act==='prev') ssSend('previous');
-  else if(act==='playback_mode'||act==='shuffle'||act==='repeat') ssShowPlaybackModes(Math.max(8,W-320),R.barY-80);
+  else if(act==='playback_mode') ssShowPlaybackModes(button?Math.max(8,button.x1-240):Math.max(8,W-320),(fsMode?H-M.barH:R.barY)-80);
   else if(act==='preference') ssOpen();
   else if(act==='output') ssShowOutputs(Math.max(0,W-350),R.barY);
   else if(act==='scan_pause') ssSend('scan_pause',{paused:!(ssState&&ssState.scan&&ssState.scan.paused)});
@@ -333,9 +340,10 @@ function doCtrl(act){
   repaintAll();
 }
 function on_mouse_lbtn_up(x,y){
-  var playlistPressed=ssPlaylistPlayDown;ssPlaylistPlayDown=null;
+  var playlistPressed=ssPlaylistPlayDown,trackPressed=ssTrackPlayDown;
+  ssPlaylistPlayDown=ssTrackPlayDown=null;
   if(ssRecycleClick(x,y))return;
-  if(!ssPopup&&!ssModal&&SS_ARTIST_HB&&inRect(x,y,SS_ARTIST_HB)){ssArtistMenu(viewArtist,x,y);return;}
+  if(!trackPressed&&!ssPopup&&!ssModal&&SS_ARTIST_HB&&inRect(x,y,SS_ARTIST_HB)){ssArtistMenu(viewArtist,x,y);return;}
   if(ssResizeEnd(x,y))return;
   if(ssPopupClick(x,y))return;
   if(ssPointerUp(x,y)) return;
@@ -354,6 +362,11 @@ function on_mouse_lbtn_up(x,y){
     return;
   }
   if(ssSelectionUp(x,y))return;
+  if(trackPressed){
+    var rowButton=ssRowPlayAt(x,y);
+    if(!fsMode&&!drag&&!utils.IsKeyPressed(17)&&view===trackPressed.view&&rowButton&&rowButton.playId===trackPressed.id)playRow(rowButton);
+    return;
+  }
   if(SS_LYRIC_BTN && inRect(x,y,SS_LYRIC_BTN)){ ssNativeLyrics(); return; }
   var t;
   // ---- modal overlays first ----
@@ -421,7 +434,7 @@ function on_mouse_lbtn_up(x,y){
     }
     if(HB_VIZ && fsView==='viz' && inRect(x,y,HB_VIZ)){ vizMenuOpen=true; repaintAll(); return; }
     if((t=hit(HB_FS,x,y))){ doFsAct(t.act,t.album); return; }
-    if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act); return; }
+    if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act,t); return; }
     return;
   }
   if(y<TBH){
@@ -434,7 +447,7 @@ function on_mouse_lbtn_up(x,y){
     return;
   }
   if((t=hit(HB_TABS,x,y))){ssSetRightPane(t.tab,true);return;}
-  if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act); return; }
+  if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act,t); return; }
   if(HB_HOME && inRect(x,y,HB_HOME)){ view='home'; repaintAll(); return; }
   if(view==='home'&&typeof ssHomeActionAt==='function'&&(t=ssHomeActionAt(x,y))){ssActivateHomeAction(t);return;}
   if(typeof HB_ARTISTS_NAV!=='undefined'&&HB_ARTISTS_NAV&&inRect(x,y,HB_ARTISTS_NAV)){view='songs';setSongsGroup('artist');songsScroll=songsScrollT=0;repaintAll();return;}
@@ -455,11 +468,10 @@ function on_mouse_lbtn_up(x,y){
   }
   if((t=hit(HB_PL,x,y))){ plman.ActivePlaylist=t.i; firstRow=firstRowT=0; view='playlist'; repaintAll(); return; }
   if((t=hit(HB_Q,x,y)))return;
-  /* Rows play on DOUBLE click -- see on_mouse_lbtn_dblclk. The exception is the play glyph that
-     in the leading column: that is a button, and a button takes one click. */
+  // Keep the lyric hit and legacy row action for lists with a hover-only play glyph.
   if((t=hit(HB_TR,x,y))){
     if(utils.IsKeyPressed(17))return;
-    if((t.srch&&searchTrks[t.idx].reason==='歌词')||(t.pgx1!==undefined && x>=t.pgx0 && x<t.pgx1)) playRow(t);
+    if((t.srch&&searchTrks[t.idx].reason==='歌词')||(!t.playVisible&&t.pgx1!==undefined&&x>=t.pgx0&&x<t.pgx1))playRow(t);
     return;
   }
 }
@@ -473,7 +485,7 @@ function playRow(t){
 }
 // Double-click inserts this song at the head of the user queue and starts it.
 function on_mouse_lbtn_dblclk(x,y){
-  if(ssModal) return;
+  if(ssModal||fsMode||utils.IsKeyPressed(17)||ssRowPlayAt(x,y))return;
   if(ctxMenu||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;
   if(typeof ssPersonalActionAt==='function'&&ssPersonalActionAt(x,y))return;
   var t=hit(HB_TR,x,y);

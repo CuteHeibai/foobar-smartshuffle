@@ -79,14 +79,14 @@ function drawSearch(gr,r){
       var tr=searchTrks[i];
       var hot=ssRowHover(x0-8,Math.max(ry,top),x0+w+8,Math.min(ry+rh,cropY));
       if(hot)ssFillContinuousRect(gr,x0-8,ry,w+16,rh,4,4,COL.rowHover);
-      var playW=Math.round(36*s),artX=x0+playW,cs=Math.round(40*s),textX=artX+cs+Math.round(12*s);
-      drawIcon(gr,'play',hot?COL.text:COL.text2,x0,ry,playW,rh,14);
+      var playW=ssTrackPlayWidth(s),artX=x0+playW,cs=Math.round(40*s),textX=artX+cs+Math.round(12*s);
+      ssDrawTrackPlay(gr,x0,ry,playW,rh,false);
       drawCover(gr,artX,ry+(rh-cs)/2,cs,4,tr.h,tr.album||tr.title);
       var detail=tr.snippet?('歌词 '+(tr.lyric_time!==null&&tr.lyric_time!==undefined?fmtTime(tr.lyric_time):'无时间轴')+' · '+tr.snippet):[tr.artist,tr.album].filter(Boolean).join(' '+CH_DOT+' ');
       ssDrawTrackLabels(gr,tr.title,detail,COL.text,textX,ry,x0+w-durW-textX,rh,s);
       tR(gr,tr.len,FONT.rowCell,COL.text2,x0+w-durW,ry,durW,rh);
       var hy0=Math.max(ry,top), hy1=Math.min(ry+rh,cropY);   // clip the click target to the viewport
-      if(hy1>hy0) HB_TR.push({x0:x0-8,y0:hy0,x1:x0+w+8,y1:hy1,srch:true,idx:i,pgx0:x0,pgx1:artX});
+      if(hy1>hy0) HB_TR.push({x0:x0-8,y0:hy0,x1:x0+w+8,y1:hy1,srch:true,idx:i,pgx0:x0,pgx1:artX,playVisible:true,playId:tr.id||i});
     }
   }
   // ---- mask the overflow, re-pin the search box, then the scrollbar ----

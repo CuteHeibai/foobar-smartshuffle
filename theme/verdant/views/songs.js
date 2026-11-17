@@ -45,8 +45,8 @@ function drawSongs(gr,r){
      ALBUM when flat, ARTIST when grouped by album, nothing when grouped by artist. */
   var flat=(g==='none'), tind=flat?0:(g==='both'?SG_IND*2:SG_IND);
   var showAlbum=flat&&!compact, showArtist=(g==='album');
-  var numW=Math.round(36*s), durW=64, cgap=16;   // index column fits the largest number it can hold
-  var numX=lx+tind, titleX=numX+numW+cgap;
+  var playW=ssTrackPlayWidth(s),numW=Math.round(30*s),durW=64,cgap=12;   // index column fits the largest number it can hold
+  var playX=lx+tind,numX=playX+playW,titleX=numX+numW+cgap;
   var colW=showAlbum?Math.round((rx-titleX-durW-cgap*2)*0.34):(showArtist?Math.round((rx-titleX-durW-cgap*2)*0.28):0);
   var colX=rx-durW-cgap-colW;
   var titleW=(colW?colX:rx-durW)-cgap-titleX;
@@ -82,8 +82,8 @@ function drawSongs(gr,r){
       var t=row.t, isPlaying=!!(NP && t.h && t.h.Path===NP.Path);
       var isHover=ssRowHover(lx-8,vy0,rx+8,vy1);
       if(isHover) ssFillContinuousRect(gr,lx-8,ry,rx-lx+16,gh,4,4,COL.rowHover);
-      if(isHover) drawIcon(gr,'play',COL.text,numX,ry,numW,gh,14);
-      else tR(gr,String(row.n),FONT.rowNum,isPlaying?COL.green:COL.text2,numX,ry,numW-8,gh);
+      ssDrawTrackPlay(gr,playX,ry,playW,gh,isPlaying);
+      tR(gr,String(row.n),FONT.rowNum,isPlaying?COL.green:COL.text2,numX,ry,numW-4,gh);
       if(flat){
         var cs=40*s, cy=ry+(gh-cs)/2;
         drawCover(gr,titleX,cy,cs,3,t.h,t.album||t.title,t.artkey);
@@ -95,7 +95,7 @@ function drawSongs(gr,r){
       else if(showArtist) tL(gr,t.artist,FONT.rowCell,COL.text2,colX,ry,colW,gh);
       tR(gr,t.len,FONT.rowCell,COL.text2,rx-durW,ry,durW,gh);
       },flat);
-      HB_TR.push({x0:lx-8,y0:vy0,x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:numX,pgx1:numX+numW,favoriteX:rx+4*s});
+      HB_TR.push({x0:lx-8,y0:vy0,x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:playX,pgx1:numX,playVisible:true,playId:row.t.h?ssTrackID(row.t.h):row.ti,favoriteX:rx+4*s});
     } else {
       /* Group header: every kind is the same block on the same rhythm (GAP, artwork, PADB),
          differing only in indent, artwork size and -- for the artist banner -- a slab + eyebrow. */

@@ -156,10 +156,6 @@ function fftMag(re,im,n){
 }
 function startViz(){ if(!vizTimer){ vizTimer=window.SetInterval(vizUpdate,VIZ_MS); } }
 function stopViz(){ if(vizTimer){ window.ClearInterval(vizTimer); vizTimer=null; } }
-function fsIcon(gr,name,col,x,y,sz,act){
-  drawIcon(gr,name,hv(x-8,y-8,x+sz+8,y+sz+8)?COL.text:col,x,y,sz,sz,sz);
-  HB_FS.push({x0:x-8,y0:y-8,x1:x+sz+8,y1:y+sz+8,act:act});
-}
 // name of the real playlist driving playback, or null (e.g. playing from library/search/artist)
 function npPlaylistSrc(){
   var loc=playingLoc(), pli=(loc&&loc.IsValid)?loc.PlaylistIndex:-1;
@@ -221,12 +217,7 @@ function drawFsDefault(gr,bot){
   ssFillContinuousRect(gr,bx,by,bw,36,9,9,fill);
   tC(gr,album?'播放专辑':'浏览音乐库',FONT.pl,COL.onPlay,bx,by,bw,36);
   HB_FS.push({x0:bx,y0:by,x1:bx+bw,y1:by+36,act:album?'featured':'browse',album:album});
-  var exitX=W-Math.min(62,Math.round(W*.075))-106,exitY=24;
-  var exitHot=hv(exitX,exitY,exitX+106,exitY+32);
-  if(exitHot)ssFillContinuousRect(gr,exitX,exitY,106,32,7,7,COL.rowHover);
-  drawIcon(gr,'compress',COL.text2,exitX,exitY,24,32,16);
-  tL(gr,'退出全屏',FONT.pl,COL.text2,exitX+28,exitY,78,32);
-  HB_FS.push({x0:exitX,y0:exitY,x1:exitX+106,y1:exitY+32,act:'exit'});
+
 }
 function drawFsLyrics(gr,bot){
   fsMiniNP(gr);
@@ -377,32 +368,19 @@ function drawVizBand(gr){
   gr.FillSolidRect(0,VIZ_TOP,W,Math.max(0,bot-VIZ_TOP),COL.base);
   drawVizBody(gr,VIZ_TOP,bot);
 }
+function drawFsExit(gr){
+  var x=W-Math.min(62,Math.round(W*.075))-106,y=18,w=106,h=30;
+  var hot=hv(x,y,x+w,y+h);
+  if(hot)ssFillContinuousRect(gr,x,y,w,h,7,7,COL.rowHover);
+  drawIcon(gr,'compress',hot?COL.text:COL.text2,x,y,24,h,16);
+  tL(gr,'退出全屏',FONT.pl,hot?COL.text:COL.text2,x+28,y,w-28,h);
+  HB_FS.push({x0:x,y0:y,x1:x+w,y1:y+h,act:'exit'});
+}
 function drawFsBar(gr){
-  var by=H-150,rail=ssInk(55),cxC=Math.round(W/2),cy=by+86;
-  if(NP){
-    var sbX=72,sbW=W-144,sbY=by+30,len=fb.PlaybackLength;
-    var pos=(drag==='seek')?dragFrac:(len>0?fb.PlaybackTime/len:0);
-    if(len>0)HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,4,rail,pos);
-    tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text2,sbX-54,sbY-6,46,16);
-    tL(gr,fmtTime(len),FONT.time,COL.text2,sbX+sbW+8,sbY-6,46,16);
-    var pb=56,pbx=cxC-pb/2,pby=cy-pb/2;
-    ctrlBtn(gr,'prev',cxC-84,cy,false,'prev');
-    gr.FillEllipse(pbx,pby,pb,pb,COL.play);
-    drawIcon(gr,fb.IsPlaying&&!fb.IsPaused?'pause':'play',COL.onPlay,pbx,pby,pb,pb,Math.round(pb*0.5));
-    HB_CTRL.push({x0:pbx,y0:pby,x1:pbx+pb,y1:pby+pb,act:'play'});
-    ctrlBtn(gr,'next',cxC+84,cy,false,'next');
-  }
-  var idle=!NP&&fsView==='default';
-  var inset=idle?Math.max(10,cxC-165):Math.min(72,Math.round(W*.075));
-  ctrlBtn(gr,'shuffle',NP?cxC-150:inset+18,cy,pbShuffle,'shuffle');
-  ctrlBtn(gr,pbRepeat===2?'repeat1':'repeat',NP?cxC+150:inset+60,cy,pbRepeat>0,'repeat');
-  fsIcon(gr,'equalizer',fsView==='viz'?COL.green:COL.text2,NP?72:inset+96,cy-13,26,'viz');
-  fsIcon(gr,'mic',fsView==='lyrics'?COL.green:COL.text2,NP?114:inset+138,cy-13,26,'lyrics');
-  var rx=W-72;
-  if(!idle)fsIcon(gr,'compress',COL.text2,rx-26,cy-13,26,'exit');
-  var volW=idle?96:120,volX=idle?inset+234:rx-72-volW,volY=cy-2;
-  drawIcon(gr,'volume',COL.text2,volX-32,cy-12,24,24,20);
-  HB_VOL=drawTrackBar(gr,volX,volY,volW,4,rail,clamp01(vol2pos(fb.Volume)));
+  var s=ssDensity,by=H-M.barH,tools=ssFooterToolLayout(s);
+  var transport=ssTransportLayout(W,R.barInfoW,tools.mode-Math.round(30*s),s);
+  ssDrawTransport(gr,by,M.barH,s,transport,COL.base);
+  ssDrawFooterTools(gr,by,M.barH,s,tools,true);
 }
 function drawFullscreen(gr){
   HB_PLPLAY=[];HB_PLAYLIST_PLAY=null;
@@ -412,5 +390,6 @@ function drawFullscreen(gr){
   if(fsView==='lyrics') drawFsLyrics(gr,bot);
   else if(fsView==='viz') drawFsViz(gr,bot);
   else drawFsDefault(gr,bot);
+  drawFsExit(gr);
   drawFsBar(gr);
 }

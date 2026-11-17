@@ -2,19 +2,19 @@
    Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
-function ctrlBtn(gr,name,cx,cyc,active,act,rad,isz){
+function ctrlBtn(gr,name,cx,cyc,active,act,rad,isz,enabled){
   rad=rad||18; isz=isz||22;
-  drawIcon(gr,name,active?COL.green:(hv(cx-rad,cyc-rad,cx+rad,cyc+rad)?COL.text:COL.text2),cx-rad,cyc-rad,rad*2,rad*2,isz);
-  HB_CTRL.push({x0:cx-rad,y0:cyc-rad,x1:cx+rad,y1:cyc+rad,act:act});
+  drawIcon(gr,name,enabled===false?COL.text3:active?COL.green:(hv(cx-rad,cyc-rad,cx+rad,cyc+rad)?COL.text:COL.text2),cx-rad,cyc-rad,rad*2,rad*2,isz);
+  if(enabled!==false)HB_CTRL.push({x0:cx-rad,y0:cyc-rad,x1:cx+rad,y1:cyc+rad,act:act});
 }
 // seek / volume track: filled progress on a dim rail, with a generously padded hitbox
-function drawTrackBar(gr,x,y,w,th,trackCol,pos,progCol){
+function drawTrackBar(gr,x,y,w,th,trackCol,pos,progCol,bg){
   gr.FillSolidRect(x,y,w,th,trackCol);
   var fw=Math.max(0,Math.round(w*pos)), col=progCol||COL.text;
   if(fw>0) gr.FillSolidRect(x,y,fw,th,col);
   var r=Math.max(3,Math.round(th*1.1)), cx=x+fw, cy=y+th/2;
   gr.FillEllipse(cx-r,cy-r,r*2,r*2,col);
-  gr.FillEllipse(cx-r-2,cy-r-2,(r+2)*2,(r+2)*2,COL.base);
+  gr.FillEllipse(cx-r-2,cy-r-2,(r+2)*2,(r+2)*2,bg===undefined?COL.base:bg);
   gr.FillEllipse(cx-r,cy-r,r*2,r*2,col);
   return {x0:x,y0:y-10,x1:x+w,y1:y+10+th,x:x,w:w};
 }
@@ -24,6 +24,74 @@ function ssTransportLayout(w,left,right,s){
   else center=Math.round((left+right)/2);
   var room=Math.max(0,Math.min(center-left,right-center));
   return {center:center,seekWidth:Math.max(24,Math.min(380*s,room*2-112*s))};
+}
+function ssHasTransportSource(){
+  if(NP||fb.IsPlaying||fb.IsPaused)return true;
+  if(ssState&&ssState.queue&&ssState.queue.length)return true;
+  if(typeof plman==='undefined'||typeof plCount!=='function')return false;
+  if(pbShuffle&&ssState&&ssState.source){
+    var source=(ssState.playlists||[]).find(function(list){return list.guid===ssState.source;});
+    if(source)return plCount(source.index)>0;
+  }
+  return plman.ActivePlaylist>=0&&plCount(plman.ActivePlaylist)>0;
+}
+function ssDrawTransport(gr,by,height,s,layout,trackBg){
+  var center=layout.center,cy=by+Math.round(height*.40),side=58*s,enabled=ssHasTransportSource();
+  var hot=enabled&&hv(center-27*s,by+7*s,center+27*s,by+61*s);
+  var size=(hot?52:48)*s,px=center-size/2,py=cy-size/2;
+  ctrlBtn(gr,'prev',center-side,cy,false,'prev',22*s,26*s,enabled);
+  gr.FillEllipse(px,py,size,size,enabled?COL.play:COL.elev);
+  drawIcon(gr,fb.IsPlaying&&!fb.IsPaused?'pause':'play',enabled?COL.onPlay:COL.text3,px,py,size,size,Math.round(size*.5));
+  if(enabled)HB_CTRL.push({x0:px,y0:py,x1:px+size,y1:py+size,act:'play'});
+  ctrlBtn(gr,'next',center+side,cy,false,'next',22*s,26*s,enabled);
+
+  var w=layout.seekWidth,x=center-w/2,y=by+Math.round(height*.76),th=4*s,len=Number(fb.PlaybackLength);
+  HB_SEEK=null;
+  if(!NP||!(len>0)){gr.FillSolidRect(x,y,w,th,COL.seekbg);return;}
+  var pos=drag==='seek'?dragFrac:clamp01(fb.PlaybackTime/len);
+  HB_SEEK=drawTrackBar(gr,x,y,w,th,COL.seekbg,pos,COL.green,trackBg);
+  HB_SEEK.y0=Math.max(HB_SEEK.y0,cy+size/2+1);
+  tR(gr,fmtTime(drag==='seek'?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text3,x-Math.round(54*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
+  tL(gr,fmtTime(len),FONT.time,COL.text3,x+w+Math.round(10*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
+}
+function ssFooterToolLayout(s){
+  var end=W-Math.round(28*s),queue=end-Math.round(44*s),lyrics=queue-Math.round(40*s);
+  var volW=Math.min(Math.round(76*s),Math.max(48,R.barToolsW-236)),volX=lyrics-Math.round(30*s)-volW;
+  var output=volX-Math.round(30*s),mode=output-Math.round(42*s);
+  return {end:end,queue:queue,lyrics:lyrics,volW:volW,volX:volX,output:output,mode:mode};
+}
+function ssPlaybackModeIndicator(){
+  if(pbShuffle)return {icon:'shuffle',title:'智能随机',active:true};
+  var order=ssState&&typeof ssState.native_order==='number'?ssState.native_order:(typeof pbRepeat==='number'?pbRepeat:0);
+  if(order===1)return {icon:'repeat',title:'列表循环',active:true};
+  if(order===2)return {icon:'repeat1',title:'单曲循环',active:true};
+  if(order===0)return {icon:'order',title:'顺序播放',active:false};
+  return {icon:'order',title:'播放模式',active:false};
+}
+function ssDrawFooterTools(gr,by,height,s,tools,fullscreen){
+  var y=by+Math.round(height*.46),mode=ssPlaybackModeIndicator();
+  var lyricsOn=fullscreen?fsView==='lyrics':typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab==='lyrics';
+  var modeHint=ssDrawFooterTool(gr,tools.mode,y,s,'playback_mode',mode.icon,mode.active,'播放模式 · '+mode.title);
+  var hint=ssDrawFooterTool(gr,tools.output,y,s,'output','volume',false,'音频输出');
+  hint=ssDrawFooterTool(gr,tools.lyrics,y,s,'lyrics','lyric',lyricsOn,'歌词')||hint;
+  if(fullscreen){
+    hint=ssDrawFooterTool(gr,tools.queue,y,s,'viz','equalizer',fsView==='viz','频谱')||hint;
+  }else{
+    var queueOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab==='queue';
+    hint=ssDrawFooterTool(gr,tools.queue,y,s,'queue','queue',queueOn,'播放队列')||hint;
+    hint=ssDrawFooterTool(gr,tools.end,y,s,'fullscreen','expand',false,'全屏')||hint;
+  }
+  var labelY=by+Math.round(4*s),labelH=Math.round(19*s);
+  if(hint)tR(gr,hint,FONT.plSub,COL.text2,tools.mode-Math.round(18*s),labelY,
+    tools.end-tools.mode+Math.round(36*s),labelH);
+  else{
+    var labelW=Math.round((modeHint?156:88)*s);
+    tC(gr,modeHint||mode.title,FONT.plSub,COL.text2,tools.mode-labelW/2,labelY,labelW,labelH);
+  }
+  HB_VOL=drawTrackBar(gr,tools.volX,y-Math.round(2*s),tools.volW,4*s,COL.seekbg,clamp01(vol2pos(fb.Volume)),
+    null,fullscreen?COL.base:COL.black);
+  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,COL.error,tools.mode-Math.round(20*s),y+Math.round(14*s),
+    Math.max(1,tools.end-tools.mode+Math.round(40*s)),Math.round(20*s));
 }
 // A title owns only its text viewport. Cache the complete line on the footer's
 // opaque background, then copy a moving crop so glyphs can never reach controls.
@@ -94,7 +162,6 @@ function drawBar(gr){
   var by=R.barY;
   var s=ssDensity;
   gr.FillSolidRect(0,by,W,M.barH,COL.black);
-  var playing=fb.IsPlaying&&!fb.IsPaused;
   // left: cover + title/artist
   var cs=Math.round(64*s), cx=Math.round(16*s), cy=by+(M.barH-cs)/2;
   if(NP)drawCover(gr,cx,cy,cs,5,NP,'np');else ssDrawIdleRecord(gr,cx,cy,cs);
@@ -109,33 +176,8 @@ function drawBar(gr){
     drawIcon(gr,'clock',summary.now_later?COL.green:COL.text2,fx+28*s,fy,28*s,28*s,18*s);
     HB_CTRL.push({x0:fx+28*s,y0:fy,x1:fx+56*s,y1:fy+28*s,act:'later'});
   }
-  // Transport sits between the now-playing block and a compact icon-only right cluster.
-  var s2=ssDensity, ry=by+Math.round(M.barH*0.46);
-  var fsx=W-Math.round(28*s2), qx=fsx-Math.round(44*s2), lx2=qx-Math.round(40*s2);
-  var volW=Math.min(Math.round(76*s2),Math.max(48,R.barToolsW-236)), volX=lx2-Math.round(30*s2)-volW, vix=volX-Math.round(30*s2);
-  var shx=vix-Math.round(42*s2);
-  var leftInk=Math.min(R.barInfoW,tx+Math.max(ssMeasureText(gr,npTitleStr,FONT.npTitle,20*s),ssMeasureText(gr,npArtistStr,FONT.npArtist,18*s))+12*s2);
-  var rightInk=shx-Math.round(30*s2);
-  var transport=ssTransportLayout(W,leftInk,rightInk,s2),cxC=transport.center;R.transport=transport;
-  var pcy=by+Math.round(M.barH*0.40), pb=(hv(cxC-27*s2,by+7*s2,cxC+27*s2,by+61*s2)?52:48)*s2, pbx=cxC-pb/2, pby=pcy-pb/2;
-  ctrlBtn(gr,'prev',cxC-58*s2,pcy,false,'prev',22*s2,26*s2);
-  gr.FillEllipse(pbx,pby,pb,pb,COL.play);
-  drawIcon(gr,playing?'pause':'play',COL.onPlay,pbx,pby,pb,pb,Math.round(pb*0.5));
-  HB_CTRL.push({x0:pbx,y0:pby,x1:pbx+pb,y1:pby+pb,act:'play'});
-  ctrlBtn(gr,'next',cxC+58*s2,pcy,false,'next',22*s2,26*s2);
-  var sbW=transport.seekWidth, sbX=cxC-sbW/2, sbY=by+Math.round(M.barH*0.76);
-  var len=fb.PlaybackLength, pos=(drag==='seek')?dragFrac:(len>0?fb.PlaybackTime/len:0);
-  HB_SEEK=drawTrackBar(gr,sbX,sbY,sbW,4*s2,COL.seekbg,pos,COL.green);
-  tR(gr,fmtTime((drag==='seek')?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text3,sbX-Math.round(54*s2),sbY-Math.round(7*s2),Math.round(46*s2),Math.round(17*s2));
-  tL(gr,fmtTime(len),FONT.time,COL.text3,sbX+sbW+Math.round(10*s2),sbY-Math.round(7*s2),Math.round(46*s2),Math.round(17*s2));
-  var qOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab==='queue';
-  var lOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab==='lyrics';
-  var hint=ssDrawFooterTool(gr,fsx,ry,s2,'fullscreen','expand',false,'全屏');
-  hint=ssDrawFooterTool(gr,qx,ry,s2,'queue','queue',qOn,'播放队列')||hint;
-  hint=ssDrawFooterTool(gr,lx2,ry,s2,'lyrics','lyric',lOn,'歌词')||hint;
-  hint=ssDrawFooterTool(gr,vix,ry,s2,'output','volume',false,'音频输出')||hint;
-  hint=ssDrawFooterTool(gr,shx,ry,s2,'playback_mode','shuffle',pbShuffle,'播放模式')||hint;
-  if(hint)tR(gr,hint,FONT.plSub,COL.text2,shx-Math.round(18*s2),by+Math.round(4*s2),fsx-shx+Math.round(36*s2),Math.round(19*s2));
-  HB_VOL=drawTrackBar(gr,volX,ry-Math.round(2*s2),volW,4*s2,COL.seekbg,clamp01(vol2pos(fb.Volume)));
-  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,COL.error,shx-Math.round(20*s2),ry+Math.round(14*s2),Math.max(1,fsx-shx+Math.round(40*s2)),Math.round(20*s2));
+  var tools=ssFooterToolLayout(s),transport=ssTransportLayout(W,R.barInfoW,tools.mode-Math.round(30*s),s);
+  R.transport=transport;
+  ssDrawTransport(gr,by,M.barH,s,transport,COL.black);
+  ssDrawFooterTools(gr,by,M.barH,s,tools,false);
 }

@@ -36,7 +36,7 @@ function ssHoverRow(){
       var panel=j?R.queue:R.main;
       var y0=Math.max(r.y0,panel.y),y1=Math.min(r.y1,panel.y+panel.h);
       if(y1>y0)return {x:Math.max(r.x0,panel.x),y:y0,w:Math.min(r.x1,panel.x+panel.w)-Math.max(r.x0,panel.x),h:y1-y0,
-        pgx0:r.pgx0,pgx1:r.pgx1,rowY:r.rowY===undefined?r.y0:r.rowY,rowH:r.rowH===undefined?r.y1-r.y0:r.rowH};
+        pgx0:r.pgx0,pgx1:r.pgx1,playVisible:r.playVisible,rowY:r.rowY===undefined?r.y0:r.rowY,rowH:r.rowH===undefined?r.y1-r.y0:r.rowH};
     }
   }
   return null;
@@ -56,11 +56,10 @@ function ssPaintRowHover(gr,restore){
   }
   if(row){
     // The original number is hidden only when the complete glyph cell is visible.
-    if(row.pgx0!==undefined&&row.y===row.rowY&&row.h===row.rowH)
-      gr.FillSolidRect(row.pgx0,row.y,row.pgx1-row.pgx0,row.h,COL.base);
+    var replaceNumber=!row.playVisible&&row.pgx0!==undefined&&row.y===row.rowY&&row.h===row.rowH;
+    if(replaceNumber)gr.FillSolidRect(row.pgx0,row.y,row.pgx1-row.pgx0,row.h,COL.base);
     ssFillContinuousRect(gr,row.x,row.y,row.w,row.h,4,4,ssInk(18));
-    if(row.pgx0!==undefined&&row.y===row.rowY&&row.h===row.rowH)
-      drawIcon(gr,'play',COL.text,row.pgx0,row.y,row.pgx1-row.pgx0,row.h,14);
+    if(replaceNumber)drawIcon(gr,'play',COL.text,row.pgx0,row.y,row.pgx1-row.pgx0,row.h,14);
   }
   ssHoverPainted=row;ssHoverDirty=false;
 }

@@ -117,7 +117,7 @@ test('footer uses the whole-window center and shrinks the seek rail before movin
 });
 
 test('responsive playback bar keeps long track labels clear of transport and output controls',()=>{
- const {c,load}=context();load('ui/layout.js');load('views/bar.js');c.NP={RawPath:'file://test.flac',SubSong:0};c.npTitleStr='A long song title '.repeat(12);c.npArtistStr='An artist '.repeat(10);c.drag=null;c.pbShuffle=true;c.ssState={};c.hv=()=>false;
+ const {c,load}=context();load('ui/layout.js');load('views/bar.js');c.NP={RawPath:'file://test.flac',SubSong:0};c.fb.PlaybackLength=143;c.npTitleStr='A long song title '.repeat(12);c.npArtistStr='An artist '.repeat(10);c.drag=null;c.pbShuffle=true;c.ssState={};c.hv=()=>false;
  const g=graphics(),labels=[];c.tL=c.tR=c.tC=(gr,text,font,color,x,y,w,h)=>labels.push({text,x,y,w,h});
  for(const [width,density] of [[800,.85],[1180,1],[1800,1.25],[2560,1.25]]){
   c.W=width;c.ssDensity=density;c.M.barH=Math.round(96*density);const widths=c.ssLayoutWidths(width);c.R={barY:680,barInfoW:widths.info,barToolsW:widths.tools};labels.length=0;c.drawBar(g);
