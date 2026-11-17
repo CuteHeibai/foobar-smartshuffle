@@ -6,7 +6,7 @@ function harness(){
  ssDrawIdleRecord(){},drawIcon(){},drawRounded:(gr,x,y,w)=>paints.push({gr,x,y,w}),tL:(gr,text)=>texts.push(text),tC(){},tR(){},drawScrollbar(){},drawScrollbarH(){},drawPlaylistCard(){},startWarmHome(){},
  ssBeginViewport:(key,gr,x,y,w,h)=>{const layer={key,x,y,w,h,gr:{FillRoundRect(){},FillSolidRect(){},CalcTextWidth:s=>s.length*8},done:false};layers.push(layer);return {gr:layer.gr,finish(){layer.done=true;}};}};
  vm.createContext(c);for(const file of ['../core/corners','cards','home'])vm.runInContext(fs.readFileSync('theme/verdant/views/'+file+'.js','utf8'),c);
- return {c,paints,layers,texts,gr:{FillSolidRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},SetSmoothingMode(){},DrawLine(){}}};
+ return {c,paints,layers,texts,gr:{FillSolidRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},FillEllipse(){},SetSmoothingMode(){},DrawLine(){},CalcTextWidth:s=>s.length*8}};
 }
 test('home shows real album navigation when verified artist list is empty inside a clipped viewport',()=>{
  const {c,paints,layers,texts,gr}=harness(),r={x:240,y:40,w:900,h:750};c.drawHome(gr,r);
@@ -37,7 +37,7 @@ test('home keeps a featured album and reflows the selection without changing til
   const albums=c.HB_CARD.filter(card=>card.kind==='album'),first=albums[0];
   assert.equal(albums.length,albums.filter(card=>card.y0===first.y0).length);
   assert.equal(paints[0].w,250);assert.equal(paints[0].x,first.x0);
-  assert.ok(Math.abs((first.x0+albums.at(-1).x1)/2-(300+width/2))<1);
+  assert.equal(first.x0,300+c.M.cpad);
   assert.equal(c.HB_HOME_ALBUMS.x1,albums.at(-1).x1);
   return [albums.length,first.x1-first.x0];
  }

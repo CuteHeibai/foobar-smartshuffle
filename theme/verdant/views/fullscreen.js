@@ -189,7 +189,7 @@ function ssFsDefaultGeometry(width,bot,desiredText){
   return {x:x,y:y,size:size,textX:x+size+gap,textY:top+Math.max(0,Math.round((height-164)/2)),textW:textW};
 }
 function drawFsDefault(gr,bot){
-  var album=!NP&&W>=530&&bot>=245?ssHomeAlbumSelection(getAlbumCatalog().albums)[0]:null;
+  var album=!NP&&W>=530&&bot>=278?ssHomeAlbumSelection(getAlbumCatalog().albums)[0]:null;
   var bw=128,bx=Math.round((W-bw)/2),by=Math.max(30,Math.round((bot-100)/2))+48;
   if(NP||album){
     var title=NP?(npTitleStr||'尚未播放'):album.album;
@@ -207,16 +207,21 @@ function drawFsDefault(gr,bot){
       if(source)tL(gr,source,FONT.fsSrc,COL.text2,m.textX,m.textY+124,m.textW,26);
       return;
     }
-    bx=m.textX;by=m.textY+124;bw=Math.min(118,Math.floor(m.textW*.54));
-    var libraryX=bx+bw+12,libraryW=Math.min(108,m.textW-bw-12);
-    tC(gr,'浏览音乐库',FONT.plSub,COL.text2,libraryX,by,libraryW,36);
-    HB_FS.push({x0:libraryX,y0:by,x1:libraryX+libraryW,y1:by+36,act:'browse'});
+    var buttonH=Math.max(40,Math.round(42*ssDensity)),buttonY=Math.min(m.textY+119,bot-buttonH-36);
+    var play=ssDrawAlbumPlayAction(gr,m.textX,buttonY,m.textW,buttonH);
+    play.album=album;HB_FS.push(play);
+    var libraryY=buttonY+buttonH+5,libraryW=Math.min(116,m.textW),libraryH=26;
+    var hot=hv(m.textX,libraryY,m.textX+libraryW,libraryY+libraryH);
+    if(hot)ssFillContinuousRect(gr,m.textX,libraryY,libraryW,libraryH,5,5,COL.rowHover);
+    tL(gr,'浏览音乐库',FONT.plSub,hot?COL.text:COL.text2,m.textX,libraryY,libraryW,libraryH);
+    HB_FS.push({x0:m.textX,y0:libraryY,x1:m.textX+libraryW,y1:libraryY+libraryH,act:'browse'});
+    return;
   }else tC(gr,'尚未播放',FONT.sect2,COL.text,0,by-48,W,32);
 
   var fill=hv(bx,by,bx+bw,by+36)?COL.greenHover:COL.green;
   ssFillContinuousRect(gr,bx,by,bw,36,9,9,fill);
-  tC(gr,album?'播放专辑':'浏览音乐库',FONT.pl,COL.onPlay,bx,by,bw,36);
-  HB_FS.push({x0:bx,y0:by,x1:bx+bw,y1:by+36,act:album?'featured':'browse',album:album});
+  tC(gr,'浏览音乐库',FONT.pl,COL.onPlay,bx,by,bw,36);
+  HB_FS.push({x0:bx,y0:by,x1:bx+bw,y1:by+36,act:'browse'});
 
 }
 function drawFsLyrics(gr,bot){

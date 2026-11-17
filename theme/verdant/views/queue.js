@@ -18,10 +18,16 @@ function qRow(gr,r,x,qy,rh){
   if(ssRowHover(x0,y0,x1,y1)) ssFillContinuousRect(gr,x0,y0,x1-x0,y1-y0,6,6,COL.rowHover);
   return {x0:x0,y0:y0,x1:x1,y1:y1};
 }
+function ssDrawQueueNext(gr,r,y,h){
+  var s=ssDensity,w=Math.round(55*s),x=r.x+r.w-24-w;
+  tR(gr,'下一首',FONT.plSub,COL.text2,x,y,w,h);
+  return w+Math.round(8*s);
+}
 // cover + title + artist, the layout every queue entry shares
-function qEntry(gr,r,x,y,cs,h,seed,key,title,artist,tcol){
+function qEntry(gr,r,x,y,cs,h,seed,key,title,artist,tcol,next){
   drawCover(gr,x,y,cs,4,h,seed,key);
   var tx=x+cs+12,tw=r.w-36-cs-12,textH=Math.max(cs,ssTrackTextMetrics(ssDensity,true).height);
+  if(next)tw-=ssDrawQueueNext(gr,r,y,textH);
   ssDrawTrackLabels(gr,title,artist,tcol,tx,y,tw,textH,ssDensity,true);
 }
 function drawQueue(gr){
@@ -59,7 +65,8 @@ function ssDrawQueueContent(gr){
 
   var qy=r.y+70,compactH=ssTrackTextMetrics(ssDensity,true).height;
   if(NP){
-    tL(gr,'正在播放',FONT.sect,COL.text,x,qy,r.w-36,24);
+    drawIcon(gr,fb.IsPaused?'pause':'equalizer',COL.green,x,qy,18,24,15);
+    tL(gr,fb.IsPaused?'已暂停':'正在播放',FONT.sect,COL.text,x+23,qy,r.w-59,24);
     qy+=36;
     qEntry(gr,r,x,qy,48,NP,'np',undefined,npTitleStr,npArtistStr,(fb.IsPlaying||fb.IsPaused)?COL.green:COL.text);
   }else{
@@ -77,9 +84,9 @@ function ssDrawQueueContent(gr){
     for(qi=0;qi<mq.Count && shown<18;qi++){
       if(qy+rh>bottom) break;
       var qh=mq[qi]; if(!qh) continue;
-      var qhb=qRow(gr,r,x,qy,rh); qhb.q=qi;qhb.scope='priority';qhb.queueIndex=qi;qhb.track_id=qh.Path+'|'+qh.SubSong; HB_Q.push(qhb);
+      var qhb=qRow(gr,r,x,qy,rh); qhb.q=qi;qhb.scope='priority';qhb.queueIndex=qi;qhb.track_id=ssTrackID(qh);qhb.next=shown===0; HB_Q.push(qhb);
       var qm=qRowMeta(qh);
-      qEntry(gr,r,x,qy,44,qh,'mq'+qi,undefined,qm.t,qm.a,COL.text);
+      qEntry(gr,r,x,qy,44,qh,'mq'+qi,undefined,qm.t,qm.a,COL.text,qhb.next);
       qy+=rh; shown++;
     }
     qy+=10;
@@ -87,7 +94,7 @@ function ssDrawQueueContent(gr){
   // loop-one: playback just repeats the current song, so show only that
   if(pbRepeat===2){
     if(NP && qy+rh+30<bottom){
-      tL(gr,'正在单曲循环',FONT.sect,COL.text,x,qy,r.w-36,24); qy+=36;
+      tL(gr,shown?'单曲循环':'下一首 · 单曲循环',FONT.sect,COL.text,x,qy,r.w-36,24); qy+=36;
       qEntry(gr,r,x,qy,44,NP,'np',undefined,npTitleStr,npArtistStr,COL.green);
     }
     return;
@@ -112,8 +119,8 @@ function ssDrawQueueContent(gr){
       for(var k=start;k<cnt&&shown<20;k++){
         if(qy+rh>bottom) break;
         var h=items[k]; if(!h) continue;
-        var nhb=qRow(gr,r,x,qy,rh); nhb.pl=pli; nhb.item=k; HB_Q.push(nhb);
-        qEntry(gr,r,x,qy,44,h,qmeta.album[k]||String(k),qmeta.artkey[k],qmeta.title[k],qmeta.artist[k],COL.text);
+        var nhb=qRow(gr,r,x,qy,rh); nhb.pl=pli;nhb.item=k;nhb.next=shown===0; HB_Q.push(nhb);
+        qEntry(gr,r,x,qy,44,h,qmeta.album[k]||String(k),qmeta.artkey[k],qmeta.title[k],qmeta.artist[k],COL.text,nhb.next);
         qy+=rh; shown++;
       }
       if(shown===0) tL(gr,'已到歌单末尾',FONT.qArtist,COL.text3,x,qy,r.w-36,18);

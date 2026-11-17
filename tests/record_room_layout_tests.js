@@ -87,7 +87,7 @@ run('opening the drawer reflows library columns at the same cover size',()=>{
  c.M.cpad=24;c.ssDensity=1.05;
  for(const frame of [{x:300,w:1125},{x:300,w:799},{x:190,w:350}]){
   const reading=c.ssLibraryReadingRect(frame);
-  assert.ok(Math.abs((reading.x+reading.w/2)-(frame.x+frame.w/2))<1);
+  assert.equal(reading.x,frame.x+24);
   assert.equal(reading.w,Math.min(frame.w-48,798));
  }
 });
@@ -119,8 +119,8 @@ run('search keeps a compact artist result immediately above hittable song rows',
   tL:(g,text,font,color,x,y,w,h)=>labels.push({text,x,y,w,h})});
  c.drawSearch(gr,c.R.main);
  assert.equal(c.HB_CARD.length,1);assert.equal(c.HB_CARD[0].id,'Artist');assert.ok(c.HB_CARD[0].y1-c.HB_CARD[0].y0<=80);
- assert.equal(c.HB_TR.length,1);assert.equal(c.HB_TR[0].idx,0);assert.equal(c.HB_TR[0].srch,true);assert.equal(c.HB_TR[0].playVisible,true);assert.equal(c.HB_TR[0].pgx0,70);assert.ok(c.HB_TR[0].pgx1>=102);
- assert.ok(c.HB_TR[0].y0-c.HB_CARD[0].y1<70);assert.equal(c.HB_TR[0].x1,838);assert.equal(c.HB_TR[0].x1,c.searchBoxRect().x+c.searchBoxRect().w+2);
+ assert.equal(c.HB_TR.length,1);assert.equal(c.HB_TR[0].idx,0);assert.equal(c.HB_TR[0].srch,true);assert.equal(c.HB_TR[0].playVisible,true);assert.equal(c.HB_TR[0].pgx0,24);assert.ok(c.HB_TR[0].pgx1>=56);
+ assert.ok(c.HB_TR[0].y0-c.HB_CARD[0].y1<70);assert.equal(c.HB_TR[0].x1,792);assert.equal(c.HB_TR[0].x1,c.searchBoxRect().x+c.searchBoxRect().w+2);
 });
 run('fullscreen centers the measured listening stage and reserves its footer',()=>{
  const {c}=harness();

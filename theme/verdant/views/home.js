@@ -52,10 +52,14 @@ function ssHomeFocusRing(gr,box,radius){
   if(ssHomeFocus===box.focus)ssStrokeContinuousRect(gr,box.x0-2,box.y0-2,box.x1-box.x0+4,box.y1-box.y0+4,radius,radius,1,COL.green);
 }
 function ssDrawHomePrimary(gr,x,y,w,h,album){
-  HB_HOME_CONTINUE={x0:x,y0:y,x1:x+w,y1:y+h,act:NP?'transport':album?'featured':'browse',focus:'primary',album:album};
-  var hot=hv(x,y,x+w,y+h);
-  ssFillContinuousRect(gr,x,y,w,h,8,8,hot?COL.greenHover:COL.green);
-  tC(gr,NP?(fb.IsPlaying&&!fb.IsPaused?'暂停播放':'继续聆听'):album?'播放专辑':'浏览音乐库',FONT.pl,COL.onAccent,x,y,w,h);
+  if(album)HB_HOME_CONTINUE=ssDrawAlbumPlayAction(gr,x,y,w,h);
+  else{
+    HB_HOME_CONTINUE={x0:x,y0:y,x1:x+w,y1:y+h,act:NP?'transport':'browse'};
+    var hot=hv(x,y,x+w,y+h);
+    ssFillContinuousRect(gr,x,y,w,h,8,8,hot?COL.greenHover:COL.green);
+    tC(gr,NP?(fb.IsPlaying&&!fb.IsPaused?'暂停播放':'继续聆听'):'浏览音乐库',FONT.pl,COL.onAccent,x,y,w,h);
+  }
+  HB_HOME_CONTINUE.focus='primary';HB_HOME_CONTINUE.album=album;
   ssHomeFocusRing(gr,HB_HOME_CONTINUE,8);
 }
 function drawHome(gr,r){
@@ -63,7 +67,7 @@ function drawHome(gr,r){
   HOME_MAXROW=HOME_PLMAX=0;HOME_SHELF_Y0=HOME_SHELF_Y1=-1;
   var s=ssDensity,bottom=r.y+r.h,available=Math.max(1,r.w-2*M.cpad);
   var grid=ssAlbumGrid(available,s),gap=grid.gap,size=grid.size,cols=Math.min(5,grid.cols);
-  var w=cols*size+(cols-1)*gap,x=r.x+Math.round((r.w-w)/2),right=x+w;
+  var w=cols*size+(cols-1)*gap,x=r.x+Math.min(M.cpad,Math.floor((r.w-1)/2)),right=x+w;
   var bh=Math.round(38*s),bw=Math.min(w,Math.round(134*s));
   var selection=ssHomeAlbumSelection(getAlbumCatalog().albums),featured=!NP&&r.h>=Math.round(245*s)?selection[0]:null;
   var albums=selection.slice(featured?1:0,(featured?1:0)+Math.min(5,cols*(r.w>=640*s?1:2)));
@@ -80,8 +84,8 @@ function drawHome(gr,r){
     tL(gr,NP?(fb.IsPaused?'已暂停':'正在播放'):'唱片推荐',FONT.eyebrow,COL.text2,tx,labelY,tw,Math.round(20*s));
     tL(gr,NP?npTitleStr:featured.album,FONT.title,COL.text,tx,labelY+Math.round(22*s),tw,Math.round(42*s));
     tL(gr,NP?npArtistStr:ssArtistName(featured.artist),FONT.meta,COL.text2,tx,labelY+Math.round(64*s),tw,Math.round(20*s));
-    ssDrawHomePrimary(gr,tx,labelY+Math.round(88*s),Math.min(tw,bw),bh,featured);
-    heroEnd=y+Math.max(art,Math.round(126*s));
+    ssDrawHomePrimary(gr,tx,labelY+Math.round(88*s),featured?tw:Math.min(tw,bw),featured?Math.max(40,Math.round(42*s)):bh,featured);
+    heroEnd=y+Math.max(art,Math.round(88*s)+(featured?Math.max(40,Math.round(42*s)):bh));
   }else if(ty+bh<=bottom){
     ssDrawHomePrimary(gr,showTitle?right-bw:x,ty,bw,bh,null);
   }
@@ -107,7 +111,7 @@ function drawHome(gr,r){
   var linkW=selection.length?Math.min(Math.round(98*s),Math.floor(w/2)):0;
   if(albums.length)tL(gr,'专辑选览',FONT.sect,COL.text,x,artY,w-linkW,headingH);
   if(linkW){
-    var linkX=right-linkW;
+    var visibleCols=Math.min(cols,albums.length),linkX=visibleCols?x+visibleCols*size+(visibleCols-1)*gap-linkW:right-linkW;
     HB_HOME_ALBUMS={x0:linkX,y0:artY,x1:linkX+linkW,y1:artY+headingH,act:'albums',focus:'albums'};
     var hot=hv(linkX,artY,linkX+linkW,artY+headingH);
     if(hot)ssFillContinuousRect(gr,linkX,artY,linkW,headingH,6,6,COL.rowHover);

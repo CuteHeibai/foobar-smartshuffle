@@ -55,7 +55,7 @@ function ssDrawTransport(gr,by,height,s,layout,trackBg){
   tL(gr,fmtTime(len),FONT.time,COL.text3,x+w+Math.round(10*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
 }
 function ssFooterToolLayout(s){
-  var end=W-Math.round(28*s),queue=end-Math.round(44*s),lyrics=queue-Math.round(40*s);
+  var end=W-Math.round(28*s),gap=Math.max(44,Math.round(46*s)),queue=end-gap,lyrics=queue-gap;
   var volW=Math.min(Math.round(76*s),Math.max(48,R.barToolsW-236)),volX=lyrics-Math.round(30*s)-volW;
   var output=volX-Math.round(30*s),mode=output-Math.round(42*s);
   return {end:end,queue:queue,lyrics:lyrics,volW:volW,volX:volX,output:output,mode:mode};
@@ -70,14 +70,14 @@ function ssPlaybackModeIndicator(){
 }
 function ssDrawFooterTools(gr,by,height,s,tools,fullscreen){
   var y=by+Math.round(height*.46),mode=ssPlaybackModeIndicator();
-  var lyricsOn=fullscreen?fsView==='lyrics':typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab==='lyrics';
+  var lyricsOn=fullscreen?fsView==='lyrics':typeof ssRightOpen!=='undefined'&&ssRightOpen&&R.queue&&R.queue.w>0&&rightTab==='lyrics';
   var modeHint=ssDrawFooterTool(gr,tools.mode,y,s,'playback_mode',mode.icon,mode.active,'播放模式 · '+mode.title);
   var hint=ssDrawFooterTool(gr,tools.output,y,s,'output','volume',false,'音频输出');
   hint=ssDrawFooterTool(gr,tools.lyrics,y,s,'lyrics','lyric',lyricsOn,'歌词')||hint;
   if(fullscreen){
     hint=ssDrawFooterTool(gr,tools.queue,y,s,'viz','equalizer',fsView==='viz','频谱')||hint;
   }else{
-    var queueOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&rightTab==='queue';
+    var queueOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&R.queue&&R.queue.w>0&&rightTab==='queue';
     hint=ssDrawFooterTool(gr,tools.queue,y,s,'queue','queue',queueOn,'播放队列')||hint;
     hint=ssDrawFooterTool(gr,tools.end,y,s,'fullscreen','expand',false,'全屏')||hint;
   }
@@ -149,10 +149,11 @@ function ssDrawIdleRecord(gr,x,y,size){
   gr.FillEllipse(Math.round(x+(size-dot)/2),Math.round(y+(size-dot)/2),dot,dot,COL.text3);
 }
 function ssDrawFooterTool(gr,x,y,s,act,icon,active,label){
-  var size=Math.max(34,Math.round(34*s)),r=size/2;
+  var panel=act==='queue'||act==='lyrics'||act==='fullscreen'||act==='viz';
+  var size=panel?Math.max(38,Math.round(40*s)):Math.max(34,Math.round(34*s)),r=size/2;
   var box={x0:x-r,y0:y-r,x1:x+r,y1:y+r,act:act};
   var hot=hv(box.x0,box.y0,box.x1,box.y1);
-  if(hot)ssFillContinuousRect(gr,box.x0,box.y0,size,size,7,7,COL.rowHover);
+  if(hot||(panel&&active))ssFillContinuousRect(gr,box.x0,box.y0,size,size,7,7,panel&&active?COL.rowActive:COL.rowHover);
   drawIcon(gr,icon,active?COL.green:hot?COL.text:COL.text2,box.x0,box.y0,size,size,Math.round(19*s));
   HB_CTRL.push(box);
   return hot?label:'';

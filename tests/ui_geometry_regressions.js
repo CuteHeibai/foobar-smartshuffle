@@ -32,9 +32,14 @@ test('footer removes analysis counts and ineffective scan controls',()=>{
  c.tL=c.tR=c.tC=(g,s)=>words.push(s);c.drawBar(graphics());assert.ok(!words.some(s=>/分析|暂停|继续/.test(s)));assert.ok(!c.HB_CTRL.some(h=>h.act==='scan_pause'||h.act==='scan_retry'));
 });
 test('queue keeps partial rows at both viewport edges during fractional scrolling',()=>{
- const {c,load}=context();load('views/preference.js');c.R={};c.UISCALE=1;c.pbShuffle=true;c.ssState={remaining:Array.from({length:30},(_,i)=>({id:'t'+i,title:'song'+i})),queue:[]};c.ssQueueScroll=9;c.ssQueueScrollT=9;c.HB_Q=[];c.qRow=(g,r,x,y,rh)=>({x0:x,y0:y,x1:r.x+r.w,y1:y+rh});c.tL=()=>{};c.drawSBV=()=>null;c.SB_QUEUE={};c.hv=()=>false;c.drag=null;
+ const {c,load}=context();load('views/queue.js');load('views/preference.js');c.R={};c.UISCALE=1;c.pbShuffle=true;c.ssState={remaining:Array.from({length:30},(_,i)=>({id:'t'+i,title:'song'+i})),queue:[{id:'manual',title:'Manually queued'}]};c.ssQueueScroll=9;c.ssQueueScrollT=9;c.HB_Q=[];c.qRow=(g,r,x,y,rh)=>({x0:x,y0:y,x1:r.x+r.w,y1:y+rh});c.tL=()=>{};c.drawSBV=()=>null;c.SB_QUEUE={};c.hv=()=>false;c.drag=null;
  c.NP=null;c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
- assert.equal(c.HB_Q[0].track_id,'t0','partially visible first item must remain');assert.ok(c.HB_Q[0].y0>=209);assert.equal(c.HB_Q.at(-1).y1,580,'last partial row stays clipped and hittable');
+ assert.equal(c.HB_Q[0].track_id,'manual','partially visible priority item must remain');assert.ok(c.HB_Q[0].y0>=209);assert.equal(c.HB_Q.at(-1).y1,580,'last partial row stays clipped and hittable');
+ assert.deepEqual(Array.from(c.HB_Q.filter(row=>row.next),row=>row.track_id),['manual'],'only the first upcoming item is marked next');
+ c.R.queue={x:0,w:300};c.ssQueueSelectionContext(c.HB_Q[0]);
+ const {x0,y0}=c.HB_Q[0];c.ssQueueSelect.start({x:x0+1,y:y0+1,index:0});c.ssQueueSelect.end(x0+1,y0+1);
+ assert.ok(c.ssQueueRowSelected(c.HB_Q[0]));assert.ok(!c.ssQueueRowSelected(c.HB_Q[1]));
+ assert.ok(!c.ssQueueRowSelected({...c.HB_Q[0],track_id:'replacement'}),'a changed track cannot inherit the selection');
 });
 
 test('queue header hides the round counter and retains the remaining track count',()=>{

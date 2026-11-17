@@ -1,13 +1,13 @@
 ﻿/* Selection is keyed by row occurrence, so duplicate files stay independent. */
 var ssMainSelect=ssCreateSelectionController({marquee:false,dragUnselected:true,holdDelay:160}),ssNavSelect=ssCreateSelectionController(),ssQueueSelect=ssCreateSelectionController({holdDelay:160});
-var ssSelectOwner=null,ssMainRows=[],ssMainIndex={},ssNavRows=[],ssQueueRows=[],ssSelectionDirty=false,ssSelectionZone=null,ssSelectionContextKey='';
+var ssSelectOwner=null,ssMainRows=[],ssMainIndex={},ssNavRows=[],ssQueueRows=[],ssSelectionDirty=false,ssSelectionZone=null,ssSelectionContextKey='',ssQueueSelectionKey='';
 var ssSelectContext=null,ssSelectScroll=0;
 var ssSelectHold=0,ssDragOverlay=null,ssSelectLeftDown=false;
 function ssDropDragOverlay(){if(ssDragOverlay&&ssDragOverlay.image)try{ssDragOverlay.image.Dispose();}catch(e){}ssDragOverlay=null;}
 function ssInvalidateSelections(){
   ssSelectLeftDown=false;
   ssDropDragOverlay();if(ssSelectHold)window.ClearTimeout(ssSelectHold);ssSelectHold=0;
-  if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectOwner=null;ssMainRows=[];ssSelectionContextKey='';
+  if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectOwner=null;ssMainRows=[];ssSelectionContextKey=ssQueueSelectionKey='';
   ssMainSelect.setContext({kind:'track',key:'invalidated',items:[],rows:[]});
 }
 function ssTrackID(h){return (h.RawPath||h.Path)+'|'+h.SubSong;}
@@ -47,16 +47,26 @@ function ssNavSelectionContext(){
   for(i=0;i<HB_PL.length;i++){var h=HB_PL[i];geo.push({index:visible.indexOf(h.i),x0:h.x0,y0:h.y0,x1:h.x1,y1:h.y1});}
   ssSelectContext={kind:'playlist',key:'sidebar',items:items,rows:geo,bounds:geo.length?{x0:R.navLib.x,y0:geo[0].y0,x1:R.navLib.x+R.navLib.w,y1:R.navLib.y+R.navLib.h}:null,writable:true,multiple:false};ssNavSelect.setContext(ssSelectContext);
 }
+function ssQueueRowKey(row){
+  var scope=row.scope||'native';
+  return scope+':'+(scope==='remaining'?(ssState&&ssState.source)||'':row.pl===undefined?'':row.pl);
+}
+function ssQueueRowSelected(row){
+  if(!ssQueueSelectionKey||ssQueueSelectionKey!==ssQueueRowKey(row))return false;
+  var index=row.queueIndex===undefined?row.item:row.queueIndex,item=ssQueueRows[index];
+  return !!(item&&(!row.track_id||row.track_id===item.track_id)&&ssQueueSelect.isSelected(index));
+}
 function ssQueueSelectionContext(row){
   var scope=row.scope||'native',rows=[],items=[],geo=[],i,list;
   if(scope==='priority'||scope==='remaining'){
-    list=scope==='priority'?(ssState.queue||[]):(ssState.remaining||[]);
+    list=(ssState&&(scope==='priority'?ssState.queue:ssState.remaining))||[];
     for(i=0;i<list.length;i++)rows.push({track_id:list[i].id});
   }else if(row.pl!==undefined){var hs=getItems(row.pl);for(i=0;i<hs.Count;i++)rows.push({pl:row.pl,item:i,h:hs[i],track_id:ssTrackID(hs[i])});}
   for(i=0;i<rows.length;i++)items.push(i+':'+rows[i].track_id);
   for(i=0;i<HB_Q.length;i++){var h=HB_Q[i];if((h.scope||'native')!==scope)continue;geo.push({index:h.queueIndex===undefined?h.item:h.queueIndex,x0:h.x0,y0:h.y0,x1:h.x1,y1:h.y1});}
   var info=row.pl===undefined?null:ssPlaylistInfo(row.pl);
-  ssQueueRows=rows;ssSelectContext={kind:'queue',key:scope+':'+(scope==='remaining'?ssState.source:row.pl===undefined?'':row.pl),items:items,rows:geo,bounds:geo.length?{x0:R.queue.x,y0:geo[0].y0,x1:R.queue.x+R.queue.w,y1:geo[geo.length-1].y1}:null,writable:scope!=='native'||ssCanReorder(info),multiple:false};ssQueueSelect.setContext(ssSelectContext);
+  ssQueueRows=rows;ssQueueSelectionKey=ssQueueRowKey(row);
+  ssSelectContext={kind:'queue',key:ssQueueSelectionKey,items:items,rows:geo,bounds:geo.length?{x0:R.queue.x,y0:geo[0].y0,x1:R.queue.x+R.queue.w,y1:geo[geo.length-1].y1}:null,writable:scope!=='native'||ssCanReorder(info),multiple:false};ssQueueSelect.setContext(ssSelectContext);
 }
 function ssSelectionDown(x,y){
   mx=x;my=y;
@@ -125,6 +135,7 @@ function ssSelectionRefreshGeometry(){
 }
 function ssSelectionRects(){
   var rects=[];for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i];if(ssMainSelect.isSelected(ssMainRowIndex(h)))rects.push({x:h.x0,y:h.y0,w:h.x1-h.x0,h:h.y1-h.y0});}
+  for(var h of HB_Q)if(ssQueueRowSelected(h))rects.push({x:h.x0,y:h.y0,w:h.x1-h.x0,h:h.y1-h.y0});
   var p=ssSelectOwner&&ssSelectOwner.preview();if(p&&p.rect){var r=p.rect;rects.push({x:r.x0-2,y:r.y0-2,w:r.x1-r.x0+4,h:r.y1-r.y0+4});}
   if(p&&p.indicator){var q=p.indicator;rects.push({x:q.x0-2,y:q.y-2,w:q.x1-q.x0+4,h:5});}
   if(p&&p.mode==='reorder'&&p.origin){rects.push({x:p.origin.x0,y:p.origin.y0,w:p.origin.x1-p.origin.x0,h:p.origin.y1-p.origin.y0});var ghost=ssDragRect(p),gx=Math.max(0,ghost.x-5),gy=Math.max(0,ghost.y-5);rects.push({x:gx,y:gy,w:Math.min(W-gx,ghost.w+10),h:Math.min(H-gy,ghost.h+12)});}
@@ -149,6 +160,8 @@ function ssDrawSelection(gr){
   var p=ssSelectOwner&&ssSelectOwner.preview(),lifting=p&&p.mode==='reorder';
   for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i],at=ssMainRowIndex(h);if(ssMainSelect.isSelected(at))ssFillContinuousRect(gr,h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,lifting&&ssSelectOwner===ssMainSelect?COL.elev:ssAccent(28));}
   if(lifting&&ssSelectOwner!==ssMainSelect&&p.origin){var rows=ssSelectContext.rows;for(i=0;i<rows.length;i++)if(rows[i].index===p.origin.index){var slot=rows[i];ssFillContinuousRect(gr,slot.x0,slot.y0,slot.x1-slot.x0,slot.y1-slot.y0,4,4,COL.elev);break;}}
+  for(var h of HB_Q)if(ssQueueRowSelected(h)&&h.x1-h.x0>2&&h.y1-h.y0>2)
+    ssStrokeContinuousRect(gr,h.x0+1,h.y0+1,h.x1-h.x0-2,h.y1-h.y0-2,5,5,1.25,COL.green);
   if(!p)return;
   if(p.rect){var r=p.rect,w=r.x1-r.x0,h2=r.y1-r.y0;if(w>0&&h2>0){gr.FillSolidRect(r.x0,r.y0,w,h2,ssAccent(28));gr.DrawRect(r.x0,r.y0,w,h2,1,COL.green);}}
   if(p.indicator){var q=p.indicator;gr.DrawLine(q.x0,q.y,q.x1,q.y,2,COL.green);}

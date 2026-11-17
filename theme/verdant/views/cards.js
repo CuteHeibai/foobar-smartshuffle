@@ -107,7 +107,16 @@ function ssAlbumGrid(width,scale,coverSize){
 }
 function ssLibraryReadingRect(r){
   var w=Math.max(1,Math.min(r.w-2*M.cpad,Math.round(760*ssDensity)));
-  return {x:r.x+Math.round((r.w-w)/2),w:w};
+  return {x:r.x+Math.min(M.cpad,Math.floor((r.w-1)/2)),w:w};
+}
+function ssDrawAlbumPlayAction(gr,x,y,w,h){
+  var label='播放专辑',size=Math.min(w,h),gap=Math.round(10*ssDensity);
+  var width=Math.min(w,size+gap+Math.ceil(ssMeasureText(gr,label,FONT.pl,h))+4);
+  var hot=hv(x,y,x+width,y+h),cy=y+(h-size)/2;
+  gr.FillEllipse(x,cy,size,size,hot?COL.hover:COL.elev);
+  drawIcon(gr,'play',hot?COL.green:COL.text,x,cy,size,size,Math.round(size*.50));
+  tL(gr,label,FONT.pl,COL.text,x+size+gap,y,width-size-gap,h);
+  return {x0:x,y0:y,x1:x+width,y1:y+h,act:'featured'};
 }
 var ssAlbumTitleCache=new Map(),ssAlbumTitleFont=null;
 function ssAlbumTitleLines(gr,title,w){
