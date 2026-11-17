@@ -45,8 +45,8 @@ function drawSongs(gr,r){
      ALBUM when flat, ARTIST when grouped by album, nothing when grouped by artist. */
   var flat=(g==='none'), tind=flat?0:(g==='both'?SG_IND*2:SG_IND);
   var showAlbum=flat&&!compact, showArtist=(g==='album');
-  var playW=ssTrackPlayWidth(s),numW=Math.round(30*s),durW=64,cgap=12;   // index column fits the largest number it can hold
-  var playX=lx+tind,numX=playX+playW,titleX=numX+numW+cgap;
+  var playW=ssTrackPlayWidth(s),durW=64,cgap=12;
+  var playX=lx+tind,titleX=playX+playW+cgap;
   var colW=showAlbum?Math.min(270,Math.round((rx-titleX-durW-cgap*2)*0.26)):(showArtist?Math.round((rx-titleX-durW-cgap*2)*0.28):0);
   var colX=rx-durW-cgap-colW;
   var titleW=(colW?colX:rx-durW)-cgap-titleX;
@@ -78,12 +78,11 @@ function drawSongs(gr,r){
     var vy0=Math.max(ry,rowsTop), vy1=Math.min(ry+gh,cropY);   // visible band: rows scrolled
     if(vy1<=vy0) continue;                                     // under the sticky header don't take the mouse
     if(row.k==='t'){
+      var t=row.t,isPlaying=ssIsCurrentTrack(t.h);
       ssDrawCachedRow(gr,'song:'+row.ti,r.x,ry,r.w,gh,function(gr){
-      var t=row.t, isPlaying=!!(NP && t.h && t.h.Path===NP.Path);
       var isHover=ssRowHover(lx-8,vy0,rx+8,vy1);
       if(isHover) ssFillContinuousRect(gr,lx-8,ry,rx-lx+16,gh,4,4,COL.rowHover);
-      ssDrawTrackPlay(gr,playX,ry,playW,gh,isPlaying);
-      tR(gr,String(row.n),FONT.rowNum,isPlaying?COL.green:COL.text2,numX,ry,numW-4,gh);
+      ssDrawTrackLead(gr,playX,ry,playW,gh,row.n,isPlaying);
       if(flat){
         var cs=40*s, cy=ry+(gh-cs)/2;
         drawCover(gr,titleX,cy,cs,3,t.h,t.album||t.title,t.artkey);
@@ -96,7 +95,7 @@ function drawSongs(gr,r){
       else if(showArtist) tL(gr,t.artist,FONT.rowCell,COL.text2,colX,ry,colW,gh);
       tR(gr,t.len,FONT.rowCell,COL.text2,rx-durW,ry,durW,gh);
       },flat);
-      HB_TR.push({x0:lx-8,y0:vy0,x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:playX,pgx1:numX,playVisible:true,playId:row.t.h?ssTrackID(row.t.h):row.ti,favoriteX:rx+4*s});
+      HB_TR.push({x0:lx-8,y0:vy0,x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:playX,pgx1:playX+playW,playOnHover:true,playVisible:isPlaying,playId:t.h?ssTrackID(t.h):row.ti,favoriteX:rx+4*s});
     } else {
       /* Group header: every kind is the same block on the same rhythm (GAP, artwork, PADB),
          differing only in indent, artwork size and -- for the artist banner -- a slab + eyebrow. */
@@ -126,7 +125,7 @@ function drawSongs(gr,r){
     }
   }
   layer.finish();gr=parentGr;
-  tR(gr,'#',FONT.head,COL.text2,numX,listTop,numW-8,20);
+  tC(gr,'#',FONT.head,COL.text2,playX,listTop,playW,20);
   tL(gr,'歌曲',FONT.head,COL.text2,titleX,listTop,titleW,20);
   if(showAlbum) tL(gr,'专辑',FONT.head,COL.text2,colX,listTop,colW,20);
   else if(showArtist) tL(gr,'歌手',FONT.head,COL.text2,colX,listTop,colW,20);

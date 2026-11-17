@@ -36,6 +36,7 @@ test('queue keeps partial rows at both viewport edges during fractional scrollin
  c.NP=null;c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
  assert.equal(c.HB_Q[0].track_id,'manual','partially visible priority item must remain');assert.ok(c.HB_Q[0].y0>=209);assert.equal(c.HB_Q.at(-1).y1,580,'last partial row stays clipped and hittable');
  assert.deepEqual(Array.from(c.HB_Q.filter(row=>row.next),row=>row.track_id),['manual'],'only the first upcoming item is marked next');
+ assert.ok(c.HB_Q[0].rowH>c.HB_Q[1].rowH+18,'the upcoming track reserves a distinct label above its title');
  c.R.queue={x:0,w:300};c.ssQueueSelectionContext(c.HB_Q[0]);
  const {x0,y0}=c.HB_Q[0];c.ssQueueSelect.start({x:x0+1,y:y0+1,index:0});c.ssQueueSelect.end(x0+1,y0+1);
  assert.ok(c.ssQueueRowSelected(c.HB_Q[0]));assert.ok(!c.ssQueueRowSelected(c.HB_Q[1]));

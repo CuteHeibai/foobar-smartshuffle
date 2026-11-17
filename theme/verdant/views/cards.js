@@ -109,17 +109,17 @@ function ssLibraryReadingRect(r){
   var inset=Math.min(M.cpad,Math.floor((r.w-1)/2));
   return {x:r.x+inset,w:Math.max(1,r.w-2*inset)};
 }
-function ssDrawLabeledAction(gr,x,y,w,h,label,icon,act,primary){
+function ssDrawLabeledAction(gr,x,y,w,h,label,icon,act){
   var size=Math.min(w,h),gap=Math.round(10*ssDensity);
   var width=Math.min(w,size+gap+Math.ceil(ssMeasureText(gr,label,FONT.pl,h))+4);
   var hot=hv(x,y,x+width,y+h),cy=y+(h-size)/2;
-  gr.FillEllipse(x,cy,size,size,primary?(hot?COL.greenHover:COL.play):hot?COL.hover:COL.elev);
-  drawIcon(gr,icon,primary?COL.onPlay:hot?COL.green:COL.text,x,cy,size,size,Math.round(size*.50));
+  gr.FillEllipse(x,cy,size,size,hot?COL.hover:COL.elev);
+  drawIcon(gr,icon,hot?COL.green:COL.text,x,cy,size,size,Math.round(size*.50));
   tL(gr,label,FONT.pl,COL.text,x+size+gap,y,width-size-gap,h);
   return {x0:x,y0:y,x1:x+width,y1:y+h,act:act};
 }
 function ssDrawAlbumPlayAction(gr,x,y,w,h){
-  return ssDrawLabeledAction(gr,x,y,w,h,'播放专辑','play','featured',true);
+  return ssDrawLabeledAction(gr,x,y,w,h,'播放专辑','play','featured');
 }
 var ssAlbumTitleCache=new Map(),ssAlbumTitleFont=null;
 function ssAlbumTitleLines(gr,title,w){

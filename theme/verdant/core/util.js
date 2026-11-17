@@ -16,8 +16,10 @@ function ssHeaderBoxes(art,compact,scale){
   return {eyeY:0,eyeH:eyeH,titleY:titleY,titleH:Math.max(1,Math.min(76*scale,(compact?art:metaY-gap)-titleY)),metaY:metaY,metaH:metaH};
 }
 function ssTrackPlayWidth(s){return Math.max(32,Math.round(36*s));}
-function ssDrawTrackPlay(gr,x,y,w,h,active){
-  drawIcon(gr,'play',active?COL.green:COL.text2,x,y,w,h,17);
+function ssIsCurrentTrack(handle){return typeof NP!=='undefined'&&!!(NP&&handle&&ssTrackID(handle)===ssTrackID(NP));}
+function ssDrawTrackLead(gr,x,y,w,h,number,active){
+  if(active)drawIcon(gr,fb.IsPaused?'pause':'equalizer',COL.green,x,y,w,h,16);
+  else tC(gr,String(number),FONT.rowNum,COL.text2,x,y,w,h);
 }
 function ssDrawTrackLabels(gr,title,detail,color,x,y,w,h,s,compact){
   if(!detail){ssDrawFixedLabel(gr,title,FONT.rowTitle,color,x,y,w,h);return;}

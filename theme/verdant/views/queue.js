@@ -68,7 +68,7 @@ function ssDrawQueueContent(gr){
     drawIcon(gr,fb.IsPaused?'pause':'equalizer',COL.green,x,qy,18,24,15);
     tL(gr,fb.IsPaused?'已暂停':'正在播放',FONT.sect,COL.text,x+23,qy,r.w-59,24);
     qy+=36;
-    qEntry(gr,r,x,qy,48,NP,'np',undefined,npTitleStr,npArtistStr,(fb.IsPlaying||fb.IsPaused)?COL.green:COL.text);
+    qEntry(gr,r,x,qy,48,NP,'np',undefined,npTitleStr,npArtistStr,COL.text);
   }else{
     ssDrawIdleRecord(gr,x,qy,48);
     tL(gr,'尚未播放',FONT.qName,COL.text2,x+60,qy,r.w-96,48);

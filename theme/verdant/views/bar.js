@@ -37,14 +37,11 @@ function ssHasTransportSource(){
 }
 function ssDrawTransport(gr,by,height,s,layout,trackBg){
   var center=layout.center,cy=by+Math.round(height*.40),side=58*s,enabled=ssHasTransportSource();
-  var featured=!NP&&(typeof fsMode!=='undefined'&&fsMode
-    ?typeof HB_FS!=='undefined'&&HB_FS.some(function(box){return box.act==='featured';})
-    :typeof view!=='undefined'&&view==='home'&&typeof HB_HOME_CONTINUE!=='undefined'&&HB_HOME_CONTINUE&&HB_HOME_CONTINUE.act==='featured');
   var hot=enabled&&hv(center-27*s,by+7*s,center+27*s,by+61*s);
   var size=(hot?52:48)*s,px=center-size/2,py=cy-size/2;
   ctrlBtn(gr,'prev',center-side,cy,false,'prev',22*s,26*s,enabled);
-  gr.FillEllipse(px,py,size,size,enabled&&!featured?COL.play:hot?COL.hover:COL.elev);
-  drawIcon(gr,fb.IsPlaying&&!fb.IsPaused?'pause':'play',enabled?(featured?COL.text:COL.onPlay):COL.text3,px,py,size,size,Math.round(size*.5));
+  gr.FillEllipse(px,py,size,size,enabled?COL.play:COL.elev);
+  drawIcon(gr,fb.IsPlaying&&!fb.IsPaused?'pause':'play',enabled?COL.onPlay:COL.text3,px,py,size,size,Math.round(size*.5));
   if(enabled)HB_CTRL.push({x0:px,y0:py,x1:px+size,y1:py+size,act:'play'});
   ctrlBtn(gr,'next',center+side,cy,false,'next',22*s,26*s,enabled);
 

@@ -3,6 +3,17 @@ var HB_HOME_CONTINUE=null,HB_HOME_ALBUMS=null,ssHomeFocus='';
 var ssHomeAlbumSource=null,ssHomeAlbums=[];
 var SS_HOME_ALBUM_LIMIT=9;
 
+function ssHomeReleaseKey(title){
+  return String(title||'').normalize('NFKC').trim().toLowerCase().replace(/\s*[\[(](?:disc|disk|cd)[ ._-]*\d+\s*[\])]\s*$/i,'');
+}
+var ssHomeNowTrack='',ssHomeNowRelease='';
+function ssHomePlayingRelease(){
+  if(!NP||typeof TF==='undefined')return '';
+  var track=ssTrackID(NP);
+  if(track!==ssHomeNowTrack){ssHomeNowTrack=track;ssHomeNowRelease=ssHomeReleaseKey(TF.album.EvalWithMetadb(NP));}
+  return ssHomeNowRelease;
+}
+
 function ssHomeAlbumSelection(albums){
   if(ssHomeAlbumSource===albums)return ssHomeAlbums;
   ssHomeAlbumSource=albums;ssHomeAlbums=[];
@@ -10,13 +21,13 @@ function ssHomeAlbumSelection(albums){
   var ranked=albums.slice().sort(function(a,b){return (parseInt(b.year,10)||0)-(parseInt(a.year,10)||0);});
   for(var album of ranked){
     if(ssHomeAlbums.length===SS_HOME_ALBUM_LIMIT)break;
-    var title=album.album.trim().toLowerCase();
+    var title=ssHomeReleaseKey(album.album);
     if(artists.has(album.artist)||titles.has(title))continue;
     artists.add(album.artist);titles.add(title);ssHomeAlbums.push(album);
   }
   for(var album of ranked){
     if(ssHomeAlbums.length===SS_HOME_ALBUM_LIMIT)break;
-    var title=album.album.trim().toLowerCase();
+    var title=ssHomeReleaseKey(album.album);
     if(titles.has(title))continue;
     titles.add(title);ssHomeAlbums.push(album);
   }
@@ -57,7 +68,7 @@ function ssDrawHomePrimary(gr,x,y,w,h,album){
   else{
     var playing=NP&&fb.IsPlaying&&!fb.IsPaused;
     HB_HOME_CONTINUE=ssDrawLabeledAction(gr,x,y,w,h,NP?(playing?'暂停播放':'继续播放'):'浏览音乐库',
-      NP?(playing?'pause':'play'):'search',NP?'transport':'browse',false);
+      NP?(playing?'pause':'play'):'search',NP?'transport':'browse');
   }
   HB_HOME_CONTINUE.focus='primary';HB_HOME_CONTINUE.album=album;
   ssHomeFocusRing(gr,HB_HOME_CONTINUE,8);
@@ -67,7 +78,9 @@ function drawHome(gr,r){
   HOME_MAXROW=HOME_PLMAX=0;HOME_SHELF_Y0=HOME_SHELF_Y1=-1;
   var s=ssDensity,bottom=r.y+r.h,content=ssLibraryReadingRect(r),x=content.x,w=content.w,right=x+w;
   var bh=Math.round(38*s),bw=Math.min(w,Math.round(134*s));
-  var selection=ssHomeAlbumSelection(getAlbumCatalog().albums),featured=!NP&&r.h>=Math.round(245*s)?selection[0]:null;
+  var selection=ssHomeAlbumSelection(getAlbumCatalog().albums),hasAlbums=selection.length>0,playingRelease=ssHomePlayingRelease();
+  if(playingRelease)selection=selection.filter(function(album){return ssHomeReleaseKey(album.album)!==playingRelease;});
+  var featured=!NP&&r.h>=Math.round(245*s)?selection[0]:null;
   var showTitle=r.h>=Math.round(55*s),hero=(NP||featured)&&r.h>=Math.round(245*s);
   var split=hero&&selection.length>(featured?1:0)&&w>=Math.round(575*s)&&r.h>=Math.round(400*s);
   var ty=r.y+Math.round(12*s),titleH=Math.round(43*s),headingH=Math.round(26*s);
@@ -110,18 +123,19 @@ function drawHome(gr,r){
   var contentH=albums.length?Math.ceil(albums.length/cols)*rowStep-Math.round(18*s):Math.round(34*s);
   var maxPx=Math.max(0,contentH-viewportH);
   HOME_MAXROW=maxPx;homeScroll=clampPx(homeScroll,maxPx);homeScrollT=clampPx(homeScrollT,maxPx);
-  var offset=Math.round(homeScroll),layer=ssBeginViewport('home-albums',gr,shelfX,top,shelfW,viewportH);
+  var offset=Math.round(homeScroll),layer=maxPx?ssBeginViewport('home-albums',gr,shelfX,top,shelfW,viewportH):null;
+  var cardsGr=layer?layer.gr:gr;
   try{
     for(var i=Math.floor(offset/rowStep)*cols;i<albums.length;i++){
       var ay=top+Math.floor(i/cols)*rowStep-offset;
       if(ay>=bottom)break;
       if(ay+cardH<=top)continue;
-      drawLibraryAlbumCard(layer.gr,shelfX+(i%cols)*(size+gap),ay,size,albums[i],top,bottom);
+      drawLibraryAlbumCard(cardsGr,shelfX+(i%cols)*(size+gap),ay,size,albums[i],top,bottom);
     }
-    if(!albums.length&&!selection.length)tL(layer.gr,'还没有带专辑标签的歌曲',FONT.plSub,COL.text2,x,top-offset,w,Math.round(30*s));
-  }finally{layer.finish();}
+    if(!albums.length&&!selection.length&&!playingRelease)tL(cardsGr,'还没有带专辑标签的歌曲',FONT.plSub,COL.text2,x,top-offset,w,Math.round(30*s));
+  }finally{if(layer)layer.finish();}
 
-  var linkW=selection.length?Math.min(Math.round(98*s),Math.floor(shelfW/2)):0;
+  var linkW=hasAlbums?Math.min(Math.round(98*s),Math.floor(shelfW/2)):0;
   if(albums.length)tL(gr,'专辑选览',FONT.sect,COL.text,shelfX,artY,shelfW-linkW,headingH);
   if(linkW){
     var linkX=shelfEnd-linkW;

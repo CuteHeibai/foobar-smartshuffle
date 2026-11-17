@@ -72,14 +72,14 @@ test('real application callbacks dispatch the All Songs header before selection 
   c.utils.IsKeyPressed=()=>false;
   c.on_mouse_lbtn_down(166,124);c.on_mouse_lbtn_up(166,124);
   assert.equal(searchPlays,1,'the same glyph plays on an unmodified click');
-  Object.assign(c.HB_TR[0],{playVisible:true,playId:'first'});
+  Object.assign(c.HB_TR[0],{playVisible:false,playOnHover:true,playId:'first'});
   c.on_mouse_lbtn_down(230,124);c.on_mouse_lbtn_up(166,124);
   assert.equal(searchPlays,1,'pressing the title and releasing over the glyph must not play');
   c.on_mouse_lbtn_down(166,124);c.HB_TR[0]={...c.HB_TR[0],playId:'replacement'};
   c.on_mouse_lbtn_up(166,124);
   assert.equal(searchPlays,1,'changed search results cannot replace a pressed track');
   c.on_mouse_lbtn_down(166,124);c.on_mouse_lbtn_up(166,124);
-  assert.equal(searchPlays,2,'press and release on the visible glyph plays the track');
+  assert.equal(searchPlays,2,'press and release in the combined number and play cell plays the track');
 
 
 });

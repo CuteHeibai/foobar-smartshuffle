@@ -246,7 +246,7 @@ function setQueueScroll(y){if(!SS_QUEUE_SB)return;var s=SS_QUEUE_SB;ssQueueScrol
 function ssHeaderPlayAt(x,y){if(HB_ARTIST_PLAY&&inRect(x,y,HB_ARTIST_PLAY))return HB_ARTIST_PLAY;return HB_SONGS_PLAY&&inRect(x,y,HB_SONGS_PLAY)?HB_SONGS_PLAY:hit(HB_PLPLAY,x,y)||(HB_PLAYLIST_PLAY&&inRect(x,y,HB_PLAYLIST_PLAY)?HB_PLAYLIST_PLAY:null);}
 function ssRowPlayAt(x,y){
   var row=hit(HB_TR,x,y);
-  return row&&row.playVisible&&x>=row.pgx0&&x<row.pgx1?row:null;
+  return row&&(row.playVisible||row.playOnHover)&&x>=row.pgx0&&x<row.pgx1?row:null;
 }
 function on_mouse_lbtn_down(x,y){
   ssPlaylistPlayDown=ssTrackPlayDown=null;
@@ -453,7 +453,7 @@ function on_mouse_lbtn_up(x,y){
   // Keep the lyric hit and legacy row action for lists with a hover-only play glyph.
   if((t=hit(HB_TR,x,y))){
     if(utils.IsKeyPressed(17))return;
-    if((t.srch&&searchTrks[t.idx].reason==='歌词')||(!t.playVisible&&t.pgx1!==undefined&&x>=t.pgx0&&x<t.pgx1))playRow(t);
+    if((t.srch&&searchTrks[t.idx].reason==='歌词')||(!t.playVisible&&!t.playOnHover&&t.pgx1!==undefined&&x>=t.pgx0&&x<t.pgx1))playRow(t);
     return;
   }
 }
