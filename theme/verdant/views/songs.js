@@ -89,7 +89,7 @@ function drawSongs(gr,r){
         drawCover(gr,titleX,cy,cs,3,t.h,t.album||t.title,t.artkey);
         ssDrawTrackLabels(gr,t.title,t.artist,isPlaying?COL.green:COL.text,titleX+cs+12,ry,titleW-cs-12,gh,s);
       } else {
-        tL(gr,t.title,FONT.rowTitle,isPlaying?COL.green:COL.text,titleX,ry,titleW,gh);
+        ssDrawTrackLabels(gr,t.title,'',isPlaying?COL.green:COL.text,titleX,ry,titleW,gh,s);
       }
       if(showAlbum) tL(gr,t.album,FONT.rowCell,COL.text2,colX,ry,colW,gh);
       else if(showArtist) tL(gr,t.artist,FONT.rowCell,COL.text2,colX,ry,colW,gh);

@@ -6,7 +6,8 @@ function run(name,fn){fn();console.log('PASS '+name);count++;}
 function harness(saved={}){
  const props={...saved},requests=[];
  const c={Math,Number,isFinite,console,ssDensity:1,W:1440,H:900,TBH:32,R:{},
- M:{gap:10,navW:210,queueW:300},ssState:{remaining:['a','b'],queue:['c']},
+ M:{gap:10,navW:210,queueW:300,rowH:50},FONT:{},
+ ssFontLineHeight:()=>0,ssTrackTextMetrics:()=>({title:22,detail:18,height:48}),ssDrawFixedLabel:(...args)=>c.tL(...args),ssState:{remaining:['a','b'],queue:['c']},
  window:{GetProperty:(k,d)=>k in props?props[k]:d,SetProperty:(k,v)=>props[k]=v},
  fsMode:false,ssModal:false,ssPopup:false,ssStarted:false,rightTab:'lyrics',
  ssHideLyrics(){},ssDropModalImage(){},ssDropSceneImage(){},ssSyncLyricPanel(){},ssReportLayout(){},repaintAll(){},

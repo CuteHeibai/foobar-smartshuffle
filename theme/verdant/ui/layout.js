@@ -47,11 +47,12 @@ function ssResponsiveMetrics(w,h){
   if(typeof ssCreateFonts==='function'){SS_FONT_META=[];SS_FIT_FONTS=[];SS_SCRIPT_FONTS={};FONT=ssCreateFonts();LH_F=[];LH_V=[];}
   var base={pad:8,gap:10,navW:240,queueW:300,barH:96,navTopH:58,rowH:50,cardTextH:52,radius:6};
   for(var key in base)M[key]=Math.round(base[key]*density);
+  if(typeof ssTrackTextMetrics==='function')M.rowH=Math.max(M.rowH,ssTrackTextMetrics(density,false).height);
   TBH=Math.round(32*UISCALE);CAPBW=Math.round(46*UISCALE);
   if(typeof SG_IND!=='undefined'){
     SG_IND=Math.round(32*density);SG_GAP1=Math.round(24*density);SG_GAP2=Math.round(14*density);SG_PADB1=Math.round(12*density);SG_PADB2=Math.round(10*density);
     SG_ART1=Math.round(56*density);SG_ART2=Math.round(44*density);SG_TGAP=Math.round(18*density);SG_SLABP=Math.round(10*density);
-    SG_H1=SG_GAP1+SG_ART1+SG_PADB1;SG_H1B=SG_H1+SG_SLABP*2;SG_H2=SG_GAP2+SG_ART2+SG_PADB2;SG_TRH=Math.round(44*density);SG_CROP=Math.round(96*density);
+    SG_H1=SG_GAP1+SG_ART1+SG_PADB1;SG_H1B=SG_H1+SG_SLABP*2;SG_H2=SG_GAP2+SG_ART2+SG_PADB2;SG_TRH=Math.max(Math.round(44*density),typeof ssTrackTextMetrics==='function'?ssTrackTextMetrics(density,false).title:0);SG_CROP=Math.round(96*density);
     if(songsRows)buildSongsRows();
   }
   if(typeof plCardCache!=='undefined')plCardCache={};if(typeof artCardCache!=='undefined'){artCardCache={};artCardN=0;}

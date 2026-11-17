@@ -17,7 +17,7 @@ function drawSearchBox(gr,r){
     tL(gr,'歌曲、拼音、罗马音或歌词',FONT.searchTxt,COL.text3,txtX+12,boxY,txtW-12,boxH);
   } else {
     tL(gr,searchQuery,FONT.searchTxt,COL.text,txtX,boxY,txtW,boxH);
-    caretX=txtX+Math.min(txtW,gr.CalcTextWidth(searchQuery,FONT.searchTxt))+2;
+    caretX=txtX+Math.min(txtW,ssMeasureText(gr,searchQuery,FONT.searchTxt,boxH))+2;
   }
   if(caretOn) gr.FillSolidRect(caretX,caretY,2,caretH,empty?COL.text2:COL.text);
 }

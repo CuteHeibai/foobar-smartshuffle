@@ -109,11 +109,16 @@ function ssFitFont(gr,font,height,text,width){
   do{f=gdi.Font(meta.name,size,meta.style);if(lineH(gr,f)<=limit&&(!fitWidth||gr.CalcTextWidth(text,f)<=width))break;}while(--size>0);
   if(SS_FIT_FONTS.length>=192)SS_FIT_FONTS=[];SS_FIT_FONTS.push({base:font,height:limit,key:key,font:f});return f;
 }
-function ssScriptFont(text,font){
-  var name=/[\u2e80-\u9fff\uff00-\uffef]/.test(text)?'Microsoft YaHei UI':null;if(!name)return font;
-  var meta=null;for(var i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
-  if(!meta||meta.name===name)return font;
-  var style=meta.name==='Inter Medium'?1:meta.style,key=name+'|'+meta.size+'|'+style;
+var SS_CJK=/[\u2e80-\u9fff\uac00-\ud7ff\uf900-\ufaff\uff00-\uffef\u{20000}-\u{323af}]/u;
+var SS_WESTERN=/[A-Za-z0-9\u00c0-\u02af]/;
+var SS_BIDI=/[\u0590-\u08ff\u200e\u200f\u202a-\u202e\u2066-\u2069\ufb1d-\ufdff\ufe70-\ufeff\u{10800}-\u{10fff}\u{1e800}-\u{1eeff}]/u;
+var SS_FONT_MARK=/[\u0300-\u036f\u3099-\u309a\ufe00-\ufe0f\u{e0100}-\u{e01ef}]/u;
+var SS_RUN_FORMAT=0x1800; // NoWrap and MeasureTrailingSpaces
+var SS_GRAPHEMES=typeof Intl!=='undefined'&&typeof Intl.Segmenter==='function'?new Intl.Segmenter():null;
+function ssCjkFont(font){
+  var meta=SS_FONT_META.find(function(entry){return entry.font===font;});
+  if(!meta||(meta.name!=='Inter'&&meta.name!=='Inter Medium'))return font;
+  var name='Microsoft YaHei UI',style=meta.name==='Inter Medium'?1:meta.style,key=meta.size+'|'+style;
   if(!SS_SCRIPT_FONTS[key]){
     var f=gdi.Font(name,meta.size,style);
     SS_FONT_META.push({font:f,name:name,size:meta.size,style:style});
@@ -121,17 +126,108 @@ function ssScriptFont(text,font){
   }
   return SS_SCRIPT_FONTS[key];
 }
-function ssText(gr,s,f,c,x,y,w,h,align,ellipsis){
-  if(w<=0||h<=0)return;
-  // AntiAliasGridFit uses grayscale coverage, including in offscreen viewport bitmaps.
-  s=String(s);gr.SetTextRenderingHint(3);f=ssFitFont(gr,ssScriptFont(s,f),h);
-  gr.DrawString(String(s),f,c,Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)),
-    (align<<28)|(1<<24)|((ellipsis?3:0)<<20)|0x1000);
+function ssScriptFont(text,font){return SS_CJK.test(text)?ssCjkFont(font):font;}
+function ssTextClusters(text){
+  if(SS_GRAPHEMES)return Array.from(SS_GRAPHEMES.segment(text),function(part){return part.segment;});
+  var clusters=[];
+  for(var ch of text){
+    var last=clusters.length-1;
+    if(last>=0&&(SS_FONT_MARK.test(ch)||ch==='\u200d'||clusters[last].endsWith('\u200d')))clusters[last]+=ch;
+    else clusters.push(ch);
+  }
+  return clusters;
 }
-function tL(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,0,true);}
+function ssTextRuns(text,font){
+  if(!SS_CJK.test(text)||SS_BIDI.test(text))return [{text:text,font:font}];
+  var cjk=ssCjkFont(font);
+  if(!SS_WESTERN.test(text)||cjk===font)return [{text:text,font:cjk}];
+  var runs=[],part='',face=null;
+  for(var ch of text){
+    var next=SS_CJK.test(ch)?cjk:SS_WESTERN.test(ch)?font:face;
+    if(face&&next!==face){runs.push({text:part,font:face});part='';}
+    part+=ch;face=next;
+  }
+  runs.push({text:part,font:face||font});
+  return runs;
+}
+function ssFontLineHeight(font){
+  var cjk=ssCjkFont(font);
+  return Math.ceil(Math.max(font.Height||font.Size*1.3||0,cjk.Height||cjk.Size*1.3||0));
+}
+var SS_TRACK_LINE_HEIGHTS=null;
+function ssTrackTextMetrics(s,compact){
+  var lines=SS_TRACK_LINE_HEIGHTS;
+  if(!lines||lines.fonts!==FONT)lines=SS_TRACK_LINE_HEIGHTS={fonts:FONT,title:ssFontLineHeight(FONT.rowTitle)+1,detail:ssFontLineHeight(FONT.rowArtist)+1};
+  var title=Math.max(Math.round((compact?20:22)*s),lines.title);
+  var detail=Math.max(Math.round((compact?16:18)*s),lines.detail);
+  return {title:title,detail:detail,height:title+detail+Math.round((compact?5:8)*s)};
+}
+M.rowH=Math.max(M.rowH,ssTrackTextMetrics(1,false).height);
+function ssRunWidth(gr,text,font){
+  if(!text)return 0;
+  var measure=typeof gr.MeasureString==='function'&&gr.MeasureString(text,font,0,0,Math.max(4096,text.length*(font.Size||32)*2),1024,SS_RUN_FORMAT);
+  return measure&&measure.Width>0?measure.Width:gr.CalcTextWidth(text,font,true);
+}
+function ssMeasuredRuns(gr,text,font,h,fixed){
+  var runs=ssTextRuns(String(text),font);
+  for(var run of runs){
+    if(h!==undefined&&!fixed)run.font=ssFitFont(gr,run.font,h);
+    run.width=ssRunWidth(gr,run.text,run.font);
+  }
+  return runs;
+}
+function ssMeasureText(gr,text,font,h){
+  var width=0;
+  for(var run of ssMeasuredRuns(gr,text,font,h,false))width+=run.width;
+  return width;
+}
+function ssText(gr,s,f,c,x,y,w,h,align,ellipsis,fixed){
+  if(w<=0||h<=0)return;
+  // Grayscale coverage also works in the offscreen viewports and marquee bitmap.
+  s=String(s);gr.SetTextRenderingHint(3);
+  var runs=ssTextRuns(s,f);
+  if(runs.length===1){
+    var font=fixed?runs[0].font:ssFitFont(gr,runs[0].font,h);
+    gr.DrawString(s,font,c,Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)),
+      (align<<28)|(1<<24)|((ellipsis?3:0)<<20)|0x1000);
+    return;
+  }
+  var width=0;
+  for(var run of runs){
+    if(!fixed)run.font=ssFitFont(gr,run.font,h);
+    run.width=ssRunWidth(gr,run.text,run.font);width+=run.width;
+  }
+  if(width>w&&ellipsis){
+    var suffix='\u2026',suffixFont=fixed?f:ssFitFont(gr,f,h),suffixW=ssRunWidth(gr,suffix,suffixFont);
+    var budget=Math.max(0,w-suffixW),visible=[];
+    width=0;
+    for(var run of runs){
+      if(width+run.width<=budget){visible.push(run);width+=run.width;continue;}
+      var chars=ssTextClusters(run.text),lo=0,hi=chars.length;
+      while(lo<hi){
+        var mid=(lo+hi+1)>>1;
+        if(width+ssRunWidth(gr,chars.slice(0,mid).join(''),run.font)<=budget)lo=mid;else hi=mid-1;
+      }
+      var prefix=chars.slice(0,lo).join('').trimEnd(),prefixW=ssRunWidth(gr,prefix,run.font);
+      if(prefix){visible.push({text:prefix,font:run.font,width:prefixW});width+=prefixW;}
+      break;
+    }
+    if(suffixW<=w){visible.push({text:suffix,font:suffixFont,width:suffixW});width+=suffixW;}
+    runs=visible;
+  }
+  var offset=align===0?0:Math.max(0,(w-width)/(align===1?2:1));
+  for(var run of runs){
+    var span=Math.min(w-offset,Math.ceil(run.width)+2);
+    if(span<=0)break;
+    gr.DrawString(run.text,run.font,c,Math.round(x+offset),Math.round(y),Math.max(1,Math.round(span)),Math.max(1,Math.round(h)),(1<<24)|SS_RUN_FORMAT);
+    offset+=run.width;
+  }
+}
+function tL(gr,s,f,c,x,y,w,h,fixed){ssText(gr,s,f,c,x,y,w,h,0,true,fixed);}
 function tR(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,2,false);}
 function tC(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,1,false);}
 function tCE(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,1,true);}
+function ssDrawFixedLabel(gr,s,f,c,x,y,w,h){tL(gr,s,f,c,x,y,w,h,true);}
 
 /* ------------------------- vector icons (SVG rasterized via gdi.LoadSVG, tinted + cached) ------------------------- */
 var ICONS={

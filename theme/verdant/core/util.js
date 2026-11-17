@@ -15,11 +15,11 @@ function ssHeaderBoxes(art,compact,scale){
   var eyeH=16*scale,gap=6*scale,metaH=22*scale,titleY=eyeH+gap,metaY=compact?art+12*scale:art-metaH;
   return {eyeY:0,eyeH:eyeH,titleY:titleY,titleH:Math.max(1,Math.min(76*scale,(compact?art:metaY-gap)-titleY)),metaY:metaY,metaH:metaH};
 }
-function ssDrawTrackLabels(gr,title,detail,color,x,y,w,h,s){
-  if(!detail){tL(gr,title,FONT.rowTitle,color,x,y,w,h);return;}
-  var titleH=Math.round(21*s),detailH=Math.round(17*s),top=y+Math.max(0,Math.round((h-titleH-detailH)/2));
-  tL(gr,title,FONT.rowTitle,color,x,top,w,titleH);
-  tL(gr,detail,FONT.rowArtist,COL.text2,x,top+titleH,w,detailH);
+function ssDrawTrackLabels(gr,title,detail,color,x,y,w,h,s,compact){
+  if(!detail){ssDrawFixedLabel(gr,title,FONT.rowTitle,color,x,y,w,h);return;}
+  var text=ssTrackTextMetrics(s,compact),top=y+Math.round((h-text.title-text.detail)/2);
+  ssDrawFixedLabel(gr,title,FONT.rowTitle,color,x,top,w,text.title);
+  ssDrawFixedLabel(gr,detail,FONT.rowArtist,COL.text2,x,top+text.title,w,text.detail);
 }
 function hitIdx(list,x,y){ for(var i=0;i<list.length;i++) if(inRect(x,y,list[i])) return i; return -1; }
 function hit(list,x,y){ var i=hitIdx(list,x,y); return i<0?null:list[i]; }

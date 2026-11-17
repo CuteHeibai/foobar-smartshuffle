@@ -7,7 +7,7 @@ function harness(){
   const gr=new Proxy({CalcTextWidth(){return 60;},FillEllipse(){draws.push('play');}},{get:(o,k)=>o[k]||(()=>{})});
   const c={console,Date,Math,JSON,isFinite,RGB:()=>0,fb:{ProfilePath:'P:\\'},utils:{WriteTextFile(p,s){writes.push(JSON.parse(s));}},window:{},
     pbShuffle:true,VOL_CEIL:0,ssDensity:1,SS_APPEARANCE:'dark',HB_SONGS_PLAY:null,
-    COL:{base:1,green:2,onAccent:3,text:4,text2:5,greenHover:6},FONT:{},M:{cpad:24,artSz:160},SHEAD:260,
+    COL:{base:1,green:2,onAccent:3,text:4,text2:5,greenHover:6},FONT:{},M:{cpad:24,artSz:160,rowH:50},SHEAD:260,
     hv:()=>true,hit:(list,x,y)=>list.find(h=>x>=h.x0&&x<=h.x1&&y>=h.y0&&y<=h.y1),inRect:(x,y,h)=>x>=h.x0&&x<=h.x1&&y>=h.y0&&y<=h.y1,repaintAll(){},drawIcon(){},ssHeaderBoxes:()=>({eyeY:0,eyeH:20,titleY:22,titleH:50,metaY:80,metaH:20}),
     ensureBuilt:()=>true,gateReady:()=>true,rowHandlesSongs:()=>[],ROW_GATE_MS:0,songsReady(){},songsSteps(){},
     songsTracks:[{h:{RawPath:'file://A',SubSong:0}},{h:{RawPath:'file://B',SubSong:1}}],songsRows:[{k:'t'}],songsTotalSec:80,songsGroup:'none',
@@ -90,7 +90,8 @@ function artistHarness(){
   const h=harness(),c=h.c;
   h.load('views/cards.js');h.load('views/artist.js');
   Object.assign(c,{view:'artist',viewArtist:'Artist',viewAlbum:'',artScroll:0,artScrollT:0,HB_CARD:[],SS_ARTIST_HB:null,HB_ARTIST_PLAY:null,
-    coverCol:()=>0,ssScriptFont:(s,f)=>f,ssDrawArtistAvatar(){},ssArtistName:String,drawRounded(){},ssRowHover:()=>false,tR(){},
+    coverCol:()=>0,ssFontLineHeight:()=>0,ssTextClusters:Array.from,ssMeasureText:(g,text)=>g.CalcTextWidth(text),
+    ssTrackTextMetrics:()=>({title:22,detail:18,height:48}),ssDrawFixedLabel:(...args)=>c.tL(...args),ssDrawArtistAvatar(){},ssArtistName:String,drawRounded(){},ssRowHover:()=>false,tR(){},
     ssBeginViewport:(key,gr)=>({gr,finish(){}}),drawScrollbar(){},clampPx:(value,max)=>Math.max(0,Math.min(value,max))});
   return {h,c,gr:{FillGradRect(){},FillSolidRect(){},FillPolygon(){},FillEllipse(){},CalcTextWidth:s=>s.length*8}};
 }

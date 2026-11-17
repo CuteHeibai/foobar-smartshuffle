@@ -59,15 +59,15 @@ function ssFooterMarqueeTick(){
 function ssDrawFooterTitle(gr,text,font,col,x,y,w,h){
   x=Math.round(x);y=Math.round(y);w=Math.max(1,Math.round(w));h=Math.max(1,Math.round(h));
   if(!ssFooterMarqueeAllowed()){ssStopFooterMarquee();tL(gr,text,font,col,x,y,w,h);return;}
-  var fitted=ssFitFont(gr,ssScriptFont(text,font),h),textW=Math.ceil(gr.CalcTextWidth(text,fitted));
+  var textW=Math.ceil(ssMeasureText(gr,text,font,h));
   if(textW<=w){ssStopFooterMarquee();tL(gr,text,font,col,x,y,w,h);return;}
   var key=ssFooterTrackKey(),m=ssFooterMarquee;
-  if(!m||m.track!==key||m.text!==text||m.font!==font||m.fitted!==fitted||m.w!==w||m.h!==h||m.col!==col||m.bg!==COL.black){
+  if(!m||m.track!==key||m.text!==text||m.font!==font||m.w!==w||m.h!==h||m.col!==col||m.bg!==COL.black){
     ssStopFooterMarquee();
     var image=gdi.CreateImage(textW+2,h),g=image.GetGraphics();
     g.FillSolidRect(0,0,textW+2,h,COL.black);
-    ssText(g,text,fitted,col,0,0,textW+2,h,0,false);image.ReleaseGraphics(g);
-    m=ssFooterMarquee={track:key,text:text,font:font,fitted:fitted,w:w,h:h,col:col,bg:COL.black,image:image,
+    ssText(g,text,font,col,0,0,textW+2,h,0,false);image.ReleaseGraphics(g);
+    m=ssFooterMarquee={track:key,text:text,font:font,w:w,h:h,col:col,bg:COL.black,image:image,
       distance:textW+2-w,speed:24*ssDensity,started:Date.now(),offset:0};
     ssFooterMarqueeTimer=window.SetInterval(ssFooterMarqueeTick,33);
   }
@@ -114,7 +114,7 @@ function drawBar(gr){
   var fsx=W-Math.round(28*s2), qx=fsx-Math.round(44*s2), lx2=qx-Math.round(40*s2);
   var volW=Math.min(Math.round(76*s2),Math.max(48,R.barToolsW-236)), volX=lx2-Math.round(30*s2)-volW, vix=volX-Math.round(30*s2);
   var shx=vix-Math.round(42*s2);
-  var leftInk=Math.min(R.barInfoW,tx+Math.max(gr.CalcTextWidth(npTitleStr,FONT.npTitle),gr.CalcTextWidth(npArtistStr,FONT.npArtist))+12*s2);
+  var leftInk=Math.min(R.barInfoW,tx+Math.max(ssMeasureText(gr,npTitleStr,FONT.npTitle,20*s),ssMeasureText(gr,npArtistStr,FONT.npArtist,18*s))+12*s2);
   var rightInk=shx-Math.round(30*s2);
   var transport=ssTransportLayout(W,leftInk,rightInk,s2),cxC=transport.center;R.transport=transport;
   var pcy=by+Math.round(M.barH*0.40), pb=(hv(cxC-27*s2,by+7*s2,cxC+27*s2,by+61*s2)?52:48)*s2, pbx=cxC-pb/2, pby=pcy-pb/2;

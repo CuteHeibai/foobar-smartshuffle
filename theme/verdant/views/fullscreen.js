@@ -199,9 +199,9 @@ function drawFsDefault(gr,bot){
     var title=NP?(npTitleStr||'尚未播放'):album.album;
     var artist=NP?npArtistStr:ssArtistName(album.artist),src=NP?npPlaylistSrc():null;
     var source=src?'歌单 · '+src:'';
-    var titleW=gr.CalcTextWidth(title,ssScriptFont(title,FONT.title));
-    var artistW=gr.CalcTextWidth(artist,ssScriptFont(artist,FONT.meta));
-    var sourceW=source?gr.CalcTextWidth(source,ssScriptFont(source,FONT.fsSrc)):0;
+    var titleW=ssMeasureText(gr,title,FONT.title,55);
+    var artistW=ssMeasureText(gr,artist,FONT.meta,24);
+    var sourceW=source?ssMeasureText(gr,source,FONT.fsSrc,26):0;
     var m=ssFsDefaultGeometry(W,bot,Math.round(Math.max(titleW,artistW,sourceW))+8);
     drawRounded(gr,m.x,m.y,m.size,9,NP||album.handle,NP?'np':album.album);
     tL(gr,NP?'正在聆听':'唱片推荐',FONT.eyebrow,NP?COL.green:COL.text2,m.textX,m.textY,m.textW,24);

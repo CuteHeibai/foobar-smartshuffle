@@ -67,8 +67,7 @@ function drawPlaylist(gr,r){
     var cs=40*s, cy=ry+(rh-cs)/2, alb=meta.album[j];
     drawCover(gr,titleX,cy,cs,3,h,alb||String(j),meta.artkey[j]);
     var ttx=titleX+cs+12, ttw=titleW-cs-12;
-    tL(gr,meta.title[j],FONT.rowTitle,titleCol,ttx,ry+8*s,ttw,20*s);
-    tL(gr,meta.artist[j],FONT.rowArtist,COL.text2,ttx,ry+30*s,ttw,16*s);
+    ssDrawTrackLabels(gr,meta.title[j],meta.artist[j],titleCol,ttx,ry,ttw,rh,s);
     if(albumW>0) tL(gr,alb,FONT.rowCell,COL.text2,albumX,ry,albumW,rh);
     tR(gr,meta.len[j],FONT.rowCell,COL.text2,rx-durW,ry,durW,rh);
     });

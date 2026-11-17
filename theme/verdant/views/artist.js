@@ -3,7 +3,7 @@ var ssCollectionRows=[],ssCollectionRowsSource=null,ssCollectionAlbumOnly=false,
 function ssBuildCollectionRows(albumOnly,s,width){
   if(ssCollectionRowsSource===artistAlbums&&ssCollectionAlbumOnly===albumOnly&&ssCollectionDensity===s&&ssCollectionWidth===width)return;
   ssCollectionRowsSource=artistAlbums;ssCollectionAlbumOnly=albumOnly;ssCollectionDensity=s;ssCollectionWidth=width;ssCollectionRows=[];
-  var y=0,header=Math.round(62*s),rowH=Math.round((albumOnly?40:50)*s);
+  var y=0,header=Math.round(62*s),rowH=albumOnly?Math.max(Math.round(40*s),ssTrackTextMetrics(s,false).title):M.rowH;
   var namedAlbums=albumOnly?[]:artistAlbums.filter(function(album){return album.named;});
   if(namedAlbums.length){
     var sectionH=Math.round(34*s),grid=ssAlbumGrid(width,s,138),gap=grid.gap,cols=grid.cols;

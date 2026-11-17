@@ -1,7 +1,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),test=require('node:test');
 function harness(){
  const paints=[],layers=[],texts=[],c={ssDensity:1,M:{cpad:24,cardTextH:58,pad:8},FONT:{},COL:{},HB_CARD:[],HB_PLPLAY:[],homeScroll:0,homeScrollT:0,plScroll:0,plScrollT:0,drag:'',NP:null,npTitleStr:'',npArtistStr:'',fb:{IsPlaying:false},shelfHandles:[],warmed:{},artistList:[],
- visiblePlaylists:()=>[],getAlbumCatalog:()=>({albums:Array.from({length:44},(_,i)=>({id:'album-'+i,album:'Album '+i,artist:'Artist '+i,year:i===7?'2025':'',handle:{i}}))}),ensureBuilt:()=>true,gateReady:()=>true,clampPx:(n,m)=>Math.max(0,Math.min(n,m)),hv:()=>false,ssArtistName:String,ssScriptFont:(s,f)=>f,
+ visiblePlaylists:()=>[],getAlbumCatalog:()=>({albums:Array.from({length:44},(_,i)=>({id:'album-'+i,album:'Album '+i,artist:'Artist '+i,year:i===7?'2025':'',handle:{i}}))}),ensureBuilt:()=>true,gateReady:()=>true,clampPx:(n,m)=>Math.max(0,Math.min(n,m)),hv:()=>false,ssArtistName:String,ssFontLineHeight:()=>0,ssTextClusters:Array.from,
+ ssMeasureText:(gr,text,font)=>gr.CalcTextWidth(text,font),ssDrawFixedLabel:(gr,s,f,col,x,y,w,h)=>texts.push(s),
  ssDrawIdleRecord(){},drawIcon(){},drawRounded:(gr,x,y,w)=>paints.push({gr,x,y,w}),tL:(gr,text)=>texts.push(text),tC(){},tR(){},drawScrollbar(){},drawScrollbarH(){},drawPlaylistCard(){},startWarmHome(){},
  ssBeginViewport:(key,gr,x,y,w,h)=>{const layer={key,x,y,w,h,gr:{FillRoundRect(){},FillSolidRect(){},CalcTextWidth:s=>s.length*8},done:false};layers.push(layer);return {gr:layer.gr,finish(){layer.done=true;}};}};
  vm.createContext(c);for(const file of ['../core/corners','cards','home'])vm.runInContext(fs.readFileSync('theme/verdant/views/'+file+'.js','utf8'),c);

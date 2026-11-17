@@ -114,27 +114,33 @@ function ssAlbumTitleLines(gr,title,w){
   if(ssAlbumTitleFont!==FONT.card){ssAlbumTitleFont=FONT.card;ssAlbumTitleCache.clear();}
   var key=w+'|'+title,cached=ssAlbumTitleCache.get(key);
   if(cached)return cached;
-  var font=ssScriptFont(title,FONT.card),lines=[title];
-  if(title&&gr.CalcTextWidth(title,font)>w){
-    var chars=Array.from(title),lo=1,hi=chars.length;
+  var lines=[title];
+  if(title&&ssMeasureText(gr,title,FONT.card)>w){
+    var chars=ssTextClusters(title),lo=1,hi=chars.length;
     while(lo<hi){
       var mid=(lo+hi+1)>>1;
-      if(gr.CalcTextWidth(chars.slice(0,mid).join(''),font)<=w)lo=mid;else hi=mid-1;
+      if(ssMeasureText(gr,chars.slice(0,mid).join(''),FONT.card)<=w)lo=mid;else hi=mid-1;
     }
     var first=chars.slice(0,lo).join(''),space=first.lastIndexOf(' ');
-    if(space>first.length*.64)lo=Array.from(first.slice(0,space)).length;
-    lines=[chars.slice(0,lo).join('').trim(),chars.slice(lo).join('').trim()];
+    if(space>first.length*.64)lo=ssTextClusters(first.slice(0,space)).length;
+    var remainder=chars.slice(lo).join('').trim();
+    lines=[chars.slice(0,lo).join('').trim()];
+    if(remainder)lines.push(remainder);
   }
   if(ssAlbumTitleCache.size>=512)ssAlbumTitleCache.clear();
   ssAlbumTitleCache.set(key,lines);
   return lines;
 }
-function ssAlbumLabelHeight(s){return Math.round(66*s);}
+function ssAlbumLabelMetrics(s){
+  var top=Math.round(7*s),title=Math.max(Math.round(20*s),ssFontLineHeight(FONT.card)+1);
+  var detail=Math.max(Math.round(18*s),ssFontLineHeight(FONT.plSub)+1),gap=Math.round(2*s);
+  return {top:top,title:title,detail:detail,gap:gap,height:top+2*title+gap+detail};
+}
+function ssAlbumLabelHeight(s){return ssAlbumLabelMetrics(s).height;}
 function ssDrawAlbumLabels(gr,title,detail,x,y,w,s){
-  var lines=ssAlbumTitleLines(gr,title,w),lh=Math.round(20*s),top=y+Math.round(7*s);
-  tL(gr,lines[0],FONT.card,COL.text,x,top,w,lh);
-  if(lines[1])tL(gr,lines[1],FONT.card,COL.text,x,top+lh,w,lh);
-  tL(gr,detail,FONT.plSub,COL.text2,x,top+2*lh,w,Math.round(18*s));
+  var lines=ssAlbumTitleLines(gr,title,w),text=ssAlbumLabelMetrics(s),top=y+text.top;
+  for(var i=0;i<lines.length;i++)ssDrawFixedLabel(gr,lines[i],FONT.card,COL.text,x,top+i*text.title,w,text.title);
+  ssDrawFixedLabel(gr,detail,FONT.plSub,COL.text2,x,top+lines.length*text.title+text.gap,w,text.detail);
 }
 function drawLibraryAlbumCard(gr,x,y,w,album,clipTop,clipBot){
   var h=w+ssAlbumLabelHeight(ssDensity),top=Math.max(y,clipTop),bottom=Math.min(y+h,clipBot);

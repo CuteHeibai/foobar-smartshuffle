@@ -19,11 +19,10 @@ function qRow(gr,r,x,qy,rh){
   return {x0:x0,y0:y0,x1:x1,y1:y1};
 }
 // cover + title + artist, the layout every queue entry shares
-function qEntry(gr,r,x,y,cs,dy,h,seed,key,title,artist,tcol){
+function qEntry(gr,r,x,y,cs,h,seed,key,title,artist,tcol){
   drawCover(gr,x,y,cs,4,h,seed,key);
-  var tx=x+cs+12, tw=r.w-36-cs-12;
-  tL(gr,title,FONT.qName,tcol,tx,y+dy,tw,18);
-  tL(gr,artist,FONT.qArtist,COL.text2,tx,y+dy+20,tw,16);
+  var tx=x+cs+12,tw=r.w-36-cs-12,textH=Math.max(cs,ssTrackTextMetrics(ssDensity,true).height);
+  ssDrawTrackLabels(gr,title,artist,tcol,tx,y,tw,textH,ssDensity,true);
 }
 function drawQueue(gr){
   if(!R.queue||R.queue.w<=0){HB_TABS=[];HB_Q=[];SS_LYRIC_BTN=null;SS_QUEUE_SB=null;return;}
@@ -58,18 +57,18 @@ function ssDrawQueueContent(gr){
     return;
   }
 
-  var qy=r.y+70;
+  var qy=r.y+70,compactH=ssTrackTextMetrics(ssDensity,true).height;
   if(NP){
     tL(gr,'正在播放',FONT.sect,COL.text,x,qy,r.w-36,24);
     qy+=36;
-    qEntry(gr,r,x,qy,48,6,NP,'np',undefined,npTitleStr,npArtistStr,(fb.IsPlaying||fb.IsPaused)?COL.green:COL.text);
+    qEntry(gr,r,x,qy,48,NP,'np',undefined,npTitleStr,npArtistStr,(fb.IsPlaying||fb.IsPaused)?COL.green:COL.text);
   }else{
     ssDrawIdleRecord(gr,x,qy,48);
     tL(gr,'尚未播放',FONT.qName,COL.text2,x+60,qy,r.w-96,48);
   }
-  qy+=70;
+  qy+=Math.max(70,compactH+18);
 
-  var rh=56, bottom=r.y+r.h-8, shown=0, qi;
+  var rh=Math.max(56,compactH+6), bottom=r.y+r.h-8, shown=0, qi;
   if(pbRepeat!==2 && ssDrawNativeQueue(gr,r,x,qy,bottom)) return;
   // real manual queue (explicitly-queued tracks) first, if any
   var mq=null; try{ mq=plman.GetPlaybackQueueHandles(); }catch(e){ mq=null; }
@@ -80,7 +79,7 @@ function ssDrawQueueContent(gr){
       var qh=mq[qi]; if(!qh) continue;
       var qhb=qRow(gr,r,x,qy,rh); qhb.q=qi;qhb.scope='priority';qhb.queueIndex=qi;qhb.track_id=qh.Path+'|'+qh.SubSong; HB_Q.push(qhb);
       var qm=qRowMeta(qh);
-      qEntry(gr,r,x,qy,44,5,qh,'mq'+qi,undefined,qm.t,qm.a,COL.text);
+      qEntry(gr,r,x,qy,44,qh,'mq'+qi,undefined,qm.t,qm.a,COL.text);
       qy+=rh; shown++;
     }
     qy+=10;
@@ -89,7 +88,7 @@ function ssDrawQueueContent(gr){
   if(pbRepeat===2){
     if(NP && qy+rh+30<bottom){
       tL(gr,'正在单曲循环',FONT.sect,COL.text,x,qy,r.w-36,24); qy+=36;
-      qEntry(gr,r,x,qy,44,5,NP,'np',undefined,npTitleStr,npArtistStr,COL.green);
+      qEntry(gr,r,x,qy,44,NP,'np',undefined,npTitleStr,npArtistStr,COL.green);
     }
     return;
   }
@@ -114,7 +113,7 @@ function ssDrawQueueContent(gr){
         if(qy+rh>bottom) break;
         var h=items[k]; if(!h) continue;
         var nhb=qRow(gr,r,x,qy,rh); nhb.pl=pli; nhb.item=k; HB_Q.push(nhb);
-        qEntry(gr,r,x,qy,44,5,h,qmeta.album[k]||String(k),qmeta.artkey[k],qmeta.title[k],qmeta.artist[k],COL.text);
+        qEntry(gr,r,x,qy,44,h,qmeta.album[k]||String(k),qmeta.artkey[k],qmeta.title[k],qmeta.artist[k],COL.text);
         qy+=rh; shown++;
       }
       if(shown===0) tL(gr,'已到歌单末尾',FONT.qArtist,COL.text3,x,qy,r.w-36,18);
