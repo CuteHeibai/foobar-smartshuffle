@@ -43,23 +43,24 @@ function drawSongs(gr,r){
      Grouped mode drops all of that -- the header above already shows artwork, album and artist --
      so rows go single-line and indent one step per nesting level. Secondary column follows:
      ALBUM when flat, ARTIST when grouped by album, nothing when grouped by artist. */
-  var flat=(g==='none'), tind=flat?0:(g==='both'?SG_IND*2:SG_IND);
+  var flat=(g==='none'), tind=flat?0:Math.round(SG_IND*(g==='both'?2:1)*s);
   var showAlbum=flat&&!compact, showArtist=(g==='album');
-  var playW=ssTrackPlayWidth(s),durW=64,cgap=12;
+  var playW=ssTrackPlayWidth(s),durW=Math.round(64*s),cgap=Math.round(12*s),moreW=Math.round(24*s);
   var playX=lx+tind,titleX=playX+playW+cgap;
   /* Duration stays on a capped reading measure; the hit row and favorite gutter still reach the panel. */
   var readR=Math.min(rx,titleX+Math.round(900*s));
-  var colW=showAlbum?Math.min(270,Math.round((readR-titleX-durW-cgap*2)*0.26)):(showArtist?Math.round((readR-titleX-durW-cgap*2)*0.28):0);
-  var colX=readR-durW-cgap-colW;
-  var titleW=(colW?colX:readR-durW)-cgap-titleX;
+  var moreX=readR-durW-cgap-moreW;
+  var colW=showAlbum?Math.min(270,Math.round((moreX-titleX-cgap*2)*0.26)):(showArtist?Math.round((moreX-titleX-cgap*2)*0.28):0);
+  var colX=moreX-cgap-colW;
+  var titleW=(colW?colX:moreX)-cgap-titleX;
 
-  var listTop=r.y+SHEAD+8;
-  var rowsTop=listTop+34, cropY=r.y+r.h, viewH=cropY-rowsTop;
-  var contentH=songsContentH, maxPx=Math.max(0,contentH-viewH);
+  var listTop=r.y+SHEAD+Math.round(8*s);
+  var rowsTop=listTop+Math.round(34*s), cropY=r.y+r.h, viewH=cropY-rowsTop;
+  var contentH=Math.round(songsContentH*s), maxPx=Math.max(0,contentH-viewH);
   if(viewH<1)return;
   SONGS_MAXPX=maxPx;
   songsScroll=clampPx(songsScroll,maxPx); songsScrollT=clampPx(songsScrollT,maxPx);
-  var drawScroll=Math.round(songsScroll),j0=songsFirstAt(drawScroll);
+  var drawScroll=Math.round(songsScroll),j0=songsFirstAt(drawScroll/s);
   var parentGr=gr,layer=ssBeginViewport('main-list',gr,r.x,rowsTop,r.w,Math.max(1,viewH));gr=layer.gr;
   // Nested mode: a rail runs from each artist banner past all of its albums, so the owning
   // artist stays visible. Drawn before the rows so hover fills paint over it, and started from
@@ -68,14 +69,14 @@ function drawSongs(gr,r){
     var q0=(songsRows[j0].g1i!==undefined)?songsRows[j0].g1i:j0;
     for(var q=q0;q<songsRows.length;q++){
       var gq=songsRows[q]; if(gq.k!=='g1') continue;
-      var rt=rowsTop+gq.y+gq.h-drawScroll-4, rb=rowsTop+(gq.y1||0)-drawScroll-8;
+      var rt=rowsTop+Math.round((gq.y+gq.h-4)*s)-drawScroll, rb=rowsTop+Math.round(((gq.y1||0)-8)*s)-drawScroll;
       if(rt>=cropY) break;
       var t0=Math.max(rt,rowsTop), t1=Math.min(rb,cropY);
-      if(t1>t0) gr.FillSolidRect(lx+SG_IND/2-1,t0,2,t1-t0,ssInk(30));   // centred in the indent gutter
+      if(t1>t0) gr.FillSolidRect(lx+SG_IND*s/2-1,t0,2,t1-t0,ssInk(30));   // centred in the indent gutter
     }
   }
   for(var j=j0; j<songsRows.length; j++){
-    var row=songsRows[j], ry=rowsTop+row.y-drawScroll, gh=row.h;
+    var row=songsRows[j], rowTop=Math.round(row.y*s),ry=rowsTop+rowTop-drawScroll,gh=Math.round((row.y+row.h)*s)-rowTop;
     if(ry>=cropY) break;
     var vy0=Math.max(ry,rowsTop), vy1=Math.min(ry+gh,cropY);   // visible band: rows scrolled
     if(vy1<=vy0) continue;                                     // under the sticky header don't take the mouse
@@ -84,7 +85,7 @@ function drawSongs(gr,r){
       ssDrawCachedRow(gr,'song:'+row.ti,r.x,ry,r.w,gh,function(gr){
       var isHover=ssRowHover(lx-8,vy0,rx+8,vy1);
       if(isHover) ssFillContinuousRect(gr,lx-8,ry,rx-lx+16,gh,4,4,COL.rowHover);
-      ssDrawTrackLead(gr,playX,ry,playW,gh,row.n,isPlaying);
+      ssDrawTrackLead(gr,playX,ry,playW,gh,isPlaying);
       if(flat){
         var cs=40*s, cy=ry+(gh-cs)/2;
         drawCover(gr,titleX,cy,cs,3,t.h,t.album||t.title,t.artkey);
@@ -95,16 +96,18 @@ function drawSongs(gr,r){
       }
       if(showAlbum) tL(gr,t.album,FONT.rowCell,COL.text2,colX,ry,colW,gh);
       else if(showArtist) tL(gr,t.artist,FONT.rowCell,COL.text2,colX,ry,colW,gh);
+      var smy=ry+Math.round((gh-moreW)/2);
+      drawIcon(gr,'more',COL.text2,moreX,smy,moreW,moreW,Math.round(14*s));
       tR(gr,t.len,FONT.rowCell,COL.text2,readR-durW,ry,durW,gh);
       },flat);
-      HB_TR.push({x0:lx-8,y0:vy0,x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:playX,pgx1:playX+playW,playOnHover:true,playVisible:isPlaying,playId:t.h?ssTrackID(t.h):row.ti,favoriteX:rx+4*s});
+      HB_TR.push({x0:lx-8,y0:vy0,x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:playX,pgx1:playX+playW,playOnHover:true,playVisible:true,playId:t.h?ssTrackID(t.h):row.ti,more:{x0:moreX,y0:ry+Math.round((gh-moreW)/2),x1:moreX+moreW,y1:ry+Math.round((gh-moreW)/2)+moreW},favoriteX:rx+4*s});
     } else {
       /* Group header: every kind is the same block on the same rhythm (GAP, artwork, PADB),
          differing only in indent, artwork size and -- for the artist banner -- a slab + eyebrow. */
       var nest=(row.k==='g2'), isArt=(row.kind==='artist'), banner=(isArt && g==='both');
-      var gap=nest?SG_GAP2:SG_GAP1, acs=nest?SG_ART2:SG_ART1;
-      var blockTop=ry+gap, blockH=gh-gap-(nest?SG_PADB2:SG_PADB1);
-      var hx=lx+(nest?SG_IND:0), hy=blockTop+(banner?SG_SLABP:0);
+      var gap=Math.round((nest?SG_GAP2:SG_GAP1)*s),acs=Math.round((nest?SG_ART2:SG_ART1)*s);
+      var blockTop=ry+gap, blockH=gh-gap-Math.round((nest?SG_PADB2:SG_PADB1)*s);
+      var hx=lx+(nest?Math.round(SG_IND*s):0),hy=blockTop+(banner?Math.round(SG_SLABP*s):0);
       // divider only once the row's top edge is actually in view (it sits above the crop band)
       if(j>0 && !nest && ry+2>=rowsTop) gr.DrawLine(lx,ry+2,rx,ry+2,banner?2:1,COL.line);
       var hb0=Math.max(blockTop-(banner?0:4),rowsTop), hb1=vy1;
@@ -114,8 +117,8 @@ function drawSongs(gr,r){
       if(isArt) ssDrawArtistAvatar(gr,hx,hy,acs,row.label);
       else drawRounded(gr,hx,hy,acs,5,row.handle,row.seed);
       // text block centred against the artwork, running to the same right edge as the rows
-      var htx=hx+acs+SG_TGAP, htw=rx-htx;
-      var eyeH=banner?16:0, nameH=nest?22:26, subH=16;
+      var htx=hx+acs+Math.round(SG_TGAP*s),htw=rx-htx;
+      var eyeH=banner?Math.round(16*s):0,nameH=Math.round((nest?22:26)*s),subH=Math.round(16*s);
       var ty0=Math.round(hy+acs/2-(eyeH+nameH+subH)/2);
       var sub=banner?(fmtNum(row.albums||1)+' album'+((row.albums||1)===1?'':'s')+'  '+CH_DOT+'  '+fmtNum(row.count)+' 首歌曲')
                     :((row.sub?row.sub+'  '+CH_DOT+'  ':'')+fmtNum(row.count)+' 首歌曲');

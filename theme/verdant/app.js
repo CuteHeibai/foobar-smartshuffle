@@ -74,7 +74,7 @@ function stopScrollAnim(){ if(scrollTimer){ window.ClearInterval(scrollTimer); s
 
 function hv(x0,y0,x1,y1){ return mx>=x0 && mx<x1 && my>=y0 && my<y1; }
 var HB_PL=[], HB_TR=[], HB_CTRL=[], HB_TABS=[], HB_SEEK=null, HB_VOL=null, HB_Q=[];
-var HB_CARD=[],HB_PLPLAY=[],HB_PLAYLIST_PLAY=null,HB_SONGS_PLAY=null,HB_ARTIST_PLAY=null,HB_ALBUMS=null,HB_ALBUM_BACK=null,ssPlaylistPlayDown=null,ssTrackPlayDown=null, HB_HOME=null, HB_CAP=null, HB_MENU=[], SB=null;
+var HB_CARD=[],HB_PLPLAY=[],HB_PLAYLIST_PLAY=null,HB_SONGS_PLAY=null,HB_ARTIST_PLAY=null,HB_ALBUMS=null,HB_ALBUM_BACK=null,ssPlaylistPlayDown=null,ssTrackPlayDown=null,ssRowMoreDown=null, HB_HOME=null, HB_CAP=null, HB_MENU=[], SB=null;
 var navScroll=0, NAV_MAX=0, SBN=null, HB_ADDPL=null, navDropHover=false;
 // deferred "scroll this playlist into view" -- only drawNav knows the row geometry, so it consumes this
 var navRevealPl=-1;
@@ -114,6 +114,7 @@ function layout(contentOnly){
   R.barInfoW=widths.info;R.barToolsW=widths.tools;
   R.mainX=R.navX+R.navW+g; R.mainW=R.queueX-(R.queueW>0?g:0)-R.mainX;
   var topH=R.top.bottom-R.top.y;
+  R.libraryScales=ssLibraryScales(W,H,R.navW,R.mainW,R.queueW);
   var compact=R.mainW<800*ssDensity;
   M.cpad=Math.round((R.mainW<650*ssDensity?16:24)*ssDensity);
   M.artSz=Math.round(Math.max(72*ssDensity,Math.min(110*ssDensity,R.mainW*.20,topH*.25)));
@@ -143,16 +144,42 @@ function repaintBar(){ if(fsMode){ repaintAll(); return; } markDirty(); dirtyBar
 
 /* Only frames that actually redraw main may settle the shimmer -- a bar-only repaint (the 1Hz
    clock) would otherwise count zero skeletons and stop the animation while one is on screen. */
+var ssLibraryFonts=new Map();
+function ssDrawScaledLibrary(gr,draw,scale,main){
+  if(!scale||scale===1){draw(gr);return;}
+  var fonts=FONT,density=ssDensity,padding=M.cpad,art=M.artSz,header=M.headH;
+  var scaled=ssLibraryFonts.get(scale);
+  if(!scaled){
+    scaled={};
+    for(var name in fonts)scaled[name]=ssFsFont(fonts[name],scale);
+    ssLibraryFonts.set(scale,scaled);
+  }
+  FONT=scaled;ssDensity=scale;
+  if(main){
+    M.cpad=Math.round(padding*scale);
+    M.artSz=Math.round(art*scale);
+    M.headH=SHEAD=Math.round(header*scale);
+  }
+  try{draw(gr);}
+  finally{FONT=fonts;ssDensity=density;M.cpad=padding;M.artSz=art;M.headH=SHEAD=header;}
+}
+function drawLibraryNav(gr){
+  ssDrawScaledLibrary(gr,drawNav,R.libraryScales&&R.libraryScales.nav,false);
+}
 function drawMainCounted(gr){
   shimCount=0; gateWaiting=0;
-  drawMain(gr); roundTop(gr,R.main.x,R.main.y,R.main.w);
+  var scales=R.libraryScales;
+  var scale=scales&&['songs','playlist','artist','album','albums','stats','favorites','history','later'].indexOf(view)>=0?scales.main:1;
+  if(scales&&view==='home'&&R.main.w>=1350)scale=scales.main;
+  if(view==='search'&&typeof ssSearchScale==='function')scale=ssSearchScale(R.main);
+  ssDrawScaledLibrary(gr,drawMain,scale,view!=='search'); roundTop(gr,R.main.x,R.main.y,R.main.w);
   if(typeof ssDrawPersonalRowActions==='function')ssDrawPersonalRowActions(gr);
   roundBottom(gr,R.main.x,R.main.y,R.main.w,R.main.h);
   shimSettle();
 }
 function ssDrawBase(gr){
   HB_DOTS=[];gr.FillSolidRect(0,0,W,H,COL.black);
-  drawTitleBar(gr);drawMainCounted(gr);drawNav(gr);drawQueue(gr);drawBar(gr);ssDrawResizers(gr);
+  drawTitleBar(gr);drawMainCounted(gr);drawLibraryNav(gr);drawQueue(gr);drawBar(gr);ssDrawResizers(gr);
 }
 function on_paint(gr){
   ssPaintFrame(gr);
@@ -211,9 +238,12 @@ function ssPaintFrame(gr){
   if(dirtyTitle){ dirtyTitle=false; drawTitleBar(gr); }
   if(dirtyMain||dirtyNav) HB_DOTS=[];   // these rebuild their hover targets
   if(dirtyMain){ dirtyMain=false; drawMainCounted(gr); }
-  if(dirtyNav){ dirtyNav=false; drawNav(gr); }
+  if(dirtyNav){ dirtyNav=false; drawLibraryNav(gr); }
   if(dirtyQueue){ dirtyQueue=false; drawQueue(gr); }
-  if(dirtySearch){ dirtySearch=false; if(view==='search') drawSearchBox(gr,R.main); }
+  if(dirtySearch){
+    dirtySearch=false;
+    if(view==='search')ssDrawScaledLibrary(gr,function(g){drawSearchBox(g,R.main);},ssSearchScale(R.main),false);
+  }
   if(dirtyBar){ dirtyBar=false; drawBar(gr); }
   ssEndScene(targetGraphics,gr,regions);gr=targetGraphics;ssPaintInteractions(gr);
   ssDrawTransitions(gr);
@@ -249,7 +279,7 @@ function ssRowPlayAt(x,y){
   return row&&(row.playVisible||row.playOnHover)&&x>=row.pgx0&&x<row.pgx1?row:null;
 }
 function on_mouse_lbtn_down(x,y){
-  ssPlaylistPlayDown=ssTrackPlayDown=null;
+  ssPlaylistPlayDown=ssTrackPlayDown=ssRowMoreDown=null;
   if(ssPopup)return;
   if(ssPointerDown(x,y)) return;
   if(confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;   // overlays are modal; dismissal/actions handled on button-up
@@ -260,10 +290,13 @@ function on_mouse_lbtn_down(x,y){
   if(HB_SEEK && inRect(x,y,HB_SEEK)){ drag='seek'; dragFrac=seekFrac(x); repaintBar(); return; }
   if(HB_VOL && inRect(x,y,HB_VOL)){ drag='vol'; applyVol(x); return; }
   if(SS_QUEUE_SB&&inRect(x,y,SS_QUEUE_SB)){drag='scrollq';setQueueScroll(y);return;}
+  var qAct=fsMode?null:ssQueueActionAt(x,y);if(qAct){ssQueueActionDown=qAct;return;}
   if(SBH && inRect(x,y,SBH)){ drag='scrollh'; setScrollH(x); return; }
   if(SBN && inRect(x,y,SBN)){ drag='scrolln'; setScrollN(y); return; }
   if(SB && inRect(x,y,SB)){ drag='scroll'; setScroll(y); return; }
   var card=hit(HB_CARD,x,y);if(card&&card.kind==='album')return;
+  var moreRow=fsMode?null:hit(HB_TR,x,y);
+  if(moreRow&&moreRow.more&&inRect(x,y,moreRow.more)){ssRowMoreDown={view:view,id:moreRow.playId};return;}
   var trackButton=fsMode?null:ssRowPlayAt(x,y);
   if(trackButton&&!utils.IsKeyPressed(17)){ssTrackPlayDown={view:view,id:trackButton.playId};return;}
   ssSelectionDown(x,y);
@@ -328,7 +361,7 @@ function doCtrl(act,button){
   else if(act==='play') ssPlayOrPause();
   else if(act==='next') ssSend('next');
   else if(act==='prev') ssSend('previous');
-  else if(act==='playback_mode') ssShowPlaybackModes(button?Math.max(8,button.x1-240):Math.max(8,W-320),(fsMode?H-M.barH:R.barY)-80);
+  else if(act==='playback_mode') ssShowPlaybackModes(Math.max(8,W-320),R.barY,button);
   else if(act==='preference') ssOpen();
   else if(act==='output') ssShowOutputs(Math.max(0,W-350),R.barY);
   else if(act==='scan_pause') ssSend('scan_pause',{paused:!(ssState&&ssState.scan&&ssState.scan.paused)});
@@ -338,8 +371,8 @@ function doCtrl(act,button){
   repaintAll();
 }
 function on_mouse_lbtn_up(x,y){
-  var playlistPressed=ssPlaylistPlayDown,trackPressed=ssTrackPlayDown;
-  ssPlaylistPlayDown=ssTrackPlayDown=null;
+  var playlistPressed=ssPlaylistPlayDown,trackPressed=ssTrackPlayDown,queuePressed=ssQueueActionDown,morePressed=ssRowMoreDown;
+  ssPlaylistPlayDown=ssTrackPlayDown=ssQueueActionDown=ssRowMoreDown=null;
   if(ssRecycleClick(x,y))return;
   if(!trackPressed&&!ssPopup&&!ssModal&&SS_ARTIST_HB&&inRect(x,y,SS_ARTIST_HB)){ssArtistMenu(viewArtist,x,y);return;}
   if(ssResizeEnd(x,y))return;
@@ -347,6 +380,17 @@ function on_mouse_lbtn_up(x,y){
   if(ssPointerUp(x,y)) return;
   if(typeof ssStatsPointerUp==='function'&&ssStatsPointerUp(x,y))return;
   if(typeof ssPersonalPointerUp==='function'&&ssPersonalPointerUp(x,y))return;
+  if(morePressed){
+    var moreAgain=fsMode?null:hit(HB_TR,x,y);
+    if(!drag&&!ssModal&&view===morePressed.view&&moreAgain&&moreAgain.more&&moreAgain.playId===morePressed.id&&inRect(x,y,moreAgain.more))ssBatchTrackMenu(moreAgain,moreAgain.more.x0,moreAgain.more.y1);
+    return;
+  }
+  if(queuePressed){
+    var again=fsMode?null:ssQueueActionAt(x,y),pressedRow=queuePressed.row;
+    if(!drag&&!ssModal&&again&&again.act===queuePressed.act&&again.row.scope===pressedRow.scope&&
+       again.row.queueIndex===pressedRow.queueIndex&&again.row.track_id===pressedRow.track_id)ssQueueActionRun(again);
+    return;
+  }
   if(typeof ssSelectOwner!=='undefined'&&ssSelectOwner&&ssSelectionUp(x,y))return;
   if(playlistPressed){
     if(drag||fsMode||ssPopup||ssModal||!inRect(x,y,playlistPressed))return;
@@ -468,6 +512,7 @@ function playRow(t){
 // Double-click inserts this song at the head of the user queue and starts it.
 function on_mouse_lbtn_dblclk(x,y){
   if(ssPopup||ssModal||fsMode||utils.IsKeyPressed(17)||ssRowPlayAt(x,y))return;
+  var moreDbl=hit(HB_TR,x,y);if((moreDbl&&moreDbl.more&&inRect(x,y,moreDbl.more))||ssQueueActionAt(x,y))return;
   if(confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;
   if(typeof ssPersonalActionAt==='function'&&ssPersonalActionAt(x,y))return;
   var t=hit(HB_TR,x,y);
@@ -729,7 +774,7 @@ function on_volume_change(){ repaintBar(); }
 // ReplayGain can also be switched from foobar's own Playback menu -- keep the pill honest
 function on_replaygain_mode_changed(){ repaintMain(); }
 // rgStat included: a ReplayGain scan lands as a tag write, so this is how the pill learns it finished
-function on_metadb_changed(handles,fromhook){ if(fromhook) return;ssInvalidateSearch(); ssInvalidateCatalog(); invalidateItems(); albKeyCache={}; hueCache={}; artistCandCache={}; coverPickCache={}; songsIdx=null; songsRows=null; songsTracks=null; rgStat=null; updateNP(); repaintAll(); }
+function on_metadb_changed(handles,fromhook){ if(fromhook) return;qMetaCache={};ssInvalidateSearch(); ssInvalidateCatalog(); invalidateItems(); albKeyCache={}; hueCache={}; artistCandCache={}; coverPickCache={}; songsIdx=null; songsRows=null; songsTracks=null; rgStat=null; updateNP(); repaintAll(); }
 /* A switch changes which playlist is ACTIVE, not what any playlist contains -- and every cache
    invalidateItems() drops is keyed by playlist index, so none of them went stale here. Dropping
    them meant each switch re-derived covers and re-ran the art gates against an artCache that had

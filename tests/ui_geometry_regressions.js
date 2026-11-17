@@ -45,6 +45,54 @@ test('queue keeps partial rows at both viewport edges during fractional scrollin
  assert.ok(!c.ssQueueRowSelected({...c.HB_Q[0],track_id:'replacement'}),'a changed track cannot inherit the selection');
 });
 
+test('queue rows show visible manage actions and labels stop before them',()=>{
+ const {c,load}=context();load('views/queue.js');load('views/preference.js');c.R={};c.UISCALE=1;c.pbShuffle=true;
+ c.ssState={remaining:[{id:'a',title:'A'},{id:'b',title:'B'}],queue:[{id:'m',title:'Manual'}],remaining_count:2};c.ssQueueScroll=c.ssQueueScrollT=0;c.HB_Q=[];
+ c.drawSBV=()=>null;c.SB_QUEUE={};c.hv=()=>false;c.drag=null;c.NP={};const words=[],icons=[],marks=[];
+ c.tL=c.tR=(g,s)=>words.push(s);c.drawIcon=(g,name,col,x,y,w,h)=>icons.push({name,x,y,w,h});c.ssDrawTrackLabels=(g,title,detail,color,x,y,w)=>marks.push({title,x,w});c.ssDrawCachedRow=(g,k,x,y,w,h,draw)=>draw(g);
+ c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
+ assert.equal(c.HB_Q.length,3);
+ for(const row of c.HB_Q){assert.ok(row.more,'every queue row exposes a more button');assert.ok(icons.some(i=>i.name==='more'&&i.x>=row.more.x0&&i.x+i.w<=row.more.x1+1&&i.y>=row.more.y0-1));}
+ assert.ok(c.HB_Q[0].remove,'manually queued rows can be removed');assert.ok(icons.some(i=>i.name==='close'));
+ assert.ok(!c.HB_Q[1].remove&&!c.HB_Q[2].remove,'the shuffle round has no removal API, so no fake button');
+ for(const m of marks){const row=c.HB_Q.find(r=>m.title.endsWith(r.track_id==='m'?'Manual':r.track_id.toUpperCase()));const left=row.remove?row.remove.x0:row.more.x0;assert.ok(m.x+m.w<=left,'labels end before the action buttons');}
+ assert.ok(words.includes('拖动排序'),'the header tells people rows can be dragged');
+});
+test('queue remove button drops the matching manual queue entry',()=>{
+ const {c,load}=context();load('views/queue.js');load('data/playback.js');const removed=[];
+ c.plman.GetPlaybackQueueContents=()=>[{Handle:{Path:'x',RawPath:'x',SubSong:0}},{Handle:{Path:'y',RawPath:'y',SubSong:0}}];c.plman.RemoveItemFromPlaybackQueue=i=>removed.push(i);
+ c.ssState={queue:[{id:'x|0'},{id:'y|0'}]};
+ c.HB_Q=[{scope:'priority',track_id:'y|0',queueIndex:1}];
+ assert.ok(c.ssRemoveQueueRow(c.HB_Q[0]));assert.deepEqual([...removed],[1]);
+ assert.ok(!c.ssRemoveQueueRow({scope:'remaining',track_id:'y|0',queueIndex:0}));
+});
+test('playlist header play sits below the cover and every row shows play and more',()=>{
+ const {c,load}=context();load('data/playback.js');load('views/playlist.js');
+ c.M.cpad=24;c.M.artSz=160;c.M.headH=260;c.M.rowH=56;c.ssDensity=1;c.ROW_GATE_MS=0;
+ c.activePl=()=>({i:1,name:'B',count:2});c.ensureBuilt=c.gateReady=()=>true;c.metaReady=()=>true;c.metaSteps=c.rowHandlesPl=()=>[];
+ c.plChoice=()=>({single:null});c.artHue=()=>1;c.canEditPl=()=>false;c.playingLoc=()=>null;c.npIsShuffleOf=()=>false;
+ c.getItems=()=>[{RawPath:'file://A',SubSong:0},{RawPath:'file://B',SubSong:0}];
+ c.getMeta=()=>({totalSec:200,title:['Alpha','Beta'],artist:['歌手甲','歌手乙'],album:['同一张很长的专辑名称','同一张很长的专辑名称'],len:['3:00','4:00'],artkey:[0,0]});
+ c.getPlOrder=()=>[0,1];c.warmOnce=()=>{};c.firstRow=c.firstRowT=0;c.clampPx=(v)=>v;c.sameHandle=()=>false;c.drawPlCover=()=>{};
+ c.PL_SORTS=[['歌手','artist']];c.plSort=0;c.plSortMenuOpen=false;c.drawSortDirBtn=()=>{};c.drawScrollbar=c.drawSortMenu=()=>{};c.plDropHover=false;
+ c.drawDropPill=(g,x,y,w,h)=>({x0:x,y0:y,x1:x+w,y1:y+h});c.hv=()=>false;c.drag=null;c.ssDrawCachedRow=(g,k,x,y,w,h,draw)=>draw(g);
+ const g=graphics(),icons=[];g.FillGradRect=()=>{};c.drawIcon=(g,name,col,x,y,w,h)=>icons.push({name,x,y,w,h});
+ const labels=[];c.tL=c.tR=c.tC=(g,s,f,col,x,y,w,h)=>labels.push({s,x,y,w,h});
+ c.drawPlaylist(g,{x:0,y:0,w:1440,h:900});
+ const play=c.HB_PLAYLIST_PLAY,sort=c.HB_PLSORT,coverBottom=16+160;
+ assert.ok(play&&play.label);assert.ok(play.y0>=coverBottom,'header play must sit below the cover, not on it');
+ assert.equal(play.x0,24);assert.ok(play.x1-play.x0>=32&&play.y1-play.y0>=32);
+ assert.ok(sort.x0>=play.x1,'sort controls follow the play button');
+ assert.equal(c.HB_TR.length,2);
+ for(const row of c.HB_TR){
+  assert.equal(row.playOnHover,true);assert.ok(row.playId);
+  assert.ok(row.more&&row.more.x1-row.more.x0>=20&&row.more.y1-row.more.y0>=20,'every row needs a visible more button');
+  assert.ok(row.more.x1<=row.x1&&row.more.x0>=row.x0);
+ }
+ assert.ok(icons.filter(i=>i.name==='more').length>=2,'the more glyph is drawn without hovering');
+ assert.ok(!labels.some(l=>l.s==='专辑'),'the album column heading is gone');
+ assert.ok(labels.some(l=>String(l.s).includes('同一张很长的专辑名称')),'the album stays readable on the secondary line');
+});
 test('queue header hides the round counter and retains the remaining track count',()=>{
  const {c,load}=context();load('views/preference.js');c.R={};c.pbShuffle=true;c.ssState={round:42,remaining_count:17,remaining:[],queue:[]};c.ssQueueScroll=c.ssQueueScrollT=0;c.HB_Q=[];c.hv=()=>false;c.drag=null;c.drawSBV=()=>null;c.SB_QUEUE={};const words=[];c.NP={};c.tL=(g,s)=>words.push(s);
  c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
@@ -107,11 +155,19 @@ test('Ctrl left-click toggles songs; right-click keeps its menu and holding left
  c.on_mouse_rbtn_up(20,20);assert.equal(menus,1);
  c.utils.IsKeyPressed=k=>k===1;c.ssSelectionDown(20,20);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'pending');h.advance(170);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'reorder');assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0]);
 });
-test('published font fallbacks use YaHei UI, Yu Gothic UI and Inter with ClearType',()=>{
+test('Chinese, kana and Latin share one weight and ClearType, with Inter kept for Latin runs',()=>{
  const {c}=context(),g=graphics(),draws=[],hints=[];g.SetTextRenderingHint=v=>hints.push(v);g.DrawString=(s,f)=>draws.push({s,f});
- c.tL(g,'歌曲列表',c.FONT.rowTitle,1,0,0,200,32);c.tL(g,'English song',c.FONT.rowTitle,1,0,40,200,32);
- c.tL(g,'夜に駆ける',c.FONT.rowTitle,1,0,80,200,32);
- assert.equal(draws[0].f.Name,'Microsoft YaHei UI');assert.equal(draws[1].f.Name,'Inter');assert.equal(draws[2].f.Name,'Yu Gothic UI');assert.deepEqual(hints,[5,5,5]);
+ c.tL(g,'歌曲列表',c.FONT.title,1,0,0,400,40);c.tL(g,'夜に駆ける',c.FONT.title,1,0,50,400,40);
+ c.tL(g,'English song',c.FONT.rowTitle,1,0,100,400,32);
+ assert.equal(draws[0].f.Name,'Microsoft YaHei UI');assert.equal(draws[0].f.Style,1,'bold headings keep a bold CJK face');
+ assert.equal(draws[1].f.Name,draws[0].f.Name);assert.equal(draws[1].f.Style,draws[0].f.Style);assert.equal(draws[1].f.Size,draws[0].f.Size);
+ assert.equal(draws[2].f.Name,'Inter');
+ const mixed=c.ssTextRuns('夜に駆ける / Racing into the Night',c.FONT.rowTitle);
+ assert.equal(mixed.length,2);
+ assert.ok(/^夜/.test(mixed[0].text)&&mixed[0].text.endsWith(' '),'kana and the separator stay with the CJK face');
+ assert.equal(mixed[1].text,'Racing into the Night');
+ assert.deepEqual([...mixed.map(r=>r.font.Name)],['Microsoft YaHei UI','Inter']);assert.deepEqual([...mixed.map(r=>r.font.Style)],[0,0]);
+ assert.deepEqual(hints,[5,5,5]);
 });
 test('scene restore copies align source and destination to whole pixels',()=>{
  const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[{x0:10.2,y0:49.3,x1:480.8,y1:99.3}];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=40;c.my=70;let copies=[];const g=graphics();g.DrawImage=(im,...args)=>copies.push(args);c.ssPaintInteractions(g);assert.ok(copies.length);assert.ok(copies.every(args=>args.every(Number.isInteger)));

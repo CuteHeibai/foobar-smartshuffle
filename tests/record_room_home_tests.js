@@ -53,6 +53,15 @@ test('home opens a parallel album shelf and reflows it without changing tile siz
  assert.ok(c.HB_HOME_ALBUMS.x1<300+c.M.cpad+1125-40);
 });
 
+test('desktop-width home fills the shelf with four larger cards per row',()=>{
+ const {c,gr}=harness();
+ c.drawHome(gr,{x:280,y:40,w:2200,h:1320});
+ const cards=c.HB_CARD.filter(card=>card.kind==='album');
+ assert.equal(cards.filter(card=>card.y0===cards[0].y0).length,4);
+ assert.ok(cards[0].x1-cards[0].x0>157);
+ assert.ok(c.HB_HOME_ALBUMS.x1>1800);
+});
+
 test('a short window keeps the primary action inside the main panel and clears old scroll targets',()=>{
  const {c,gr}=harness(),r={x:182,y:40,w:350,h:95};
  c.SB={};c.SBH={};c.drawHome(gr,r);

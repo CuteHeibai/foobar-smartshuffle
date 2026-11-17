@@ -194,7 +194,7 @@ function ssFsDefaultGeometry(width,bot,s){
   var top=Math.round(56*s),gap=Math.round(20*s),caption=Math.round(126*s);
   var size=Math.max(1,Math.min(Math.round(420*s),width-Math.round(64*s),bot-top-gap-caption));
   var y=top+Math.max(0,Math.round((bot-top-size-gap-caption)/2));
-  var textW=Math.min(width-Math.round(48*s),Math.round(720*s));
+  var textW=Math.max(1,width-Math.round(Math.max(48*s,width*.16)));
   return {x:Math.round((width-size)/2),y:y,size:size,textX:Math.round((width-textW)/2),textY:y+size+gap,textW:textW};
 }
 function drawFsDefault(gr,bot){
@@ -202,27 +202,29 @@ function drawFsDefault(gr,bot){
   var album=!NP&&W>=530&&bot>=278?ssHomeAlbumSelection(getAlbumCatalog().albums)[0]:null;
   var bw=128,bx=Math.round((W-bw)/2),by=Math.max(30,Math.round((bot-100)/2))+48;
   if(NP||album){
+    var m=ssFsDefaultGeometry(W,bot,s);
+    var status=NP?(fb.IsPaused?'已暂停':'正在播放'):'推荐专辑';
+    tCE(gr,status,ssFsFont(FONT.fsSrc,s),COL.text2,m.textX,m.y-Math.round(29*s),m.textW,Math.round(22*s));
     var title=NP?(npTitleStr||'尚未播放'):album.album;
     var artist=NP?npArtistStr:ssArtistName(album.artist),src=NP?npPlaylistSrc():null;
     var source=src?'歌单 · '+src:'';
-    var m=ssFsDefaultGeometry(W,bot,s);
     drawRounded(gr,m.x,m.y,m.size,Math.round(12*s),NP||album.handle,NP?'np':album.album);
-    tCE(gr,title,ssFsFont(FONT.title,s),COL.text,m.textX,m.textY,m.textW,Math.round(45*s));
+    tCE(gr,title,ssFsFont(FONT.fsTitle,s),COL.text,m.textX,m.textY,m.textW,Math.round(45*s));
     tCE(gr,artist,ssFsFont(FONT.sect2,s),COL.text2,m.textX,m.textY+Math.round(44*s),m.textW,Math.round(30*s));
     if(NP){
       if(source)tCE(gr,source,ssFsFont(FONT.fsSrc,s),COL.text2,m.textX,m.textY+Math.round(83*s),m.textW,Math.round(26*s));
       return;
     }
     var buttonH=Math.round(42*s),buttonY=Math.round(m.textY+79*s);
-    var play=ssDrawAlbumPlayAction(gr,Math.round(W/2-150*s),buttonY,Math.round(155*s),buttonH);
+    var play=ssDrawAlbumPlayAction(gr,Math.round(W/2-166*s),buttonY,Math.round(175*s),buttonH,'播放这张专辑',ssFsFont(FONT.pl,s));
     play.album=album;HB_FS.push(play);
     var libraryX=Math.round(W/2+24*s),libraryW=Math.round(122*s);
     var hot=hv(libraryX,buttonY,libraryX+libraryW,buttonY+buttonH);
     if(hot)ssFillContinuousRect(gr,libraryX,buttonY,libraryW,buttonH,5,5,COL.rowHover);
-    tC(gr,'浏览音乐库',ssFsFont(FONT.plSub,s),hot?COL.text:COL.text2,libraryX,buttonY,libraryW,buttonH);
+    tC(gr,'浏览音乐库',ssFsFont(FONT.fsSrc,s),hot?COL.text:COL.text2,libraryX,buttonY,libraryW,buttonH);
     HB_FS.push({x0:libraryX,y0:buttonY,x1:libraryX+libraryW,y1:buttonY+buttonH,act:'browse'});
     return;
-  }else tC(gr,'尚未播放',FONT.sect2,COL.text,0,by-48,W,32);
+  }
 
   var fill=hv(bx,by,bx+bw,by+36)?COL.greenHover:COL.green;
   ssFillContinuousRect(gr,bx,by,bw,36,9,9,fill);
@@ -382,16 +384,26 @@ function drawVizBand(gr){
   drawVizBody(gr,top,bot);
 }
 function drawFsExit(gr){
-  var x=W-Math.min(62,Math.round(W*.075))-106,y=18,w=106,h=30;
+  var s=ssFsScale(W,H),w=Math.round(106*s),h=Math.round(30*s);
+  var x=W-Math.min(Math.round(62*s),Math.round(W*.075))-w,y=Math.round(18*s);
+  var iconW=Math.round(24*s),labelX=Math.round(28*s);
   var hot=hv(x,y,x+w,y+h);
   if(hot)ssFillContinuousRect(gr,x,y,w,h,7,7,COL.rowHover);
-  drawIcon(gr,'compress',hot?COL.text:COL.text2,x,y,24,h,16);
-  tL(gr,'退出全屏',FONT.pl,hot?COL.text:COL.text2,x+28,y,w-28,h);
+  drawIcon(gr,'compress',hot?COL.text:COL.text2,x,y,iconW,h,Math.round(16*s));
+  tL(gr,'退出全屏',ssFsFont(FONT.pl,s),hot?COL.text:COL.text2,x+labelX,y,w-labelX,h);
   HB_FS.push({x0:x,y0:y,x1:x+w,y1:y+h,act:'exit'});
 }
 function drawFsBar(gr){
-  var scale=ssFsScale(W,H),s=scale*56/48,height=Math.round(120*scale),by=H-height,tools=ssFooterToolLayout(s);
+  var scale=ssFsScale(W,H),s=scale*56/48,height=Math.round(120*scale),by=H-height,tools=ssFooterToolLayout(s,true);
+  tools.modeFont=ssFsFont(FONT.fsSrc,scale);
   var transport={center:Math.round(W/2),seekWidth:Math.round(W-200*scale)};
+  var status=NP?(fb.IsPaused?'已暂停':'正在播放'):'尚未播放';
+  var action=NP?(fb.IsPaused?'继续当前曲目':'暂停当前曲目'):(ssHasTransportSource()?'开始播放':'');
+  if(!NP&&action&&pbShuffle&&ssState){
+    if(ssState.queue&&ssState.queue.length)action='播放待播队列';
+    else if(ssState.source_name&&!isHiddenPl(ssState.source_name))action='播放歌单 '+ssState.source_name;
+  }
+  tCE(gr,action?status+' · '+action:status,ssFsFont(FONT.fsSrc,scale),COL.text2,0,by-Math.round(22*scale),W,Math.round(21*scale));
   ssDrawTransport(gr,by,height,s,transport,COL.base);
   ssDrawFooterTools(gr,by,height,s,tools,true);
 }

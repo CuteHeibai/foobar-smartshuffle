@@ -62,6 +62,17 @@ function playPlaylistItem(pl,item){
   else plman.ExecutePlaylistDefaultAction(pl,item);
 }
 function playQueueNext(pl,item){ playPlaylistItem(pl,item); }
+function ssRemoveQueueRow(row){
+  var queue=ssState&&ssState.queue,at=row&&row.queueIndex;
+  if(!row||row.scope!=='priority'||!queue||!queue[at]||queue[at].id!==row.track_id)return false;
+  try{
+    var live=plman.GetPlaybackQueueContents();
+    if(!live||live.length!==queue.length)return false;
+    for(var i=0;i<queue.length;i++)if(!live[i].Handle||ssTrackID(live[i].Handle)!==queue[i].id)return false;
+    plman.RemoveItemFromPlaybackQueue(at);
+    return true;
+  }catch(e){return false;}
+}
 function playQueueItem(qi){
   var c=null; try{ c=plman.GetPlaybackQueueContents(); }catch(e){}
   if(!c||qi>=c.length) return;

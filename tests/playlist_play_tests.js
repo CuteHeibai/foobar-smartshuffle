@@ -15,6 +15,7 @@ function harness(){
     activePl:()=>({i:1,name:'B',count:3}),ensureBuilt:()=>true,gateReady:()=>true,rowHandlesPl:()=>[],ROW_GATE_MS:0,
     blend:()=>0,artHue:()=>0,plChoice:()=>({single:null}),drawPlCover(){},canEditPl:()=>false,tL(){},tC(){},getMeta:()=>({totalSec:10}),
     CH_DOT:' · ',fmtDur:()=>'',drawDropPill:()=>({}),drawSortDirBtn(){},labelOf:()=>'',PL_SORTS:[],plSort:0,plSortMenuOpen:false,
+    ssTrackPlayWidth:()=>36,ssDrawTrackLead(){},ssTrackID:h=>h&&h.id,
     hit:(list,x,y)=>list.find(h=>x>=h.x0&&x<=h.x1&&y>=h.y0&&y<=h.y1),inRect:(x,y,h)=>x>=h.x0&&x<=h.x1&&y>=h.y0&&y<=h.y1,repaintAll(){},
   };
   vm.createContext(c);const load=p=>vm.runInContext(fs.readFileSync(path.join(root,p),'utf8'),c);load('core/corners.js');load('data/smartshuffle.js');load('data/playback.js');
@@ -55,7 +56,7 @@ test('playlist play glyph uses the contrasting accent token in either appearance
 test('real application callbacks play cards and header before selection, navigation and seek',()=>{
   const h=harness(),c=h.c;c.window.Width=1100;c.window.Height=740;c.window.Repaint=()=>{};
   const app=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
-  Object.assign(c,{ssPopup:null,ssModal:false,SS_ARTIST_HB:null,SS_LYRIC_BTN:null,SS_QUEUE_SB:null,
+  Object.assign(c,{ssQueueActionDown:null,ssQueueActionAt:()=>null,ssPopup:null,ssModal:false,SS_ARTIST_HB:null,SS_LYRIC_BTN:null,SS_QUEUE_SB:null,
     repaintBar(){},clamp01:x=>Math.max(0,Math.min(1,x)),vizMenuOpen:false,sgMenuOpen:false,dupPrompt:null,rgPrompt:null,HB_SG:null,HB_RGNORM:null,HB_PLSORT:null,HB_PLSORTDIR:null,
     HB_ALLSONGS:null,ssRecycleClick:()=>false,ssResizeBegin:()=>false,ssResizeEnd:()=>false,ssPopupClick:()=>false,
     ssPointerDown:()=>false,ssPointerUp:()=>false,ssSelectionDown:()=>{throw Error('playlist button reached selection down');},
@@ -75,6 +76,33 @@ test('real application callbacks play cards and header before selection, navigat
   c.ssSelectionDown=()=>false;c.ssSelectionUp=()=>false;let menus=0;c.openPlaylistMenu=()=>menus++;h.writes.length=0;
   c.on_mouse_lbtn_up(170,220);assert.equal(menus,1);assert.equal(h.writes.length,0);
   c.on_mouse_lbtn_up(60,70);assert.equal(c.view,'playlist');assert.equal(c.plman.ActivePlaylist,1);assert.equal(h.writes.length,0);
+});
+test('row more button opens the track menu without starting playback or selection',()=>{
+  const h=harness(),c=h.c;c.window.Width=1100;c.window.Height=740;c.window.Repaint=()=>{};
+  const app=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
+  Object.assign(c,{ssQueueActionDown:null,ssQueueActionAt:()=>null,ssPopup:null,ssModal:false,SS_ARTIST_HB:null,SS_LYRIC_BTN:null,SS_QUEUE_SB:null,
+    repaintBar(){},clamp01:x=>Math.max(0,Math.min(1,x)),vizMenuOpen:false,sgMenuOpen:false,dupPrompt:null,rgPrompt:null,HB_SG:null,HB_RGNORM:null,HB_PLSORT:null,HB_PLSORTDIR:null,
+    HB_ALLSONGS:null,ssRecycleClick:()=>false,ssResizeBegin:()=>false,ssResizeEnd:()=>false,ssPopupClick:()=>false,
+    ssPointerDown:()=>false,ssPointerUp:()=>false,ssSelectionDown:()=>{throw Error('playlist button reached selection down');},
+    ssSelectionUp:()=>{throw Error('playlist button reached selection up');},TBH:32});
+  let menu=null;c.ssBatchTrackMenu=(row,x,y)=>{menu={row,x,y};return true;};c.ssRowPlayAt=()=>null;
+  const row={x0:240,y0:300,x1:900,y1:356,playId:'a|0',playOnHover:true,more:{x0:780,y0:316,x1:804,y1:340}};c.HB_TR=[row];c.view='playlist';
+  c.on_mouse_lbtn_down(790,328);c.on_mouse_lbtn_up(790,328);
+  assert.ok(menu,'more button opens the track menu');assert.equal(menu.row,row);assert.equal(menu.x,780);assert.equal(menu.y,340);assert.equal(h.writes.length,0);
+  menu=null;c.on_mouse_lbtn_down(790,328);c.on_mouse_lbtn_up(500,500);assert.equal(menu,null,'release outside cancels the menu');
+  c.on_mouse_lbtn_down(790,328);c.view='songs';c.on_mouse_lbtn_up(790,328);assert.equal(menu,null,'changing view cancels the row action');
+  c.utils.IsKeyPressed=()=>false;c.on_mouse_lbtn_dblclk(790,328);assert.equal(h.writes.length,0,'double click on more never enqueues');
+});
+test('queue remove checks the live order and removes the clicked duplicate occurrence',()=>{
+  const {c}=harness(),removed=[];
+  c.ssState={queue:[{id:'a'},{id:'b'},{id:'a'}]};
+  let live=['a','b','a'];
+  c.plman.GetPlaybackQueueContents=()=>live.map(id=>({Handle:{id}}));
+  c.plman.RemoveItemFromPlaybackQueue=i=>removed.push(i);
+  const row={scope:'priority',queueIndex:0,track_id:'a'};
+  assert.equal(c.ssRemoveQueueRow(row),true);assert.deepEqual(removed,[0]);
+  live=['b','a','a'];
+  assert.equal(c.ssRemoveQueueRow(row),false);assert.deepEqual(removed,[0]);
 });
 test('transport button and Space share the native smart-start path instead of starting the source first row',()=>{
  const h=harness(),c=h.c;const app=fs.readFileSync(path.join(root,'app.js'),'utf8');

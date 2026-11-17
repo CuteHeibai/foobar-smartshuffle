@@ -12,10 +12,10 @@ function ssPersonalSelectionKey(){return view+':'+ssPersonal.offset+':'+ssPerson
 function ssPersonalIDs(ids){var seen=Object.create(null),out=[];for(var i=0;i<(ids||[]).length;i++){var id=ids[i];if(typeof id==='string'&&id&&!seen[id]){seen[id]=true;out.push(id);}}return out;}
 function ssPersonalClear(){ssPersonal.items=[];ssPersonal.error='';if(typeof ssInvalidateSelections==='function')ssInvalidateSelections();}
 function ssOpenPersonal(kind){
-  if(!ssPersonalEnabled()||!ssIsPersonal(kind))return;
+  if(!ssIsPersonal(kind))return;
   view=kind;ssPersonal.kind=kind;ssPersonal.offset=0;ssPersonal.total=0;ssPersonal.request='';ssPersonalScroll=ssPersonalScrollT=0;
   if(ssState&&ssState.personal)ssPersonalRevision=Number(ssState.personal.revision);
-  ssPersonalReload();
+  if(ssPersonalEnabled())ssPersonalReload();else repaintAll();
 }
 function ssPersonalReload(){
   if(!ssPersonalEnabled()||!ssIsPersonal(view)||ssPersonal.kind!==view)return;
@@ -77,10 +77,9 @@ function ssPersonalPrefetchRows(rows){
 }
 function ssAcceptPersonal(done,s){
   if(!ssPersonalEnabled()){
-    if(ssPersonalWasEnabled||ssIsPersonal(view)){
+    if(ssPersonalWasEnabled){
     ssStopPersonal();ssPersonalRequests={};ssPersonalFlagFlight='';ssPersonalVisibleIDs=[];ssPersonalFlags=Object.create(null);ssPersonalCurrent=null;
-    ssPersonal.request='';ssPersonal.loading=false;ssPersonal.kind='';ssPersonalClear();HB_PERSONAL=[];HB_PERSONAL_ACTIONS=[];
-    if(ssIsPersonal(view))view='home';
+    ssPersonal.request='';ssPersonal.loading=false;ssPersonalClear();HB_PERSONAL=[];HB_PERSONAL_ACTIONS=[];
     }
     ssPersonalWasEnabled=false;return;
   }
@@ -154,10 +153,21 @@ function ssPersonalRowID(row){
   return h?ssTrackID(h):'';
 }
 function ssPersonalActionAt(x,y){for(var i=0;i<HB_PERSONAL_ACTIONS.length;i++){var h=HB_PERSONAL_ACTIONS[i];if(inRect(x,y,h))return h;}return null;}
-function ssPersonalPointerDown(x,y){ssPersonalPressed=ssPersonalEnabled()?ssPersonalActionAt(x,y):null;return !!ssPersonalPressed;}
+function ssPersonalPointerDown(x,y){
+  var action=ssPersonalActionAt(x,y);
+  ssPersonalPressed=action&&(ssPersonalEnabled()||action.settings&&ssIsPersonal(view))?action:null;
+  return !!ssPersonalPressed;
+}
 function ssPersonalPointerUp(x,y){
   var pressed=ssPersonalPressed;ssPersonalPressed=null;if(!pressed)return false;
-  if(ssPersonalEnabled()&&inRect(x,y,pressed)&&!ssModal&&!ssPopup){if(pressed.page!==undefined)ssPersonalPage(pressed.page);else if(pressed.retry)ssPersonalReload();else ssPersonalSet(pressed.kind,[pressed.track_id]);}
+  if(inRect(x,y,pressed)&&!ssModal&&!ssPopup){
+    if(pressed.settings&&ssIsPersonal(view))ssSend('settings');
+    else if(ssPersonalEnabled()){
+      if(pressed.page!==undefined)ssPersonalPage(pressed.page);
+      else if(pressed.retry)ssPersonalReload();
+      else ssPersonalSet(pressed.kind,[pressed.track_id]);
+    }
+  }
   return true;
 }
 function ssPersonalNow(kind){if(NP)ssPersonalSet(kind,[ssTrackID(NP)]);}

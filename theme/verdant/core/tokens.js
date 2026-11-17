@@ -65,7 +65,7 @@ function ssCreateFonts(){return {
   navIco:gf('Segoe MDL2 Assets',24), cap:gf('Segoe MDL2 Assets',10),
   menu:F(12), menuPrimary:F(13,1), card:F(14,1), sect2:F(20,1),
   searchTxt:F(16),
-  lyric:F(18,1), fsLyric:F(30,1),
+  lyric:F(18,1), fsLyric:F(30,1), fsTitle:gf('Inter',28,1),
   fsSrc:F(13),
   fsSrcName:F(13,1)   // bold: the playlist name, vs. the plain-weight fixed caption
 };}
@@ -75,7 +75,7 @@ function chr(c){ return String.fromCharCode(c); }
 var GLYPH = {
   play:chr(0xE768), pause:chr(0xE769), prev:chr(0xE892), next:chr(0xE893),
   shuffle:chr(0xE8B1), repeat:chr(0xE8EE), repeat1:chr(0xE8ED), volume:chr(0xE767),
-  search:chr(0xE721), home:chr(0xE80F), add:chr(0xE710), more:chr(0xE712), clock:chr(0xE823),
+  search:chr(0xE721), home:chr(0xE80F), add:chr(0xE710), more:chr(0xE712), close:chr(0xE711), clock:chr(0xE823),
   heart:chr(0xEB51),heartFilled:chr(0xEB52),
   cmin:chr(0xE921), cmax:chr(0xE922), crestore:chr(0xE923), cclose:chr(0xE8BB)
 };
@@ -108,26 +108,48 @@ function ssFitFont(gr,font,height,text,width){
   do{f=gdi.Font(meta.name,size,meta.style);if(lineH(gr,f)<=limit&&(!fitWidth||gr.CalcTextWidth(text,f)<=width))break;}while(--size>0);
   if(SS_FIT_FONTS.length>=192)SS_FIT_FONTS=[];SS_FIT_FONTS.push({base:font,height:limit,key:key,font:f});return f;
 }
-function ssScriptFont(text,font){
-  var name=/[\u3040-\u30ff]/.test(text)?'Yu Gothic UI':/[\u2e80-\u9fff\uff00-\uffef]/.test(text)?'Microsoft YaHei UI':null;if(!name)return font;
-  var meta=null;for(var i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
-  if(!meta||meta.name===name)return font;var key=name+'|'+meta.size+'|'+meta.style;if(!SS_SCRIPT_FONTS[key]){var f=gdi.Font(name,meta.size,meta.style);SS_FONT_META.push({font:f,name:name,size:meta.size,style:meta.style});SS_SCRIPT_FONTS[key]=f;}return SS_SCRIPT_FONTS[key];
-}
-var SS_FONT_MARK=/[\u0300-\u036f\u3099-\u309a\ufe00-\ufe0f\u{e0100}-\u{e01ef}]/u;
+var SS_CJK=/[⺀-鿿぀-ヿ가-퟿豈-﫿＀-￯\u{20000}-\u{323af}]/u;
+var SS_WESTERN=/[A-Za-z0-9À-ʯ]/;
+var SS_BIDI=/[֐-ࣿ‎‏‪-‮⁦-⁩יִ-﷿ﹰ-﻿\u{10800}-\u{10fff}\u{1e800}-\u{1eeff}]/u;
+var SS_FONT_MARK=/[̀-゙ͯ-゚︀-️\u{e0100}-\u{e01ef}]/u;
+var SS_RUN_FORMAT=0x1800; // NoWrap and MeasureTrailingSpaces
 var SS_GRAPHEMES=typeof Intl!=='undefined'&&typeof Intl.Segmenter==='function'?new Intl.Segmenter():null;
+function ssCjkFont(font){
+  var meta=null;for(var i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
+  if(!meta||(meta.name!=='Inter'&&meta.name!=='Inter Medium'))return font;
+  // YaHei UI covers kana as well, so Chinese and Japanese share one face with Latin.
+  // Inter Medium has no style bit, so the matching CJK weight is YaHei UI bold.
+  var style=meta.name==='Inter Medium'?1:meta.style,key=meta.size+'|'+style;
+  if(!SS_SCRIPT_FONTS[key]){var f=gdi.Font('Microsoft YaHei UI',meta.size,style);SS_FONT_META.push({font:f,name:'Microsoft YaHei UI',size:meta.size,style:style});SS_SCRIPT_FONTS[key]=f;}
+  return SS_SCRIPT_FONTS[key];
+}
+function ssScriptFont(text,font){return SS_CJK.test(text)?ssCjkFont(font):font;}
 function ssTextClusters(text){
   if(SS_GRAPHEMES)return Array.from(SS_GRAPHEMES.segment(text),function(part){return part.segment;});
   var clusters=[];
   for(var ch of text){
     var last=clusters.length-1;
-    if(last>=0&&(SS_FONT_MARK.test(ch)||ch==='\u200d'||clusters[last].endsWith('\u200d')))clusters[last]+=ch;
+    if(last>=0&&(SS_FONT_MARK.test(ch)||ch==='‍'||clusters[last].endsWith('‍')))clusters[last]+=ch;
     else clusters.push(ch);
   }
   return clusters;
 }
+function ssTextRuns(text,font){
+  if(!SS_CJK.test(text)||SS_BIDI.test(text))return [{text:text,font:font}];
+  var cjk=ssCjkFont(font);
+  if(!SS_WESTERN.test(text)||cjk===font)return [{text:text,font:cjk}];
+  var runs=[],part='',face=null;
+  for(var ch of text){
+    var next=SS_CJK.test(ch)?cjk:SS_WESTERN.test(ch)?font:face||font;
+    if(face&&next!==face){runs.push({text:part,font:face});part='';}
+    part+=ch;face=next;
+  }
+  runs.push({text:part,font:face||font});
+  return runs;
+}
 function ssFontLineHeight(font){
-  var faces=[font,ssScriptFont('国',font),ssScriptFont('あ',font)];
-  return Math.ceil(Math.max.apply(null,faces.map(function(face){return face.Height||face.Size*1.3||0;})));
+  var cjk=ssCjkFont(font);
+  return Math.ceil(Math.max(font.Height||font.Size*1.3||0,cjk.Height||cjk.Size*1.3||0));
 }
 var SS_TRACK_LINE_HEIGHTS=null;
 function ssTrackTextMetrics(s,compact){
@@ -138,22 +160,70 @@ function ssTrackTextMetrics(s,compact){
   return {title:title,detail:detail,height:title+detail+Math.round((compact?5:8)*s)};
 }
 M.rowH=Math.max(M.rowH,ssTrackTextMetrics(1,false).height);
+function ssRunWidth(gr,text,font){
+  if(!text)return 0;
+  var measure=typeof gr.MeasureString==='function'&&gr.MeasureString(text,font,0,0,Math.max(4096,text.length*(font.Size||32)*2),1024,SS_RUN_FORMAT);
+  return measure&&measure.Width>0?measure.Width:gr.CalcTextWidth(text,font,true);
+}
+function ssMeasuredRuns(gr,text,font,h,fixed){
+  var runs=ssTextRuns(String(text),font);
+  for(var run of runs){
+    if(h!==undefined&&!fixed)run.font=ssFitFont(gr,run.font,h);
+    run.width=ssRunWidth(gr,run.text,run.font);
+  }
+  return runs;
+}
 function ssMeasureText(gr,text,font,h){
-  text=String(text);font=ssScriptFont(text,font);
-  if(h!==undefined)font=ssFitFont(gr,font,h);
-  return gr.CalcTextWidth(text,font);
+  var width=0;
+  for(var run of ssMeasuredRuns(gr,text,font,h,false))width+=run.width;
+  return width;
 }
-function ssText(gr,s,f,c,x,y,w,h,align,ellipsis){
-  if(w<=0||h<=0)return;s=String(s);gr.SetTextRenderingHint(5);f=ssFitFont(gr,ssScriptFont(s,f),h);
-  gr.DrawString(String(s),f,c,Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)),
-    (align<<28)|(1<<24)|((ellipsis?3:0)<<20)|0x1000);
+function ssText(gr,s,f,c,x,y,w,h,align,ellipsis,fixed){
+  if(w<=0||h<=0)return;
+  s=String(s);gr.SetTextRenderingHint(5);
+  var runs=ssTextRuns(s,f);
+  if(runs.length===1){
+    var font=fixed?runs[0].font:ssFitFont(gr,runs[0].font,h);
+    gr.DrawString(s,font,c,Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)),
+      (align<<28)|(1<<24)|((ellipsis?3:0)<<20)|0x1000);
+    return;
+  }
+  var width=0;
+  for(var run of runs){
+    if(!fixed)run.font=ssFitFont(gr,run.font,h);
+    run.width=ssRunWidth(gr,run.text,run.font);width+=run.width;
+  }
+  if(width>w&&ellipsis){
+    var suffix='…',suffixFont=fixed?f:ssFitFont(gr,f,h),suffixW=ssRunWidth(gr,suffix,suffixFont);
+    var budget=Math.max(0,w-suffixW),visible=[];
+    width=0;
+    for(var run of runs){
+      if(width+run.width<=budget){visible.push(run);width+=run.width;continue;}
+      var chars=ssTextClusters(run.text),lo=0,hi=chars.length;
+      while(lo<hi){
+        var mid=(lo+hi+1)>>1;
+        if(width+ssRunWidth(gr,chars.slice(0,mid).join(''),run.font)<=budget)lo=mid;else hi=mid-1;
+      }
+      var prefix=chars.slice(0,lo).join('').trimEnd(),prefixW=ssRunWidth(gr,prefix,run.font);
+      if(prefix){visible.push({text:prefix,font:run.font,width:prefixW});width+=prefixW;}
+      break;
+    }
+    if(suffixW<=w){visible.push({text:suffix,font:suffixFont,width:suffixW});width+=suffixW;}
+    runs=visible;
+  }
+  var offset=align===0?0:Math.max(0,(w-width)/(align===1?2:1));
+  for(var run of runs){
+    var span=Math.min(w-offset,Math.ceil(run.width)+2);
+    if(span<=0)break;
+    gr.DrawString(run.text,run.font,c,Math.round(x+offset),Math.round(y),Math.max(1,Math.round(span)),Math.max(1,Math.round(h)),(1<<24)|SS_RUN_FORMAT);
+    offset+=run.width;
+  }
 }
-function tL(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,0,true);}
+function tL(gr,s,f,c,x,y,w,h,fixed){ssText(gr,s,f,c,x,y,w,h,0,true,fixed);}
 function tR(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,2,false);}
 function tC(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,1,false);}
 function tCE(gr,s,f,c,x,y,w,h){ssText(gr,s,f,c,x,y,w,h,1,true);}
-
-function ssDrawFixedLabel(gr,s,f,c,x,y,w,h){tL(gr,s,f,c,x,y,w,h);}
+function ssDrawFixedLabel(gr,s,f,c,x,y,w,h){tL(gr,s,f,c,x,y,w,h,true);}
 
 /* ------------------------- vector icons (SVG rasterized via gdi.LoadSVG, tinted + cached) ------------------------- */
 var ICONS={
@@ -170,6 +240,7 @@ var ICONS={
  search:"<path d='M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.49 4.49 0 0 1 9.5 14z'/>",
  add:"<path d='M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z'/>",
  more:"<path d='M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm12 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'/>",
+ close:"<path d='M6.4 5l5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z'/>",
  clock:"<path d='M11.99 2A10 10 0 1 0 22 12 10 10 0 0 0 11.99 2zM12 20a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/>",
  heart:"<path fill-rule='evenodd' d='M12 21.2 3.2 12.6C-2.1 7.3 5.8-.7 12 5.4 18.2-.7 26.1 7.3 20.8 12.6ZM12 18.4l7.4-7.2C23.3 7.3 17.5 1.5 13.4 5.6L12 7l-1.4-1.4C6.5 1.5.7 7.3 4.6 11.2Z'/>",
  heartFilled:"<path d='M12 21.2 3.2 12.6C-2.1 7.3 5.8-.7 12 5.4 18.2-.7 26.1 7.3 20.8 12.6Z'/>",

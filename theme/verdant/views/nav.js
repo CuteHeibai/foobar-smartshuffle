@@ -40,7 +40,9 @@ function drawNav(gr){
   var active=plman.ActivePlaylist, pls=visiblePlaylists();
   var footH=72*s, footTop=R.navLib.y+R.navLib.h-footH;   // pinned "add playlist" footer, always visible
   var pinY=R.navLib.y+48*s, pinH=58*s,albumH=34*s,extraH=albumH*2;
-  var personalH=typeof ssPersonalEnabled==='function'&&ssPersonalEnabled()?Math.max(25*s,Math.min(34*s,(R.navLib.h-footH-48*s-pinH-albumH-extraH-40*s)/3)):0;
+  var personalEnabled=typeof ssPersonalEnabled==='function'&&ssPersonalEnabled();
+  var personalRoom=R.navLib.h-footH-48*s-pinH-albumH-extraH-40*s;
+  var personalH=typeof ssPersonalTitle==='function'&&(personalEnabled||personalRoom>=115*s)?Math.max(25*s,Math.min(34*s,personalRoom/3)):0;
   // scrollable playlist list (continuous pixel scroll), cropped just above the footer
   var listTop=pinY+pinH+albumH+extraH+personalH*3+10*s, rh=58*s, cropY=footTop-6, viewH=Math.max(0,cropY-listTop);
   var contentH=pls.length*rh, maxPx=Math.max(0,contentH-viewH);
@@ -95,7 +97,7 @@ function drawNav(gr){
       var count=summary[kind==='history'?'history_count':kind==='favorites'?'favorites_count':'later_count']||0;
       var tx=R.navLib.x+20*s,tw=Math.max(1,R.navLib.w-76*s);
       tL(gr,ssPersonalTitle(kind),FONT.pl,on?COL.green:COL.text2,tx,py,tw,personalH);
-      tR(gr,fmtNum(count),FONT.plSub,COL.text3,R.navLib.x+R.navLib.w-54*s,py,34*s,personalH);
+      tR(gr,personalEnabled?fmtNum(count):'关闭',FONT.plSub,COL.text2,R.navLib.x+R.navLib.w-54*s,py,34*s,personalH);
       HB_PERSONAL.push({x0:R.navLib.x+8,y0:py,x1:R.navLib.x+R.navLib.w-8,y1:py+personalH,kind:kind});
     }
   }

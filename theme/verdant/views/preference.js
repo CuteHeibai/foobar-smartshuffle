@@ -40,7 +40,7 @@ function ssSyncLyricPanel(){
     ssLyricTried=true;
     try{ ssLyricChild=window.GetPanel('ESLyric'); }catch(e){ ssLyricChild=null; }
   }
-  var visible=rightTab==='lyrics'&&!fsMode&&!ssModal&&!ssPopup&&!(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof ssResizing!=='undefined'&&ssResizing)&&R.queue&&R.queue.w>80&&R.queue.h>80;
+  var visible=(typeof NP==='undefined'||!!NP)&&rightTab==='lyrics'&&!fsMode&&!ssModal&&!ssPopup&&!(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof ssResizing!=='undefined'&&ssResizing)&&R.queue&&R.queue.w>80&&R.queue.h>80;
   if(ssPopup&&ssPopup.nativeMenu&&!ssLyricChild){ssNativeLyricKey='';ssLyricVisible=false;return;}
   if(!ssLyricChild){
     ssRequestNativeLyrics(visible);
@@ -146,9 +146,12 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
   if(!ssState) return false;
   var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rows=priority.concat(list);
   var rh=Math.max(46,Math.round(37*UISCALE),ssTrackTextMetrics(ssDensity,true).height+4);
+  var act=Math.round(24*ssDensity),actGap=Math.round(2*ssDensity),actW=act*2+actGap+Math.round(6*ssDensity);
+  var queued=null;
   tL(gr,NP?'接下来':'待播放',FONT.sect,COL.text,x,qy,r.w-36,28); qy+=29;
   var count=NP?(ssState.remaining_count||0):rows.length;
-  tL(gr,pbShuffle?(NP?'本轮剩余 ':'')+count+' 首':(!isHiddenPl(ssState.source_name)&&ssState.source_name)||'顺序播放',FONT.qArtist,COL.text2,x,qy,r.w-36,24); qy+=30;
+  tL(gr,pbShuffle?(NP?'本轮剩余 ':'')+count+' 首':(!isHiddenPl(ssState.source_name)&&ssState.source_name)||'顺序播放',FONT.qArtist,COL.text2,x,qy,r.w-36-actW,24);
+  tR(gr,'拖动排序',FONT.qArtist,COL.text3,x,qy,r.w-36,24); qy+=30;
   var viewport=Math.max(0,bottom-qy),contentH=rows.length*rh;
   SS_QUEUE_MAX=Math.max(0,contentH-viewport);ssQueueScroll=clampPx(ssQueueScroll,SS_QUEUE_MAX);ssQueueScrollT=clampPx(ssQueueScrollT,SS_QUEUE_MAX);
   if(viewport<1)return true;
@@ -157,9 +160,15 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
   gr=layer.gr;qy+=start*rh-drawScroll;
   for(var i=start;i<rows.length&&qy<bottom;i++){
     var tr=rows[i],next=i===0;
+    if(queued===null&&ssQueueNeedsMetadata(tr)){
+      try{queued=plman.GetPlaybackQueueContents()||[];}catch(e){queued=[];}
+    }
+    var meta=ssQueueDisplayMeta(tr,queued||[]);
     var hb={x0:x-8,y0:Math.max(top,qy),x1:r.x+r.w-18,y1:Math.min(bottom,qy+rh),rowY:qy,rowH:rh,next:next};
-    hb.track_id=tr.id;hb.scope=i<priority.length?'priority':pbShuffle?'remaining':'native';hb.queueIndex=i<priority.length?i:pbShuffle?i-priority.length:tr.item;if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}HB_Q.push(hb);
-    ssDrawCachedRow(gr,'queue:'+i+':'+tr.id+(next?':next':''),r.x,qy,r.w,rh,function(gr){
+    hb.track_id=tr.id;hb.scope=i<priority.length?'priority':pbShuffle?'remaining':'native';hb.queueIndex=i<priority.length?i:pbShuffle?i-priority.length:tr.item;if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}
+    var mx1=r.x+r.w-18,my0=qy+Math.round((rh-act)/2);
+    hb.more={x0:mx1-act,y0:my0,x1:mx1,y1:my0+act};if(hb.scope==='priority')hb.remove={x0:hb.more.x0-actGap-act,y0:my0,x1:hb.more.x0-actGap,y1:my0+act};HB_Q.push(hb);
+    ssDrawCachedRow(gr,'queue:'+i+':'+tr.id+':'+meta.t+':'+meta.a+(next?':next':''),r.x,qy,r.w,rh,function(gr){
       var lx=x;
       if(next){
         var m=ssTrackTextMetrics(ssDensity,true),topY=qy+Math.round((rh-m.title-m.detail)/2);
@@ -168,7 +177,10 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
         tL(gr,'下一首',FONT.qArtist,COL.green,x,topY,pw,m.title);
         lx=x+pw+8;
       }
-      ssDrawTrackLabels(gr,(i<priority.length&&!next?'优先 · ':'')+(tr.title||'未知曲目'),tr.artist||'',COL.text,lx,qy,r.w-48-(lx-x),rh,ssDensity,true);
+      var reserved=act+Math.round(8*ssDensity)+(hb.remove?act+actGap:0);
+      ssDrawTrackLabels(gr,(i<priority.length&&!next?'优先 · ':'')+meta.t,meta.a,COL.text,lx,qy,r.w-36-(lx-x)-reserved,rh,ssDensity,true);
+      drawIcon(gr,'more',COL.text2,hb.more.x0,hb.more.y0,act,act,Math.round(14*ssDensity));
+      if(hb.remove)drawIcon(gr,'close',COL.text2,hb.remove.x0,hb.remove.y0,act,act,Math.round(12*ssDensity));
     });qy+=rh;
   }
   layer.finish();gr=parentGr;

@@ -72,11 +72,23 @@ function ssFitWidths(left,right,budget,minLeft,minRight){
   if(excess>0){var free=left-minLeft+right-minRight,ratio=free?excess/free:0;left-=(left-minLeft)*ratio;right-=(right-minRight)*ratio;}
   return {left:Math.round(left),right:Math.round(right)};
 }
+function ssDefaultNavWidth(w){return Math.min(M.navW,228,Math.round(w*.24));}
+function ssDefaultQueueWidth(w){
+  var extra=Math.round(Math.max(0,Math.min(120,(w-1600)*.15)));
+  return Math.min(M.queueW+extra,Math.round(w*.225),w<1280?268:w);
+}
+function ssLibraryScales(w,h,nav,main,right){
+  var navBase=ssDefaultNavWidth(w);
+  var mainBase=w-M.gap*(right>0?4:3)-navBase-(right>0?ssDefaultQueueWidth(w):0);
+  var windowScale=Math.min(w/1180,h/780);
+  function scale(ratio){return Math.max(.8,Math.min(1.45,Math.round(windowScale*ratio*40)/40));}
+  return {nav:scale(nav/navBase),main:scale(main/Math.max(1,mainBase))};
+}
 function ssLayoutWidths(w){
   var customNav=ssWidths.nav>0;
   var navMin=Math.min(customNav?156:180,Math.round(w*.18)),rightMin=Math.min(220,Math.round(w*.24));
-  var standard=w<1280,navRequest=customNav?Math.min(ssWidths.nav,standard?240:260,Math.round(w*.24)):Math.min(M.navW,228,Math.round(w*.24));
-  var rightRequest=Math.min(ssWidths.right||Math.min(M.queueW,Math.round(w*.225)),standard?268:w);
+  var standard=w<1280,navRequest=customNav?Math.min(ssWidths.nav,standard?240:260,Math.round(w*.24)):ssDefaultNavWidth(w);
+  var rightRequest=Math.min(ssWidths.right||ssDefaultQueueWidth(w),standard?268:w);
   var available=w-M.gap*4;
   var mainMin=Math.min(available-navMin-rightMin,Math.min(720,Math.ceil(w*.54)));
   var panes=ssFitWidths(navRequest,rightRequest,available-mainMin,navMin,rightMin);

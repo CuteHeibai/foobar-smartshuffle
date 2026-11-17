@@ -1,5 +1,6 @@
 """Capture actual JSplitter GDI frames using only the disposable test-player."""
 import argparse
+import ctypes
 import json
 import sqlite3
 from pathlib import Path
@@ -17,13 +18,28 @@ BACKUP = OUT / 'app.original'
 RESULT = OUT / 'acceptance.json'
 
 
-def prepare():
+def physical_monitor_size():
+    user32 = ctypes.windll.user32
+    user32.SetThreadDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+    user32.SetThreadDpiAwarenessContext.restype = ctypes.c_void_p
+    previous = user32.SetThreadDpiAwarenessContext(-4)
+    if not previous:
+        raise ctypes.WinError()
+    try:
+        return {'width': user32.GetSystemMetrics(0), 'height': user32.GetSystemMetrics(1)}
+    finally:
+        user32.SetThreadDpiAwarenessContext(previous)
+
+
+def prepare(monitor=None, monitor_pages=False):
     if BACKUP.exists():
         raise RuntimeError('Previous capture needs --restore before preparation')
     (OUT / 'screens').mkdir(parents=True, exist_ok=True)
     BACKUP.write_bytes(APP.read_bytes())
     RESULT.unlink(missing_ok=True)
     config = 'var RR_OUTPUT=' + json.dumps(str(OUT) + '\\') + ';\n'
+    config += 'var RR_MONITOR=' + json.dumps(monitor) + ';\n'
+    config += 'var RR_MONITOR_PAGES=' + json.dumps(monitor_pages) + ';\n'
     SCRIPT.write_text(config + (ROOT / 'tests/host_record_room.js').read_text(encoding='utf-8-sig'), encoding='utf-8-sig')
     APP.write_text(BACKUP.read_bytes().decode('utf-8-sig') + "\ninclude('record-room-host-check.js');\n", encoding='utf-8-sig')
 
@@ -52,8 +68,18 @@ def main():
     parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--collect-only', action='store_true')
     parser.add_argument('--restore', action='store_true')
+    monitor_mode = parser.add_mutually_exclusive_group()
+    monitor_mode.add_argument('--monitor-fullscreen', action='store_true')
+    monitor_mode.add_argument('--monitor-pages', action='store_true')
     parser.add_argument('--timeout', type=float, default=150)
     args = parser.parse_args()
+    global OUT, BACKUP, RESULT
+    monitor = None
+    if args.monitor_fullscreen or args.monitor_pages:
+        OUT = OUT / ('monitor-pages' if args.monitor_pages else 'monitor-fullscreen')
+        BACKUP = OUT / 'app.original'
+        RESULT = OUT / 'acceptance.json'
+        monitor = physical_monitor_size()
     if args.restore:
         restore()
         return
@@ -67,7 +93,7 @@ def main():
     with sqlite3.connect((PROFILE / 'config.sqlite').resolve().as_uri() + '?mode=ro', uri=True) as database:
         output = database.execute("SELECT value FROM configStrings WHERE name='core.output.mode'").fetchone()
         assert output and output[0].strip('{}').upper() == 'EEEB07DE-C2C8-44C2-985C-C85856D96DA1', 'Disposable null output required'
-    prepare()
+    prepare(monitor, args.monitor_pages)
     if args.prepare_only:
         print('Prepared', SCRIPT)
         return

@@ -78,6 +78,7 @@ function drawHome(gr,r){
   selection=selection.filter(function(album){return album!==featured&&(!playingRelease||ssHomeReleaseKey(album.album)!==playingRelease);});
   var showTitle=r.h>=Math.round(55*s);
   var split=hero&&selection.length>0&&w>=Math.round(575*s)&&r.h>=Math.round(400*s);
+  var wide=split&&w>=Math.round(1100*s);
   var ty=r.y+Math.round(12*s),titleH=Math.round(43*s),headingH=Math.round(26*s);
   var artY=r.y+Math.round(64*s),shelfX=x,shelfW=w;
   gr.FillSolidRect(r.x,r.y,r.w,r.h,COL.base);
@@ -85,6 +86,7 @@ function drawHome(gr,r){
   if(split){
     artY+=Math.min(Math.round(38*s),Math.max(0,Math.round((r.h-590*s)*.24)));
     var cover=Math.round((w>=970*s?330:w>=730*s?270:204)*s);
+    if(wide)cover=Math.min(Math.round(420*s),Math.round(w*.29));
     cover=Math.min(cover,Math.max(1,r.h-Math.round(208*s)));
     var coverY=artY+Math.round(34*s),metaY=coverY+cover+Math.round(12*s);
     shelfX=x+cover+Math.round(36*s);shelfW=right-shelfX;
@@ -108,8 +110,11 @@ function drawHome(gr,r){
     ssDrawHomePrimary(gr,showTitle?right-bw:x,ty,bw,bh,null);
   }
 
-  /* One cover module and one gap everywhere; beside the featured record the shelf shows at most three columns. */
   var grid=ssAlbumGrid(shelfW,s),size=grid.size,cols=Math.min(split?3:6,grid.cols);
+  if(wide){
+    cols=Math.min(4,grid.cols);
+    size=Math.min(Math.round(280*s),Math.floor((shelfW-grid.gap*(cols-1))/cols));
+  }
   var albums=selection.slice(0,Math.min(split?cols*2:6,8));
   var visibleCols=Math.max(1,Math.min(cols,albums.length));
   var gap=grid.gap;

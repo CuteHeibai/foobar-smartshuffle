@@ -15,7 +15,8 @@ function drawPlaylist(gr,r){
   gr.FillGradRect(r.x,r.y,r.w,M.headH,90,blend(artHue(plChoice(p.i).single,p.name),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
   var s=ssDensity,compact=r.w<800*s, ax=r.x+M.cpad, ay=r.y+16*s, art=M.artSz;
   drawPlCover(gr,ax,ay,art,8,p.i,p.name);
-  if(p.count>0)HB_PLAYLIST_PLAY=drawPlaylistPlay(gr,ax+art-52*s,ay+art-52*s,44*s,p.i);
+  var button=Math.max(32,Math.round(38*s)),barY=ay+art+Math.round(6*s),playSpace=0;
+  if(p.count>0){HB_PLAYLIST_PLAY=drawPlaylistPlay(gr,ax,barY,button,p.i);playSpace=button+Math.round(10*s);}
   var addW=Math.min(136*s,r.w-art-48*s),addX=r.x+r.w-M.cpad-addW,addY=r.y+10*s;
   if(canEditPl(p.i)&&addW>82*s){
     ssFillContinuousRect(gr,addX,addY,addW,28*s,8,8,COL.elev);tC(gr,'＋ 添加文件夹',FONT.pl,COL.green,addX,addY,addW,28*s);
@@ -23,8 +24,8 @@ function drawPlaylist(gr,r){
   }
   // sort pill + asc/desc button, right-aligned like the All Songs group pill; header text
   // stops short of this column so the two can never collide on a narrow panel
-  var rx0=r.x+r.w-M.cpad, sortDirW=38, sortPillW=Math.max(1,Math.min(200,r.w-M.cpad*2-46)), sortGap=8, sortTotalW=sortPillW+sortGap+sortDirW;
-  var sortX=ax, sortY=ay+art+6*s;
+  var rx0=r.x+r.w-M.cpad, sortDirW=38, sortPillW=Math.max(1,Math.min(200,r.w-M.cpad*2-playSpace-46)), sortGap=8, sortTotalW=sortPillW+sortGap+sortDirW;
+  var sortX=ax+playSpace, sortY=barY;
   var tx=ax+art+24*s, tw=Math.max(1,rx0-tx-(canEditPl(p.i)&&addW>82*s?addW+10*s:0));
   var text=ssHeaderBoxes(art,false,s);
   tL(gr,'歌单',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
@@ -36,12 +37,10 @@ function drawPlaylist(gr,r){
 
   // track list
   var lx=r.x+M.cpad, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0);
-  var listTop=r.y+M.headH+8;
-  var numW=30*s, durW=64*s, cgap=16*s;
-  var albumW=compact?0:Math.round((rx-lx-numW-durW-cgap*3)*0.34);
-  var titleX=lx+numW+cgap, titleW=(rx-lx-numW-durW-albumW-cgap*3);
-  var albumX=titleX+titleW+cgap;
-  var rowsTop=listTop+34, rh=M.rowH, cropY=r.y+r.h, viewH=cropY-rowsTop;
+  var listTop=r.y+M.headH+Math.round(8*s);
+  var numW=ssTrackPlayWidth(s), durW=64*s, cgap=16*s, moreW=Math.round(24*s);
+  var titleX=lx+numW+cgap, titleW=Math.max(1,rx-moreW-cgap-durW-cgap-titleX);
+  var rowsTop=listTop+Math.round(34*s), rh=Math.round(M.rowH*s), cropY=r.y+r.h, viewH=cropY-rowsTop;
   var contentH=p.count*rh, maxPx=Math.max(0,contentH-viewH);   // firstRow is a PIXEL offset
   if(viewH<1)return;
   PL_MAXPX=maxPx;
@@ -60,22 +59,22 @@ function drawPlaylist(gr,r){
     ssDrawCachedRow(gr,'pl:'+p.i+':'+j+':'+d,r.x,ry,r.w,rh,function(gr){
     if(isHover) ssFillContinuousRect(gr,lx-8,ry,rx-lx+16,rh,4,4,COL.rowHover);
     var titleCol=isPlaying?COL.green:COL.text;
-    if(isHover) drawIcon(gr,'play',COL.text,lx,ry,numW,rh,14);
-    else tL(gr,String(d+1),FONT.rowNum,isPlaying?COL.green:COL.text2,lx,ry,numW,rh);
+    ssDrawTrackLead(gr,lx,ry,numW,rh,isPlaying);
     var cs=40*s, cy=ry+(rh-cs)/2, alb=meta.album[j];
     drawCover(gr,titleX,cy,cs,3,h,alb||String(j),meta.artkey[j]);
     var ttx=titleX+cs+12, ttw=titleW-cs-12;
-    ssDrawTrackLabels(gr,meta.title[j],meta.artist[j],titleCol,ttx,ry,ttw,rh,s);
-    if(albumW>0) tL(gr,alb,FONT.rowCell,COL.text2,albumX,ry,albumW,rh);
+    var detail=alb&&alb!==meta.title[j]?[meta.artist[j],alb].filter(Boolean).join(' '+CH_DOT+' '):meta.artist[j];
+    ssDrawTrackLabels(gr,meta.title[j],detail,titleCol,ttx,ry,ttw,rh,s);
+    var mx0=rx-durW-cgap-moreW, my0=ry+Math.round((rh-moreW)/2);
+    drawIcon(gr,'more',COL.text2,mx0,my0,moreW,moreW,Math.round(14*s));
     tR(gr,meta.len[j],FONT.rowCell,COL.text2,rx-durW,ry,durW,rh);
     });
-    HB_TR.push({x0:lx-8,y0:Math.max(ry,rowsTop),x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:Math.min(ry+rh,cropY),rowY:ry,rowH:rh,pl:p.i,item:j,displayIndex:d,pgx0:lx,pgx1:lx+numW,favoriteX:rx+4*s});
+    HB_TR.push({x0:lx-8,y0:Math.max(ry,rowsTop),x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:Math.min(ry+rh,cropY),rowY:ry,rowH:rh,pl:p.i,item:j,displayIndex:d,pgx0:lx,pgx1:lx+numW,playOnHover:true,playVisible:true,playId:ssTrackID(h),more:{x0:rx-durW-cgap-moreW,y0:ry+Math.round((rh-moreW)/2),x1:rx-durW-cgap,y1:ry+Math.round((rh-moreW)/2)+moreW},favoriteX:rx+4*s});
   }
   layer.finish();gr=parentGr;
   if(p.count===0){ drawPlEmpty(gr,r,rowsTop-rh,cropY); drawSortMenu(gr); return; }   // no column headings over a void
-  tL(gr,'#',FONT.head,COL.text2,lx,listTop,numW,20);
+  tC(gr,'#',FONT.head,COL.text2,lx,listTop,numW,20);
   tL(gr,'歌曲',FONT.head,COL.text2,titleX,listTop,titleW,20);
-  if(albumW>0) tL(gr,'专辑',FONT.head,COL.text2,albumX,listTop,albumW,20);
   drawIcon(gr,'clock',COL.text2,rx-16,listTop,16,20,15);
   gr.DrawLine(lx,listTop+26,rx,listTop+26,1,COL.line);
   drawScrollbar(gr,rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,rowsTop,viewH,firstRow,maxPx,viewH,contentH,hv(r.x,r.y,r.x+r.w,cropY)||drag==='scroll');

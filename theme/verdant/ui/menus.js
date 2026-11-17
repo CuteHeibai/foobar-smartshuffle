@@ -88,7 +88,7 @@ function ssPopupChoose(item){
   if(item.run)item.run();else if(item.command!==undefined)ssSend('menu_execute',{token:token,command:item.command});
 }
 function ssMenuLabel(label){var text=String(label||'').replace(/&&/g,'\u0001').replace(/&/g,'').replace(/\u0001/g,'&').split('\t')[0];return typeof ssLocalLabel==='function'?ssLocalLabel(text):text;}
-function ssContextMenuWidth(gr,level,rh,scale){
+function ssPopupMenuWidth(gr,level,rh,scale){
   var items=level.items,width=level.drill?Math.max(200,level.drill.w):156;
   for(var i=0;i<items.length;i++)if(!items[i].separator){
     if(items[i].drill)width=Math.max(width,200);
@@ -119,32 +119,28 @@ function ssDrawContextScroll(gr,x,y,width,height,depth,step){
 function ssDrawPopup(gr){
   SS_MENU_HB=[];if(!ssPopup)return;
   var previous=null,context=ssPopup.context,scale=Math.max(1,UISCALE),pad=6;
-  var rh=context?Math.max(30,Math.round(24*scale)):Math.round(34*scale),inset=14;
-  var widths=context?ssPopup.levels.map(function(level){return ssContextMenuWidth(gr,level,rh,scale);}):null;
+  var rh=Math.max(30,Math.round(24*scale)),inset=14;
+  var widths=ssPopup.levels.map(function(level){return ssPopupMenuWidth(gr,level,rh,scale);});
   var first=ssPopupFirstVisible();
   var limit=context&&typeof R!=='undefined'&&R.barY>TBH+80?R.barY-6:H-8;
   for(var d=first;d<ssPopup.levels.length;d++){
-    var level=ssPopup.levels[d],items=level.items,total=pad*2,offsets=[],width=context?widths[d]:Math.min(410,Math.max(230,Math.round(240*scale)));
+    var level=ssPopup.levels[d],items=level.items,total=pad*2,offsets=[],width=widths[d];
     var header=level.drill?rh+6:0;
     for(var i=0;i<items.length;i++){
       offsets.push(total-pad*2);total+=items[i].separator?9:items[i].heading?Math.round(rh*.8):rh;
     }
     var height=Math.min(total+header,limit-TBH-12),scrollBand=context&&height<total+header?18:0;
     var x=d&&!level.drill?previous.x+previous.w+6:ssPopup.x,y=d&&!level.drill?previous.anchor-(context?pad+scrollBand:0):ssPopup.y;
+    if(!d&&ssPopup.anchor){x=ssPopup.anchor.x1-width;y=ssPopup.anchor.y0-height-8;}
     if(level.drill){x=Math.min(level.drill.x,W-width-8);y=level.drill.y;}
     else if(context&&!d){x+=4;y+=4;if(y+height>limit)y=ssPopup.y-height-4;}
     if(x+width>W-8)x=d?Math.max(8,previous.x-width-6):context?Math.max(8,ssPopup.x-width-4):W-width-8;
     x=Math.max(8,x);y=Math.max(TBH+4,Math.min(y,limit-height));
     level.max=Math.max(0,total+header-height+scrollBand*2);level.scroll=Math.max(0,Math.min(level.scroll,level.max));level.rect={x:x,y:y,w:width,h:height};
     level.rowHeight=rh;level.offsets=offsets;level.visibleHeight=height-2*(pad+scrollBand)-header;
-    if(context){
-      ssFillContinuousRect(gr,x+2,y+3,width,height,8,8,COL.shadow);
-      ssFillContinuousRect(gr,x,y,width,height,8,8,COL.popup);
-      ssStrokeContinuousRect(gr,x+.5,y+.5,width-1,height-1,8,8,1,COL.line);
-    }else{
-      ssFillContinuousRect(gr,x+3,y+4,width,height,7,7,COL.shadow);
-      ssFillContinuousRect(gr,x,y,width,height,7,7,COL.popup);strokeRound(gr,x,y,width,height,7,1,COL.line);
-    }
+    ssFillContinuousRect(gr,x+2,y+3,width,height,8,8,COL.shadow);
+    ssFillContinuousRect(gr,x,y,width,height,8,8,COL.popup);
+    ssStrokeContinuousRect(gr,x+.5,y+.5,width-1,height-1,8,8,1,COL.line);
     if(level.drill){
       var backY=y+pad;
       if(mx>=x&&mx<x+width&&my>=backY&&my<backY+rh)ssFillContinuousRect(gr,x+4,backY,width-8,rh,4,4,COL.rowHover);
@@ -160,20 +156,13 @@ function ssDrawPopup(gr){
         if(it.separator)gr.FillSolidRect(x+inset,rowY+4,width-2*inset,1,COL.line);
         else if(it.heading)tL(gr,ssMenuLabel(it.label),FONT.plSub,COL.text2,x+inset,rowY,width-inset*2,ih);
         else{
-          if((!context||!it.disabled)&&(level.selected===i||level.hover===i))ssFillContinuousRect(gr,x+4,rowY,width-8,ih,4,4,context?COL.rowHover:COL.buttonHover);
+          if(!it.disabled&&(level.selected===i||level.hover===i))ssFillContinuousRect(gr,x+4,rowY,width-8,ih,4,4,COL.rowHover);
           var color=it.disabled?COL.text3:it.danger?COL.dangerHover:COL.text;
-          if(context){
-            tL(gr,ssMenuLabel(it.label),it.primary?FONT.menuPrimary:FONT.pl,color,x+inset,rowY,width-inset-(it.children||it.checked?29:inset),ih);
-            if(it.children){
-              var left=level.selected===i&&widths[d+1]&&width+6+x+widths[d+1]>W-8;
-              ssDrawContextChevron(gr,x+width-17,Math.round(rowY+ih/2),left?-1:1,it.disabled?COL.text3:COL.text2);
-            }
-            if(it.checked)tC(gr,'✓',FONT.pl,COL.green,x+width-27,rowY,18,ih);
-          }else{
-            if(it.checked)tC(gr,'✓',FONT.pl,COL.green,x+6,rowY,24,ih);
-            tL(gr,ssMenuLabel(it.label),FONT.pl,color,x+32,rowY,width-62,ih);
-            if(it.children)tC(gr,'›',FONT.pl,COL.text2,x+width-27,rowY,20,ih);
-          }
+          tL(gr,ssMenuLabel(it.label),it.primary?FONT.menuPrimary:FONT.pl,color,x+inset,rowY,width-inset-(it.children||it.checked?29:inset),ih);
+          if(it.children){
+            var left=level.selected===i&&widths[d+1]&&width+6+x+widths[d+1]>W-8;
+            ssDrawContextChevron(gr,x+width-17,Math.round(rowY+ih/2),left?-1:1,it.disabled?COL.text3:COL.text2);
+          }else if(it.checked)tC(gr,'✓',FONT.pl,COL.green,x+width-27,rowY,18,ih);
           SS_MENU_HB.push({x0:x,y0:rowY,x1:x+width,y1:rowY+ih,depth:d,index:i,item:it});
         }
       }
@@ -244,11 +233,11 @@ function ssPopupKey(key){
     for(var n=0;n<level.items.length;n++){index=(index+step+level.items.length)%level.items.length;if(!level.items[index].separator&&!level.items[index].disabled&&!level.items[index].heading)break;}
     if(n===level.items.length)return true;
     level.selected=index;
-    if(ssPopup.context&&level.offsets){
+    if(level.offsets){
       var top=level.offsets[index],bottom=top+level.rowHeight;
       if(top<level.scroll)level.scroll=top;
       else if(bottom>level.scroll+level.visibleHeight)level.scroll=bottom-level.visibleHeight;
-    }else level.scroll=Math.max(0,Math.min(level.max||0,index*Math.round(34*Math.max(1,UISCALE))-100));
+    }
     repaintAll();
   }else if(key===13||key===39){
     var item=level.items[level.selected];
@@ -256,7 +245,7 @@ function ssPopupKey(key){
   }
   return true;
 }
-function ssShowPlaybackModes(x,y){
+function ssShowPlaybackModes(x,y,anchor){
   var items=[{label:'智能随机（每轮全覆盖）',checked:!!(ssState&&ssState.enabled),run:function(){ssSend('playback_mode',{mode:'smart'});}}];
   var orders=(ssState&&ssState.orders)||[{index:0,name:'顺序播放'},{index:1,name:'列表循环'},{index:2,name:'单曲循环'}];
   for(var i=0;i<orders.length;i++)if(orders[i].index<3)(function(order){items.push({label:['顺序播放','列表循环','单曲循环'][order.index],checked:!!(ssState&&!ssState.enabled&&ssState.native_order===order.index),run:function(){ssSend('playback_mode',{mode:'native',order:order.index});}});})(orders[i]);
@@ -266,4 +255,5 @@ function ssShowPlaybackModes(x,y){
     items.splice(at+1,0,{label:'歌曲排行…',run:ssStatsOpen});
   }
   ssShowPopup(items,x,y);
+  if(anchor)ssPopup.anchor=anchor;
 }

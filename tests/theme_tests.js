@@ -102,6 +102,17 @@ test('named ESLyric child follows lyrics tab bounds and hides for preference mod
   assert.equal(shows.at(-1), true); assert.deepEqual(moves.at(-1).slice(0, 4), [660,108,230,382]);
   c.ssModal = true; c.ssSyncLyricPanel(); assert.equal(shows.at(-1), false);
 });
+test('an idle lyrics drawer keeps the native child hidden until there is a current track',()=>{
+ const c=harness().c,shows=[];
+ c.window.GetPanel=()=>({Show:value=>shows.push(value),Move(){}});
+ c.rightTab='lyrics';c.R={queue:{x:650,y:50,w:250,h:360}};c.NP=null;
+ vm.runInContext(fs.readFileSync(path.join(root,'views/preference.js'),'utf8'),c);
+ c.ssSyncLyricPanel();assert.equal(c.ssLyricVisible,false);
+ c.NP={};c.ssSyncLyricPanel();assert.equal(c.ssLyricVisible,true);
+ c.NP=null;c.ssSyncLyricPanel();assert.equal(c.ssLyricVisible,false);
+ assert.deepEqual(shows,[false,true,false]);
+});
+
 test('named lyrics return after resize frames that do not synchronize the child panel',()=>{
  const c=harness().c,shows=[];c.rightTab='lyrics';c.R={queue:{x:650,y:50,w:250,h:450}};
  c.window.GetPanel=()=>({Show:b=>shows.push(b),Move(){}});vm.runInContext(fs.readFileSync(path.join(root,'views/preference.js'),'utf8'),c);
@@ -114,6 +125,7 @@ test('preference modal consumes background callbacks and drag movement outside g
   vm.runInContext(fs.readFileSync(path.join(root, 'views/preference.js'), 'utf8'), c);
   let app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')), c);
+  c.ssQueueActionDown = null;
   c.ssModal = true; c.SS_GRID = { x: 100, y: 100, size: 200 }; c.searchQuery = 'original'; c.view = 'search';
   c.on_char(65); c.on_mouse_wheel(1); assert.equal(c.searchQuery, 'original');
   c.on_mouse_lbtn_down(120,120); c.on_mouse_move(900,-100); assert.equal(c.ssDraft.x,1); assert.equal(c.ssDraft.y,1);

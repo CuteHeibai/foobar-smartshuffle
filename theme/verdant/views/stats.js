@@ -6,7 +6,7 @@ function ssStatsTime(seconds){
 function drawStats(gr,r){
   HB_STATS=[];
   var p=ssStats,s=ssDensity,x=r.x+Math.round(16*s),right=r.x+r.w-Math.round(16*s),w=right-x;
-  var top=r.y+Math.round(12*s),end=r.y+r.h,buttonH=Math.round(28*s),gap=Math.round(4*s);
+  var top=r.y+Math.round(12*s),end=r.y+r.h,buttonH=Math.round(32*s),gap=Math.round(8*s);
   function buttons(items,y,maxWidth,plain){
     var width=Math.min(maxWidth||w,(w-gap*(items.length-1))/items.length);
     for(var i=0;i<items.length;i++){
@@ -15,7 +15,7 @@ function drawStats(gr,r){
       var hot=hv(left,y,edge,y+buttonH);
       if(hot||(!plain&&!item.disabled))ssFillContinuousRect(gr,left,y,edge-left,buttonH,5,5,item.active?COL.rowActive:hot?COL.rowHover:COL.elev);
       if(plain&&item.active)gr.FillSolidRect(left,y+buttonH-2,edge-left,2,COL.green);
-      tC(gr,item.label,FONT.plSub,item.active?COL.green:COL.text2,left+2,y,Math.max(1,edge-left-4),buttonH);
+      tC(gr,item.label,FONT.pl,item.active?COL.green:COL.text,left+2,y,Math.max(1,edge-left-4),buttonH);
       if(!item.disabled)HB_STATS.push(Object.assign(box,item));
     }
     return y+buttonH+gap;
@@ -29,7 +29,7 @@ function drawStats(gr,r){
   var e=p.edit||p;
   top=buttons([{label:e.from+(p.edit&&e.field==='from'?' ▏':''),field:'from',active:p.edit&&e.field==='from'},
     {label:e.to+(p.edit&&e.field==='to'?' ▏':''),field:'to',active:p.edit&&e.field==='to'},
-    {label:'应用日期',apply:true,disabled:!p.edit}],top,Math.round(114*s))+gap;
+    {label:'应用日期',apply:true,disabled:!p.edit}],top,Math.round(135*s))+gap;
   if(p.tab==='rank'){
     var metrics=[['综合分','score'],['有效次数','plays'],['平均时长','average'],['切走次数','switches']];
     top=buttons(metrics.map(function(pair){
@@ -40,9 +40,24 @@ function drawStats(gr,r){
   var data=p.data;
   var note=p.error||(p.edit?'输入 YYYY-MM-DD，回车应用，Esc 取消。':data?
     (data.recording?'记录已开启':'记录已暂停')+' · '+(data.first?data.first+' 至 '+data.last:'暂无可用记录'):'正在读取统计…');
-  tL(gr,note,FONT.plSub,p.error?COL.error:COL.text3,x,top,w,buttonH);
+  tL(gr,note,FONT.meta,p.error?COL.error:COL.text2,x,top,w,buttonH);
   top+=buttonH+gap;
   if(!data||top>=end)return;
+  if(p.tab==='rank'&&!data.rows.length){
+    var width=Math.min(w,800*s),left=x+(w-width)/2,emptyY=top+Math.min((end-top)*.24,108*s);
+    if(emptyY+(data.recording?101:142)*s<=end){
+      drawIcon(gr,'equalizer',COL.text2,left,emptyY,width,40*s,28*s);
+      tC(gr,data.recording?'该日期范围还没有记录':'听歌统计已暂停',FONT.sect2,COL.text,left,emptyY+44*s,width,30*s);
+      tC(gr,data.recording?'试试其他日期范围':'在插件设置中开启「记录听歌统计」',FONT.meta,COL.text2,left,emptyY+78*s,width,23*s);
+      if(!data.recording){
+        var bw=Math.min(w,156*s),bx=x+(w-bw)/2,by=emptyY+110*s;
+        ssFillContinuousRect(gr,bx,by,bw,buttonH,6,6,hv(bx,by,bx+bw,by+buttonH)?COL.rowHover:COL.elev);
+        tC(gr,'打开插件设置',FONT.pl,COL.text,bx,by,bw,buttonH);
+        HB_STATS.push({x0:bx,y0:by,x1:bx+bw,y1:by+buttonH,settings:true});
+      }
+    }else tL(gr,'该日期范围没有可排行的歌曲',FONT.pl,COL.text2,x,top,w,buttonH);
+    return;
+  }
   if(p.tab==='rank'){
     var page=Math.floor(p.offset/p.limit)+1,pages=Math.max(1,Math.ceil(data.total/p.limit));
     var bottom=pages>1?end-buttonH-gap*2:end;
@@ -54,7 +69,6 @@ function drawStats(gr,r){
         tL(g,'有效 '+row.plays+' 次  ·  切走 '+row.switches+' 次  ·  样本 '+row.samples+status,FONT.plSub,COL.text2,x,y+h/3,w,h/3);
         tL(g,'平均 '+(row.average===null?'—':ssStatsTime(row.average))+'  ·  综合 '+(row.score===null?'—':row.score.toFixed(1)),FONT.plSub,COL.text2,x,y+h*2/3,w,h/3);
       });
-      if(!data.rows.length)tL(gr,'该日期范围没有可排行的歌曲',FONT.pl,COL.text2,x,top,w,buttonH);
       if(pages>1)buttons([{label:'上一页',page:-1,disabled:page<=1},{label:page+' / '+pages,disabled:true},{label:'下一页',page:1,disabled:page>=pages}],bottom+gap,Math.round(90*s));
     }
   }else if(p.tab==='overview'){

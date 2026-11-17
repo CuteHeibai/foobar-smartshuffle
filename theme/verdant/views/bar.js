@@ -54,10 +54,10 @@ function ssDrawTransport(gr,by,height,s,layout,trackBg){
   tR(gr,fmtTime(drag==='seek'?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text3,x-Math.round(54*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
   tL(gr,fmtTime(len),FONT.time,COL.text3,x+w+Math.round(10*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
 }
-function ssFooterToolLayout(s){
+function ssFooterToolLayout(s,fullscreen){
   var end=W-Math.round(28*s),gap=Math.max(44,Math.round(46*s)),queue=end-gap,lyrics=queue-gap;
   var volW=Math.min(Math.round(76*s),Math.max(48,R.barToolsW-236)),volX=lyrics-Math.round(30*s)-volW;
-  var output=volX-Math.round(30*s),modeWidth=Math.round((W>=1080?104:38)*s);
+  var output=volX-Math.round(30*s),modeWidth=Math.round((W>=1080?(fullscreen?120:104):38)*s);
   var modeLeft=output-Math.round(24*s)-modeWidth;
   return {end:end,queue:queue,lyrics:lyrics,volW:volW,volX:volX,output:output,modeLeft:modeLeft,modeWidth:modeWidth};
 }
@@ -76,7 +76,7 @@ function ssDrawFooterTools(gr,by,height,s,tools,fullscreen){
   var modeHot=hv(modeBox.x0,modeBox.y0,modeBox.x1,modeBox.y1),iconW=Math.round(34*s);
   if(modeHot)ssFillContinuousRect(gr,modeBox.x0,modeBox.y0,tools.modeWidth,modeH,6,6,COL.rowHover);
   drawIcon(gr,mode.icon,mode.active?COL.green:COL.text2,modeBox.x0,modeBox.y0,iconW,modeH,Math.round(19*s));
-  if(tools.modeWidth>iconW+16)tL(gr,mode.title,FONT.plSub,COL.text2,modeBox.x0+iconW,modeBox.y0,tools.modeWidth-iconW-4,modeH);
+  if(tools.modeWidth>iconW+16)tL(gr,mode.title,tools.modeFont||FONT.plSub,COL.text2,modeBox.x0+iconW,modeBox.y0,tools.modeWidth-iconW-4,modeH);
   HB_CTRL.push(modeBox);
   var hint=ssDrawFooterTool(gr,tools.output,y,s,'output','volume',false,'音频输出');
   hint=ssDrawFooterTool(gr,tools.lyrics,y,s,'lyrics','lyric',lyricsOn,'歌词')||hint;

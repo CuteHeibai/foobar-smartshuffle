@@ -49,7 +49,7 @@ test('loading and empty library clear a previously clickable header action',()=>
 test('real application callbacks dispatch the All Songs header before selection and seek',()=>{
   const h=harness(),c=h.c;c.window.Width=1100;c.window.Height=740;c.window.Repaint=()=>{};
   const app=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
-  Object.assign(c,{ssPopup:null,ssModal:false,SS_ARTIST_HB:null,SS_LYRIC_BTN:null,SS_QUEUE_SB:null,
+  Object.assign(c,{ssQueueActionDown:null,ssQueueActionAt:()=>null,ssPopup:null,ssModal:false,SS_ARTIST_HB:null,SS_LYRIC_BTN:null,SS_QUEUE_SB:null,
     repaintBar(){},clamp01:x=>Math.max(0,Math.min(1,x)),vizMenuOpen:false,sgMenuOpen:false,plSortMenuOpen:false,dupPrompt:null,rgPrompt:null,HB_SG:null,HB_RGNORM:null,HB_PLSORT:null,HB_PLSORTDIR:null,
     HB_ALLSONGS:null,ssRecycleClick:()=>false,ssResizeBegin:()=>false,ssResizeEnd:()=>false,ssPopupClick:()=>false,
     ssPointerDown:()=>false,ssPointerUp:()=>false,ssSelectionDown:()=>{throw Error('All Songs action reached selection down');},

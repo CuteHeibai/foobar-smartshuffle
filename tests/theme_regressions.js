@@ -31,6 +31,17 @@ test('rapid pointer events update the ball immediately and schedule at most one 
   assert.equal(c.ssDraft.x,.99);assert.ok(h.paints()<=1,'pointer events must not redraw the full player each time');
   h.flush();assert.ok(h.paints()<=2);
 });
+test('queued track metadata uses the live handle when the bridge returns an id as the title',()=>{
+ const {c,load}=harness();
+ c.TF={title:{EvalWithMetadb:()=> 'Queued Song'},artist:{EvalWithMetadb:()=> 'Artist'}};
+ c.ssTrackID=h=>h.RawPath+'|'+h.SubSong;
+ load('views/queue.js');
+ const handle={RawPath:'file://D:/Song.flac',SubSong:0};
+ const track={id:c.ssTrackID(handle),title:c.ssTrackID(handle),artist:''};
+ const info=c.ssQueueDisplayMeta(track,[{Handle:handle}]);
+ assert.equal(info.t,'Queued Song');assert.equal(info.a,'Artist');
+ assert.equal(c.ssQueueDisplayMeta(track,[]).t,'未知曲目');
+});
 test('track right-click retains plugin context commands even in locked playlists',()=>{
   const h=harness(),c=h.c;c.plman={IsPlaylistLocked:()=>true,GetPlaylistName:()=>'',IsAutoPlaylist:()=>true};
   h.load('data/playlist_edit.js');assert.equal(c.openTrackMenu(2,4,10,20),true);
@@ -46,6 +57,23 @@ test('playback modes and preference share one menu',()=>{
   assert.ok(rows.some(r=>r.label==='列表循环'));
   c.ssPopupChoose(rows.find(r=>r.label==='列表循环'));
   assert.equal(h.writes.at(-1).op,'playback_mode');assert.equal(h.writes.at(-1).order,1);
+});
+test('context and regular popups share row, check and submenu visuals',()=>{
+ const {c}=harness();
+ const items=[{label:'Checked',checked:true},{label:'Submenu',children:[{label:'Action'}]}];
+ const paint=kind=>{
+  const calls=[];
+  c.ssMeasureText=(gr,text)=>text.length*8;
+  c.ssFillContinuousRect=(gr,x,y,w,h,rx,ry,col)=>calls.push(['fill',rx,ry,col]);
+  c.ssStrokeContinuousRect=(gr,x,y,w,h,rx,ry)=>calls.push(['stroke',rx,ry]);
+  c.strokeRound=(gr,x,y,w,h,r)=>calls.push(['round',r]);
+  c.tL=(gr,text,font,col,x,y)=>calls.push(['label',text,x-c.ssPopup.levels[0].rect.x]);
+  c.tC=(gr,text,font,col,x,y,w)=>calls.push(['icon',text,x+w-c.ssPopup.levels[0].rect.x-c.ssPopup.levels[0].rect.w]);
+  c.ssShowPopup(items,100,100,'',false,kind);c.ssPopup.levels[0].hover=0;
+  c.ssDrawPopup({FillSolidRect(){},DrawLine(){calls.push(['chevron']);}});
+  return [c.ssPopup.levels[0].rowHeight,calls];
+ };
+ assert.deepEqual(paint('context'),paint('main'));
 });
 test('output picker uses themed rows and changes only explicit different devices',()=>{
   const h=harness(),c=h.c,changes=[];h.load('data/output.js');

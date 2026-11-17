@@ -17,6 +17,20 @@ function harness(saved={}){
  vm.createContext(c);vm.runInContext(fs.readFileSync(path.join(root,'core/corners.js'),'utf8'),c);vm.runInContext(fs.readFileSync(path.join(root,'ui/layout.js'),'utf8'),c);
  return {c,props,requests};
 }
+run('window and divider scale the affected library panes proportionally',()=>{
+ const {c}=harness();
+ c.M.navW=240;
+ const normal=c.ssLibraryScales(1180,780,228,922,0);
+ assert.deepEqual([normal.nav,normal.main],[1,1]);
+ const large=c.ssLibraryScales(1440,900,228,1182,0);
+ assert.ok(large.nav>1&&large.main>1);
+ const widerNav=c.ssLibraryScales(1440,900,256,1154,0);
+ assert.ok(widerNav.nav>large.nav&&widerNav.main<large.main);
+ const defaultDrawer=c.ssLibraryScales(1440,900,228,872,300);
+ const widerDrawer=c.ssLibraryScales(1440,900,228,832,340);
+ assert.equal(widerDrawer.nav,defaultDrawer.nav);
+ assert.ok(widerDrawer.main<defaultDrawer.main);
+});
 run('new desktop opens with content space, drawer is optional',()=>{
  const {c}=harness();assert.equal(c.ssRightOpen,false);assert.equal(c.ssLayoutWidths(1440).right,0);
 });
@@ -139,7 +153,7 @@ run('search keeps a compact artist result immediately above hittable song rows',
   tL:(g,text,font,color,x,y,w,h)=>labels.push({text,x,y,w,h})});
  c.drawSearch(gr,c.R.main);
  assert.equal(c.HB_CARD.length,1);assert.equal(c.HB_CARD[0].id,'Artist');assert.ok(c.HB_CARD[0].y1-c.HB_CARD[0].y0<=80);
- assert.equal(c.HB_TR.length,1);assert.equal(c.HB_TR[0].idx,0);assert.equal(c.HB_TR[0].srch,true);assert.equal(c.HB_TR[0].playVisible,false);assert.equal(c.HB_TR[0].playOnHover,true);assert.equal(c.HB_TR[0].pgx0,24);assert.ok(c.HB_TR[0].pgx1>=56);
+ assert.equal(c.HB_TR.length,1);assert.equal(c.HB_TR[0].idx,0);assert.equal(c.HB_TR[0].srch,true);assert.equal(c.HB_TR[0].playVisible,true);assert.equal(c.HB_TR[0].playOnHover,true);assert.equal(c.HB_TR[0].pgx0,24);assert.ok(c.HB_TR[0].pgx1>=56);
  assert.ok(c.HB_TR[0].y0-c.HB_CARD[0].y1<70);assert.equal(c.HB_TR[0].x1,884);assert.equal(c.HB_TR[0].x1,c.searchBoxRect().x+c.searchBoxRect().w+2);
 });
 run('fullscreen scales the centered cover and leaves separate space for text and transport',()=>{
@@ -154,5 +168,47 @@ run('fullscreen scales the centered cover and leaves separate space for text and
   sizes.push(m.size);
  }
  assert.ok(sizes[2]>sizes[1]&&sizes[1]>sizes[0]);
+});
+run('fullscreen labels the featured album and the current transport separately',()=>{
+ const {c}=harness(),labels=[],actions=[];
+ Object.assign(c,{W:1180,H:780,NP:null,pbShuffle:true,ssState:null,isHiddenPl:()=>false,HB_FS:[],COL:{},FONT:{},blend:()=>0,ssInk:()=>0,
+  getAlbumCatalog:()=>({albums:[{album:'Example',artist:'Artist'}]}),ssHomeAlbumSelection:albums=>albums,
+  ssArtistName:String,npTitleStr:'Current Track',npArtistStr:'Current Artist',npPlaylistSrc:()=> 'Library',
+  drawRounded(){},tCE:(g,label)=>labels.push(label),tC:(g,label)=>labels.push(label),hv:()=>false,
+  ssDrawAlbumPlayAction:(g,x,y,w,h,label)=>{actions.push(label);return {act:'featured'};},
+  ssFooterToolLayout:()=>({}),ssHasTransportSource:()=>true,ssDrawTransport(){},ssDrawFooterTools(){},fb:{IsPaused:false}});
+ vm.runInContext(fs.readFileSync(path.join(root,'views/fullscreen.js'),'utf8'),c);
+ c.npPlaylistSrc=()=> 'Library';
+ c.drawFsDefault({},608);c.drawFsBar({});
+ assert.ok(labels.includes('推荐专辑')&&labels.includes('尚未播放 · 开始播放'));
+ assert.deepEqual(actions,['播放这张专辑']);
+ c.ssState={queue:[],source_name:'Current Playlist'};c.drawFsBar({});
+ assert.ok(labels.includes('尚未播放 · 播放歌单 Current Playlist'));
+ c.ssState.queue=[{id:'queued'}];c.drawFsBar({});
+ assert.ok(labels.includes('尚未播放 · 播放待播队列'));
+ labels.length=0;c.NP={};c.drawFsDefault({},608);c.drawFsBar({});
+ assert.ok(labels.includes('正在播放')&&labels.includes('Current Track')&&labels.includes('Current Artist')&&labels.includes('歌单 · Library'));
+ c.fb.IsPaused=true;c.drawFsBar({});assert.ok(labels.includes('已暂停 · 继续当前曲目'));
+});
+run('large fullscreen uses the display width for the title and scales secondary controls',()=>{
+ const {c}=harness(),labels=[],buttons=[];
+ const titleFont={Name:'Inter',Size:28,Style:1},controlFont={Name:'Inter',Size:13,Style:0};
+ Object.assign(c,{W:2560,H:1440,NP:null,HB_FS:[],COL:{},FONT:{title:{Size:28},fsTitle:titleFont,fsSrc:controlFont,sect2:controlFont,pl:controlFont,plSub:controlFont},
+  fb:{IsPaused:false},pbShuffle:false,ssState:null,blend:()=>0,ssInk:()=>0,hv:()=>false,
+  SS_FONT_META:[],gdi:{Font:(Name,Size,Style)=>({Name,Size,Style})},drawRounded(){},drawIcon(){},
+  getAlbumCatalog:()=>({albums:[{album:'Long Title',artist:'Artist'}]}),ssHomeAlbumSelection:albums=>albums,ssArtistName:String,
+  tCE:(g,text,font,x,y,z,w)=>labels.push({text,font,w}),tC(){},tL:(g,text,font)=>labels.push({text,font}),
+  ssDrawAlbumPlayAction:(g,x,y,w,h,label,font)=>{buttons.push({label,font});return {act:'featured'};},
+  ssHasTransportSource:()=>true,ssDrawTransport(){},ssFooterToolLayout:()=>({}),
+  ssDrawFooterTools:(g,y,h,s,tools)=>{c.modeFont=tools.modeFont;}});
+ vm.runInContext(fs.readFileSync(path.join(root,'views/fullscreen.js'),'utf8'),c);
+ c.drawFsDefault({},1156);c.drawFsExit({});c.drawFsBar({});
+ const title=labels.find(label=>label.text==='Long Title');
+ assert.ok(title.w>=1900);
+ assert.equal(title.font.Style,1);
+ assert.ok(buttons[0].font.Size>controlFont.Size);
+ assert.ok(labels.find(label=>label.text==='退出全屏').font.Size>controlFont.Size);
+ assert.ok(c.modeFont.Size>controlFont.Size);
+ assert.ok(c.HB_FS.find(box=>box.act==='exit').y1-c.HB_FS.find(box=>box.act==='exit').y0>30);
 });
 console.log(count+' desktop drawer checks passed');

@@ -19,21 +19,34 @@ function harness(enabled=true){
 }
 const item=(id,title=id)=>({id,title,artist:'歌手',album:'专辑',duration:123});
 
-test('personal library defaults off and does not query, mutate or reserve list space while disabled',()=>{
+test('disabled personal pages open without requesting data or reserving track action space',()=>{
  const h=harness(false),c=h.c;h.load('views/personal.js');
  assert.equal(c.ssPersonalEnabled(),false);assert.equal(c.ssPersonalGutter(),0);
  c.ssOpenPersonal('history');c.ssPersonalSet('favorites',['a'],true);c.ssPersonalVisible(['a']);h.tick();
- assert.equal(c.view,'home');assert.equal(h.sent.length,0);
+ assert.equal(c.view,'history');assert.equal(h.sent.length,0);
+ c.ssAcceptPersonal(null,{personal:c.ssState.personal});assert.equal(c.view,'history');
  c.HB_PERSONAL_ACTIONS=[{track_id:'stale'}];c.HB_TR=[{track_id:'a',favoriteX:100}];c.ssDrawPersonalRowActions({});
  assert.equal(c.HB_PERSONAL_ACTIONS.length,0);assert.equal(h.sent.length,0);
  c.ssState=null;assert.equal(c.ssPersonalEnabled(),false,'startup without a state must stay hidden');
 });
 
-test('turning the feature off exits its page and discards pending gestures and late responses',()=>{
+test('the disabled personal settings action opens settings without enabling the feature',()=>{
+ const {c,sent}=harness(false);
+ c.ssOpenPersonal('favorites');
+ c.ssModal=c.ssPopup=false;
+ c.inRect=(x,y,box)=>x>=box.x0&&x<box.x1&&y>=box.y0&&y<box.y1;
+ c.HB_PERSONAL_ACTIONS=[{x0:10,y0:10,x1:150,y1:50,settings:true}];
+ assert.ok(c.ssPersonalPointerDown(20,20));
+ assert.ok(c.ssPersonalPointerUp(20,20));
+ assert.deepEqual(sent.map(request=>request.op),['settings']);
+ assert.equal(c.ssPersonalEnabled(),false);
+});
+
+test('turning the feature off keeps its disabled state and discards pending gestures and late responses',()=>{
  const h=harness(),c=h.c;c.ssOpenPersonal('history');const request=h.sent[0];
  c.ssPersonalVisible(['a']);c.ssPersonalPressed={track_id:'a'};c.ssState.personal.enabled=false;
  c.ssAcceptPersonal(null,{personal:c.ssState.personal});h.tick();
- assert.equal(c.view,'home');assert.equal(c.ssPersonalPressed,null);assert.equal(c.ssPersonal.request,'');assert.equal(c.ssPersonal.items.length,0);
+ assert.equal(c.view,'history');assert.equal(c.ssPersonalPressed,null);assert.equal(c.ssPersonal.request,'');assert.equal(c.ssPersonal.items.length,0);
  h.accept(request,{kind:'history',offset:0,total:1,revision:1,items:[item('a')]});assert.equal(c.ssPersonal.items.length,0);assert.equal(h.sent.length,1);
  c.ssState.personal.enabled=true;c.ssAcceptPersonal(null,{personal:c.ssState.personal});c.ssOpenPersonal('favorites');
  assert.equal(h.sent.at(-1).kind,'favorites');assert.equal(c.ssPersonalGutter(),32);

@@ -56,6 +56,20 @@ function ssQueueRowSelected(row){
   var index=row.queueIndex===undefined?row.item:row.queueIndex,item=ssQueueRows[index];
   return !!(item&&(!row.track_id||row.track_id===item.track_id)&&ssQueueSelect.isSelected(index));
 }
+var ssQueueActionDown=null;
+function ssQueueActionAt(x,y){
+  var i,row;
+  for(i=0;i<HB_Q.length;i++){row=HB_Q[i];
+    if(row.remove&&inRect(x,y,row.remove))return {row:row,act:'remove'};
+    if(row.more&&inRect(x,y,row.more))return {row:row,act:'more'};
+  }
+  return null;
+}
+function ssQueueActionRun(hit){
+  if(hit.act==='remove'){if(ssRemoveQueueRow(hit.row))repaintQueue();return;}
+  ssOpenNativeMenu('context',{track_id:hit.row.track_id},hit.row.more.x0,hit.row.more.y1);
+  ssSetContextTargets([hit.row]);
+}
 function ssQueueSelectionContext(row){
   var scope=row.scope||'native',rows=[],items=[],geo=[],i,list;
   if(scope==='priority'||scope==='remaining'){

@@ -8,9 +8,23 @@
 var qMetaCache={};
 var ssQueueScroll=0,ssQueueScrollT=0,SS_QUEUE_MAX=0,SS_QUEUE_SB=null;
 function qRowMeta(h){
-  var p=h.Path, e=qMetaCache[p];
+  var p=ssTrackID(h), e=qMetaCache[p];
   if(!e) e=qMetaCache[p]={t:TF.title.EvalWithMetadb(h), a:TF.artist.EvalWithMetadb(h)};
   return e;
+}
+function ssQueueNeedsMetadata(row){
+  return !row.title||row.title===row.id||/^file:\/\//i.test(row.title);
+}
+function ssQueueDisplayMeta(row,contents){
+  if(!ssQueueNeedsMetadata(row))return {t:row.title,a:row.artist||''};
+  for(var i=0;i<contents.length;i++){
+    var handle=contents[i].Handle;
+    if(handle&&ssTrackID(handle)===row.id){
+      var meta=qRowMeta(handle);
+      return {t:meta.t||'未知曲目',a:meta.a||row.artist||''};
+    }
+  }
+  return {t:'未知曲目',a:row.artist||''};
 }
 // hover cue + click target for one queue row; rows are rh apart so the boxes tile exactly
 function qRow(gr,r,x,qy,rh){
@@ -49,6 +63,13 @@ function ssDrawQueueContent(gr){
   if(!qOn){
     SS_LYRIC_BTN={x0:r.x+r.w-86,y0:r.y+12,x1:r.x+r.w-12,y1:r.y+44};
     tC(gr,'ESLyric',FONT.qArtist,COL.green,SS_LYRIC_BTN.x0,SS_LYRIC_BTN.y0,74,32);
+    if(typeof NP!=='undefined'&&!NP){
+      var middle=r.y+Math.round(r.h/2);
+      drawIcon(gr,'lyric',COL.text2,r.x,middle-62,r.w,32,24);
+      tC(gr,'尚未播放',FONT.sect,COL.text,r.x,middle-20,r.w,30);
+      tC(gr,'播放歌曲后在这里查看歌词',FONT.plSub,COL.text2,r.x+12,middle+14,r.w-24,24);
+      return;
+    }
     if(ssLyricVisible) return;
     loadLyrics();
     if(noLyrics()){

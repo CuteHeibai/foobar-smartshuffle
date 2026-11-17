@@ -11,7 +11,10 @@ function ssDrawPersonalHeart(gr,x,y,size,active){
   drawIcon(gr,active?'heartFilled':'heart',active?COL.green:COL.text2,x,y,size,size,size*.65);
 }
 function ssDrawPersonalRowActions(gr){
-  if(!ssPersonalEnabled()){HB_PERSONAL_ACTIONS=[];return;}
+  if(!ssPersonalEnabled()){
+    HB_PERSONAL_ACTIONS=HB_PERSONAL_ACTIONS.filter(function(action){return action.settings&&ssIsPersonal(view);});
+    return;
+  }
   var ids=[],prefetch=ssPersonalPrefetchRows(HB_TR);
   for(var i=0;i<HB_TR.length;i++){
     var row=HB_TR[i],index=ssPersonalPrefetchIndex(row),cachedID=prefetch&&index>=prefetch.start&&index<prefetch.end?prefetch.byIndex[index-prefetch.start]:'';
@@ -25,7 +28,18 @@ function ssDrawPersonalRowActions(gr){
   ssPersonalVisible(ids,prefetch?prefetch.ids:[]);
 }
 function drawPersonal(gr,r){
-  if(!ssPersonalEnabled())return;
+  if(!ssPersonalEnabled()){
+    var s=ssDensity,x=r.x+M.cpad,w=r.w-2*M.cpad,y=r.y+Math.round(18*s);
+    tL(gr,ssPersonalTitle(view),FONT.title,COL.text,x,y,w,42*s);
+    var middle=y+Math.min(r.h*.34,206*s),buttonW=Math.min(w,156*s),buttonX=x+(w-buttonW)/2,buttonY=middle+113*s;
+    drawIcon(gr,view==='favorites'?'heart':'clock',COL.text2,x,middle,w,44*s,32*s);
+    tC(gr,ssPersonalTitle(view)+'已关闭',FONT.sect2,COL.text,x,middle+46*s,w,32*s);
+    tC(gr,'在插件设置中启用「播放历史、收藏和稍后听」',FONT.meta,COL.text2,x,middle+80*s,w,25*s);
+    ssFillContinuousRect(gr,buttonX,buttonY,buttonW,36*s,6,6,hv(buttonX,buttonY,buttonX+buttonW,buttonY+36*s)?COL.rowHover:COL.elev);
+    tC(gr,'打开插件设置',FONT.pl,COL.text,buttonX,buttonY,buttonW,36*s);
+    HB_PERSONAL_ACTIONS.push({x0:buttonX,y0:buttonY,x1:buttonX+buttonW,y1:buttonY+36*s,settings:true});
+    return;
+  }
   HB_TR=[];var s=ssDensity,lx=r.x+M.cpad,rx=r.x+r.w-M.cpad,w=rx-lx,p=ssPersonal;
   var titleY=r.y+18*s,titleH=34*s,subY=titleY+titleH+4*s,headY=subY+46*s,rowsTop=Math.round(headY+28*s);
   var footerH=Math.round(42*s),cropY=Math.max(rowsTop,Math.floor(r.y+r.h-footerH)),viewH=cropY-rowsTop,history=view==='history';

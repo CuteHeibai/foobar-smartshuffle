@@ -3,7 +3,7 @@ var ssCollectionRows=[],ssCollectionRowsSource=null,ssCollectionAlbumOnly=false,
 function ssBuildCollectionRows(albumOnly,s,width){
   if(ssCollectionRowsSource===artistAlbums&&ssCollectionAlbumOnly===albumOnly&&ssCollectionDensity===s&&ssCollectionWidth===width)return;
   ssCollectionRowsSource=artistAlbums;ssCollectionAlbumOnly=albumOnly;ssCollectionDensity=s;ssCollectionWidth=width;ssCollectionRows=[];
-  var y=0,header=Math.round(62*s),rowH=albumOnly?Math.max(Math.round(40*s),ssTrackTextMetrics(s,false).title):M.rowH;
+  var y=0,header=Math.round(62*s),rowH=albumOnly?Math.max(Math.round(40*s),ssTrackTextMetrics(s,false).title):Math.round(M.rowH*s);
   var namedAlbums=albumOnly?[]:artistAlbums.filter(function(album){return album.named;});
   if(namedAlbums.length){
     var sectionH=Math.round(34*s),grid=ssAlbumGrid(width,s),gap=grid.gap,cols=grid.cols;
@@ -103,14 +103,16 @@ function drawArtist(gr,r){
         tL(layer.gr,[ssDisplayAlbumYear(a.year),a.tracks.length+' 首歌曲'].filter(Boolean).join(' '+CH_DOT+' '),FONT.meta,COL.text2,dx,y+Math.round(34*s),right-dx,Math.round(20*s));
         if(a.named){box.kind='album';box.id=a.id;HB_CARD.push(box);}
       }else{
-        var tr=row.track,playW=ssTrackPlayWidth(s),tx=x+playW+Math.round(12*s),durW=Math.round(56*s),measureRight=Math.min(right,x+Math.round(900*s));
-        var active=ssIsCurrentTrack(tr.handle);
+        var tr=row.track,playW=ssTrackPlayWidth(s),tx=x+playW+Math.round(12*s),durW=Math.round(56*s),moreW=Math.round(24*s),measureRight=Math.min(right,x+Math.round((albumOnly?645:900)*s));
+        var active=ssIsCurrentTrack(tr.handle),moreX=measureRight-durW-Math.round(12*s)-moreW,moreY=y+Math.round((row.h-moreW)/2);
+        box.x1=measureRight+4;
         var hovering=ssRowHover(box.x0,box.y0,box.x1,box.y1),group=artistAlbums[row.block];
-        if(hovering)ssFillContinuousRect(layer.gr,x-6,y,w+10,row.h,4,4,COL.rowHover);
-        ssDrawTrackLead(layer.gr,x,y,playW,row.h,row.number||tr.number||row.idx+1,active);
-        ssDrawTrackLabels(layer.gr,tr.title,row.number&&group.named&&group.album!==tr.title?group.album:'',COL.text,tx,y,measureRight-durW-tx,row.h,s);
+        if(hovering)ssFillContinuousRect(layer.gr,box.x0,y,box.x1-box.x0,row.h,4,4,COL.rowHover);
+        ssDrawTrackLead(layer.gr,x,y,playW,row.h,active);
+        ssDrawTrackLabels(layer.gr,tr.title,row.number&&group.named&&group.album!==tr.title?group.album:'',COL.text,tx,y,moreX-Math.round(12*s)-tx,row.h,s);
+        drawIcon(layer.gr,'more',COL.text2,moreX,moreY,moreW,moreW,Math.round(14*s));
         tR(layer.gr,tr.dur,FONT.rowCell,COL.text2,measureRight-durW,y,durW,row.h);
-        box.lib=true;box.block=row.block;box.idx=row.idx;box.rowY=y;box.rowH=row.h;box.pgx0=x;box.pgx1=x+playW;box.playOnHover=true;box.playVisible=active;box.playId=tr.handle?ssTrackID(tr.handle):row.block+":"+row.idx;HB_TR.push(box);
+        box.lib=true;box.block=row.block;box.idx=row.idx;box.rowY=y;box.rowH=row.h;box.pgx0=x;box.pgx1=x+playW;box.playOnHover=true;box.playVisible=true;box.playId=tr.handle?ssTrackID(tr.handle):row.block+":"+row.idx;box.more={x0:moreX,y0:moreY,x1:moreX+moreW,y1:moreY+moreW};HB_TR.push(box);
       }
     }
   }finally{layer.finish();}
