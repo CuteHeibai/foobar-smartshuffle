@@ -154,7 +154,7 @@ test('splitter drags coalesce geometry updates and save the constrained width',(
   const {h,c,props}=layoutHarness();let hidden=0;c.ssHideLyrics=()=>hidden++;
   assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),true);
   for(let i=0;i<100;i++)c.ssResizeMove(260+i,120);
-  assert.equal(c.R.navW,240);h.flush();assert.equal(c.R.navW,280);assert.equal(hidden,1);
+  assert.equal(c.R.navW,228);h.flush();assert.ok(c.R.navW>228&&c.R.navW<=240);assert.equal(hidden,1);
   c.ssResizeEnd(359,120);assert.equal(props.get(c.SS_WIDTH_KEYS.nav),c.R.navW);assert.equal(c.ssResizing,null);
   c.ssModal=true;assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),false);
 });
@@ -218,7 +218,7 @@ test('window resizing keeps text metrics stable and lays out square covers and c
   const {h,c}=layoutHarness();c.gdi={Font:(name,size,style)=>({name,size,style})};h.load('core/tokens.js');
   c.ssWidths.nav=290;c.W=850;c.H=600;c.layout();const small={font:c.FONT.rowTitle.size,row:c.M.rowH,cover:c.M.artSz,scale:c.ssDensity};
   c.W=1800;c.H=1100;c.layout();assert.equal(c.FONT.rowTitle.size,small.font);assert.equal(c.M.rowH,small.row);assert.ok(c.M.artSz>=small.cover);assert.equal(c.ssDensity,small.scale);
-  assert.equal(c.ssWidths.nav,290);assert.equal(c.R.navW,280);
+  assert.equal(c.ssWidths.nav,290);assert.equal(c.R.navW,260);
 });
 test('recycle action requires a matching preparation and explicit confirmation; cancel never applies',()=>{
   const h=harness(),c=h.c;c.ssRecyclePrepare('file://D:/music/song.flac|0');

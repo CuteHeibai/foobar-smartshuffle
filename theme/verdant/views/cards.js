@@ -106,17 +106,20 @@ function ssAlbumGrid(width,scale,coverSize){
   return {gap:gap,size:size,cols:Math.max(1,Math.floor((width+gap)/(size+gap)))};
 }
 function ssLibraryReadingRect(r){
-  var w=Math.max(1,Math.min(r.w-2*M.cpad,Math.round(760*ssDensity)));
-  return {x:r.x+Math.min(M.cpad,Math.floor((r.w-1)/2)),w:w};
+  var inset=Math.min(M.cpad,Math.floor((r.w-1)/2));
+  return {x:r.x+inset,w:Math.max(1,r.w-2*inset)};
 }
-function ssDrawAlbumPlayAction(gr,x,y,w,h){
-  var label='播放专辑',size=Math.min(w,h),gap=Math.round(10*ssDensity);
+function ssDrawLabeledAction(gr,x,y,w,h,label,icon,act,primary){
+  var size=Math.min(w,h),gap=Math.round(10*ssDensity);
   var width=Math.min(w,size+gap+Math.ceil(ssMeasureText(gr,label,FONT.pl,h))+4);
   var hot=hv(x,y,x+width,y+h),cy=y+(h-size)/2;
-  gr.FillEllipse(x,cy,size,size,hot?COL.hover:COL.elev);
-  drawIcon(gr,'play',hot?COL.green:COL.text,x,cy,size,size,Math.round(size*.50));
+  gr.FillEllipse(x,cy,size,size,primary?(hot?COL.greenHover:COL.play):hot?COL.hover:COL.elev);
+  drawIcon(gr,icon,primary?COL.onPlay:hot?COL.green:COL.text,x,cy,size,size,Math.round(size*.50));
   tL(gr,label,FONT.pl,COL.text,x+size+gap,y,width-size-gap,h);
-  return {x0:x,y0:y,x1:x+width,y1:y+h,act:'featured'};
+  return {x0:x,y0:y,x1:x+width,y1:y+h,act:act};
+}
+function ssDrawAlbumPlayAction(gr,x,y,w,h){
+  return ssDrawLabeledAction(gr,x,y,w,h,'播放专辑','play','featured',true);
 }
 var ssAlbumTitleCache=new Map(),ssAlbumTitleFont=null;
 function ssAlbumTitleLines(gr,title,w){
@@ -145,17 +148,17 @@ function ssAlbumLabelMetrics(s){
   var detail=Math.max(Math.round(18*s),ssFontLineHeight(FONT.plSub)+1),gap=Math.round(2*s);
   return {top:top,title:title,detail:detail,gap:gap,height:top+2*title+gap+detail};
 }
-function ssAlbumLabelHeight(s){return ssAlbumLabelMetrics(s).height;}
-function ssDrawAlbumLabels(gr,title,detail,x,y,w,s){
-  var lines=ssAlbumTitleLines(gr,title,w),text=ssAlbumLabelMetrics(s),top=y+text.top;
+function ssAlbumLabelHeight(s,titleLines){var m=ssAlbumLabelMetrics(s);return m.height-(titleLines===1?m.title:0);}
+function ssDrawAlbumLabels(gr,title,detail,x,y,w,s,titleLines){
+  var lines=titleLines===1?[title]:ssAlbumTitleLines(gr,title,w),text=ssAlbumLabelMetrics(s),top=y+text.top;
   for(var i=0;i<lines.length;i++)ssDrawFixedLabel(gr,lines[i],FONT.card,COL.text,x,top+i*text.title,w,text.title);
-  ssDrawFixedLabel(gr,detail,FONT.plSub,COL.text2,x,top+lines.length*text.title+text.gap,w,text.detail);
+  ssDrawFixedLabel(gr,detail,FONT.plSub,COL.text2,x,top+(titleLines||2)*text.title+text.gap,w,text.detail);
 }
 function drawLibraryAlbumCard(gr,x,y,w,album,clipTop,clipBot){
-  var h=w+ssAlbumLabelHeight(ssDensity),top=Math.max(y,clipTop),bottom=Math.min(y+h,clipBot);
+  var h=w+ssAlbumLabelHeight(ssDensity,1),top=Math.max(y,clipTop),bottom=Math.min(y+h,clipBot);
   if(bottom<=top)return;
   if(hv(x,top,x+w,bottom))ssFillContinuousRect(gr,x,y,w,h,5,5,COL.cardHover);
   drawRounded(gr,x,y,w,4,album.handle,album.album);
-  ssDrawAlbumLabels(gr,album.album,ssArtistName(album.artist),x,y+w,w,ssDensity);
+  ssDrawAlbumLabels(gr,album.album,ssArtistName(album.artist),x,y+w,w,ssDensity,1);
   HB_CARD.push({x0:x,y0:top,x1:x+w,y1:bottom,kind:'album',id:album.id});
 }

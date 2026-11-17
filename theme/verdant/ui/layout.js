@@ -73,9 +73,12 @@ function ssFitWidths(left,right,budget,minLeft,minRight){
   return {left:Math.round(left),right:Math.round(right)};
 }
 function ssLayoutWidths(w){
-  var mainMin=Math.min(480,Math.round(w*.46)),navMin=Math.min(180,Math.round(w*.18)),rightMin=Math.min(220,Math.round(w*.24));
-  var navMax=Math.min(280,Math.round(w*.24)),navRequest=Math.min(ssWidths.nav||M.navW,navMax);
-  var panes=ssFitWidths(navRequest,ssWidths.right||Math.min(M.queueW,w*.27),w-M.gap*4-mainMin,navMin,rightMin);
+  var navMin=Math.min(180,Math.round(w*.18)),rightMin=Math.min(220,Math.round(w*.24));
+  var standard=w<1280,navMax=Math.min(standard?240:260,Math.round(w*.24));
+  var navRequest=Math.min(ssWidths.nav||Math.min(M.navW,228),navMax);
+  var rightRequest=Math.min(ssWidths.right||Math.min(M.queueW,Math.round(w*.225)),standard?268:w);
+  var available=w-M.gap*4,mainMin=Math.min(available-navMin-rightMin,Math.min(720,Math.ceil(w*.54)));
+  var panes=ssFitWidths(navRequest,rightRequest,available-mainMin,navMin,rightMin);
   // Keep the saved request intact while a smaller window temporarily gives content priority.
   var showRight=ssRightOpen&&(ssRightForced||w>=1000*(typeof ssDensity==='number'?ssDensity:1));
   if(!showRight){panes.right=0;panes.left=Math.round(Math.max(navMin,navRequest));}

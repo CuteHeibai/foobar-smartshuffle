@@ -108,7 +108,7 @@ function drawArtist(gr,r){
         if(hovering)ssFillContinuousRect(layer.gr,x-6,y,w+10,row.h,4,4,COL.rowHover);
         ssDrawTrackPlay(layer.gr,x,y,playW,row.h,false);
         tR(layer.gr,String(row.number||tr.number||row.idx+1),FONT.rowNum,COL.text2,x+playW,y,numW-6,row.h);
-        ssDrawTrackLabels(layer.gr,tr.title,row.number&&group.named?group.album:'',COL.text,tx,y,right-durW-tx,row.h,s);
+        ssDrawTrackLabels(layer.gr,tr.title,row.number&&group.named&&group.album!==tr.title?group.album:'',COL.text,tx,y,right-durW-tx,row.h,s);
         tR(layer.gr,tr.dur,FONT.rowCell,COL.text2,right-durW,y,durW,row.h);
         box.lib=true;box.block=row.block;box.idx=row.idx;box.rowY=y;box.rowH=row.h;box.pgx0=x;box.pgx1=x+playW;box.playVisible=true;box.playId=tr.handle?ssTrackID(tr.handle):row.block+":"+row.idx;HB_TR.push(box);
       }

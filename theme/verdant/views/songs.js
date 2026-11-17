@@ -13,7 +13,7 @@ function drawSongs(gr,r){
   var cov=libChoice(), g=songsGroup;
   // header: gradient wash + mosaic cover + title/meta, mirroring the playlist header
   gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,blend(artHue(cov.single,'__lib__'),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
-  var s=ssDensity,compact=r.w<800*s, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0), lx=r.x+M.cpad, ay=r.y+16*s, art=Math.min(M.artSz,Math.round(168*s));
+  var s=ssDensity,compact=r.w<940*s, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0), lx=r.x+M.cpad, ay=r.y+16*s, art=Math.min(M.artSz,Math.round(168*s));
   drawLibCover(gr,lx,ay,art,8);
   var button=Math.max(32,Math.round(38*s)),barY=ay+art+Math.round(6*s),playSpace=0;
   if(songsTracks.length){
@@ -47,7 +47,7 @@ function drawSongs(gr,r){
   var showAlbum=flat&&!compact, showArtist=(g==='album');
   var playW=ssTrackPlayWidth(s),numW=Math.round(30*s),durW=64,cgap=12;   // index column fits the largest number it can hold
   var playX=lx+tind,numX=playX+playW,titleX=numX+numW+cgap;
-  var colW=showAlbum?Math.round((rx-titleX-durW-cgap*2)*0.34):(showArtist?Math.round((rx-titleX-durW-cgap*2)*0.28):0);
+  var colW=showAlbum?Math.min(270,Math.round((rx-titleX-durW-cgap*2)*0.26)):(showArtist?Math.round((rx-titleX-durW-cgap*2)*0.28):0);
   var colX=rx-durW-cgap-colW;
   var titleW=(colW?colX:rx-durW)-cgap-titleX;
 
@@ -87,7 +87,8 @@ function drawSongs(gr,r){
       if(flat){
         var cs=40*s, cy=ry+(gh-cs)/2;
         drawCover(gr,titleX,cy,cs,3,t.h,t.album||t.title,t.artkey);
-        ssDrawTrackLabels(gr,t.title,t.artist,isPlaying?COL.green:COL.text,titleX+cs+12,ry,titleW-cs-12,gh,s);
+        var detail=!showAlbum&&t.album&&t.album!==t.title?[t.artist,t.album].filter(Boolean).join(' '+CH_DOT+' '):t.artist;
+        ssDrawTrackLabels(gr,t.title,detail,isPlaying?COL.green:COL.text,titleX+cs+12,ry,titleW-cs-12,gh,s);
       } else {
         ssDrawTrackLabels(gr,t.title,'',isPlaying?COL.green:COL.text,titleX,ry,titleW,gh,s);
       }

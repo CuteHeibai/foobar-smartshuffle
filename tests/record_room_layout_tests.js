@@ -73,6 +73,13 @@ run('saved oversized navigation stays compact without losing the saved request',
  }
  assert.equal(c.ssWidths.nav,410);assert.equal(props['SmartShuffle: library width'],410);
 });
+run('the standard desktop reserves the majority of its width for the main pane',()=>{
+ const {c}=harness({'SmartShuffle: library width':280,'SmartShuffle: lyrics width':320,'SmartShuffle: right pane open':true});
+ const widths=c.ssLayoutWidths(1180);
+ assert.ok(widths.nav<=240&&widths.right<=268);
+ assert.ok(1180-40-widths.nav-widths.right>=637);
+ assert.equal(c.ssWidths.nav,280);assert.equal(c.ssWidths.right,320);
+});
 run('artist collections keep multi-track album headers and put singles into consecutive rows',()=>{
  const {c}=harness();for(const file of ['views/cards.js','views/artist.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),c);
  c.artistAlbums=[{id:'album',named:true,album:'Album',tracks:[{title:'A'},{title:'B'}]},{id:'single-a',named:true,album:'Single A',tracks:[{title:'C'}]},{id:'single-b',named:true,album:'Single B',tracks:[{title:'D'}]}];
@@ -101,7 +108,7 @@ run('opening the drawer reflows library columns at the same cover size',()=>{
  for(const frame of [{x:300,w:1125},{x:300,w:799},{x:190,w:350}]){
   const reading=c.ssLibraryReadingRect(frame);
   assert.equal(reading.x,frame.x+24);
-  assert.equal(reading.w,Math.min(frame.w-48,798));
+  assert.equal(reading.w,frame.w-48);
  }
 });
 run('artist portraits fit the complete source photograph without a circular mask',()=>{
@@ -133,7 +140,7 @@ run('search keeps a compact artist result immediately above hittable song rows',
  c.drawSearch(gr,c.R.main);
  assert.equal(c.HB_CARD.length,1);assert.equal(c.HB_CARD[0].id,'Artist');assert.ok(c.HB_CARD[0].y1-c.HB_CARD[0].y0<=80);
  assert.equal(c.HB_TR.length,1);assert.equal(c.HB_TR[0].idx,0);assert.equal(c.HB_TR[0].srch,true);assert.equal(c.HB_TR[0].playVisible,true);assert.equal(c.HB_TR[0].pgx0,24);assert.ok(c.HB_TR[0].pgx1>=56);
- assert.ok(c.HB_TR[0].y0-c.HB_CARD[0].y1<70);assert.equal(c.HB_TR[0].x1,792);assert.equal(c.HB_TR[0].x1,c.searchBoxRect().x+c.searchBoxRect().w+2);
+ assert.ok(c.HB_TR[0].y0-c.HB_CARD[0].y1<70);assert.equal(c.HB_TR[0].x1,884);assert.equal(c.HB_TR[0].x1,c.searchBoxRect().x+c.searchBoxRect().w+2);
 });
 run('fullscreen centers the measured listening stage and reserves its footer',()=>{
  const {c}=harness();
