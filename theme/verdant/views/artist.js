@@ -7,7 +7,7 @@ function ssBuildCollectionRows(albumOnly,s,width){
   var namedAlbums=albumOnly?[]:artistAlbums.filter(function(album){return album.named;});
   if(namedAlbums.length){
     var sectionH=Math.round(34*s),grid=ssAlbumGrid(width,s,138),gap=grid.gap,cols=grid.cols;
-    var size=grid.size,step=size+ssAlbumLabelHeight(s)+Math.round(10*s);
+    var size=grid.size,step=size+ssAlbumLabelHeight(s,1)+Math.round(10*s);
     ssCollectionRows.push({y:y,h:sectionH,label:'专辑'});y+=sectionH;
     for(var a=0;a<namedAlbums.length;a+=cols){ssCollectionRows.push({y:y,h:step,tiles:namedAlbums.slice(a,a+cols),size:size,gap:gap});y+=step;}
     ssCollectionRows.push({y:y,h:sectionH,label:'曲目'});y+=sectionH;
@@ -90,7 +90,7 @@ function drawArtist(gr,r){
           var tileBox={x0:cx,y0:Math.max(top,cy),x1:cx+row.size,y1:Math.min(layer.bottom,y+row.h),kind:'album',id:tile.id};
           drawRounded(layer.gr,cx,cy,row.size,4,tile.handle,tile.album);
           var detail=[ssDisplayAlbumYear(tile.year),tile.tracks.length+' 首歌曲'].filter(Boolean).join(' '+CH_DOT+' ');
-          ssDrawAlbumLabels(layer.gr,tile.album,detail,cx,cy+row.size,row.size,s);
+          ssDrawAlbumLabels(layer.gr,tile.album,detail,cx,cy+row.size,row.size,s,1);
           if(tile.named&&tileBox.y1>tileBox.y0)HB_CARD.push(tileBox);
         }
       }else if(row.label){

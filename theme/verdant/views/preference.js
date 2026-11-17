@@ -161,7 +161,6 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
     hb.track_id=tr.id;hb.scope=i<priority.length?'priority':pbShuffle?'remaining':'native';hb.queueIndex=i<priority.length?i:pbShuffle?i-priority.length:tr.item;if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}HB_Q.push(hb);
     ssDrawCachedRow(gr,'queue:'+i+':'+tr.id,r.x,qy,r.w,rowH,function(gr){
       if(next){
-        ssFillContinuousRect(gr,hb.x0,qy,hb.x1-hb.x0,rowH-4,6,6,COL.elev);
         tL(gr,'下一首',FONT.eyebrow,COL.text2,x,qy+4,r.w-48,nextLabelHeight);
       }
       ssDrawTrackLabels(gr,(i<priority.length&&!next?'优先 · ':'')+(tr.title||'未知曲目'),tr.artist||'',COL.text,x,qy+(next?nextLabelHeight:0),r.w-48,rh,ssDensity,true);

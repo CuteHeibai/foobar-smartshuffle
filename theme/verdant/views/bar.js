@@ -57,8 +57,9 @@ function ssDrawTransport(gr,by,height,s,layout,trackBg){
 function ssFooterToolLayout(s){
   var end=W-Math.round(28*s),gap=Math.max(44,Math.round(46*s)),queue=end-gap,lyrics=queue-gap;
   var volW=Math.min(Math.round(76*s),Math.max(48,R.barToolsW-236)),volX=lyrics-Math.round(30*s)-volW;
-  var output=volX-Math.round(30*s),mode=output-Math.round(42*s);
-  return {end:end,queue:queue,lyrics:lyrics,volW:volW,volX:volX,output:output,mode:mode};
+  var output=volX-Math.round(30*s),modeWidth=Math.round((W>=1080*s?104:38)*s);
+  var modeLeft=output-Math.round(24*s)-modeWidth;
+  return {end:end,queue:queue,lyrics:lyrics,volW:volW,volX:volX,output:output,modeLeft:modeLeft,modeWidth:modeWidth};
 }
 function ssPlaybackModeIndicator(){
   if(pbShuffle)return {icon:'shuffle',title:'智能随机',active:true};
@@ -71,7 +72,12 @@ function ssPlaybackModeIndicator(){
 function ssDrawFooterTools(gr,by,height,s,tools,fullscreen){
   var y=by+Math.round(height*.46),mode=ssPlaybackModeIndicator();
   var lyricsOn=fullscreen?fsView==='lyrics':typeof ssRightOpen!=='undefined'&&ssRightOpen&&R.queue&&R.queue.w>0&&rightTab==='lyrics';
-  var modeHint=ssDrawFooterTool(gr,tools.mode,y,s,'playback_mode',mode.icon,mode.active,'播放模式 · '+mode.title);
+  var modeH=Math.round(36*s),modeBox={x0:tools.modeLeft,y0:y-modeH/2,x1:tools.modeLeft+tools.modeWidth,y1:y+modeH/2,act:'playback_mode'};
+  var modeHot=hv(modeBox.x0,modeBox.y0,modeBox.x1,modeBox.y1),iconW=Math.round(34*s);
+  if(modeHot)ssFillContinuousRect(gr,modeBox.x0,modeBox.y0,tools.modeWidth,modeH,6,6,COL.rowHover);
+  drawIcon(gr,mode.icon,mode.active?COL.green:COL.text2,modeBox.x0,modeBox.y0,iconW,modeH,Math.round(19*s));
+  if(tools.modeWidth>iconW+16)tL(gr,mode.title,FONT.plSub,COL.text2,modeBox.x0+iconW,modeBox.y0,tools.modeWidth-iconW-4,modeH);
+  HB_CTRL.push(modeBox);
   var hint=ssDrawFooterTool(gr,tools.output,y,s,'output','volume',false,'音频输出');
   hint=ssDrawFooterTool(gr,tools.lyrics,y,s,'lyrics','lyric',lyricsOn,'歌词')||hint;
   if(fullscreen){
@@ -82,16 +88,12 @@ function ssDrawFooterTools(gr,by,height,s,tools,fullscreen){
     hint=ssDrawFooterTool(gr,tools.end,y,s,'fullscreen','expand',false,'全屏')||hint;
   }
   var labelY=by+Math.round(4*s),labelH=Math.round(19*s);
-  if(hint)tR(gr,hint,FONT.plSub,COL.text2,tools.mode-Math.round(18*s),labelY,
-    tools.end-tools.mode+Math.round(36*s),labelH);
-  else{
-    var labelW=Math.round((modeHint?156:88)*s);
-    tC(gr,modeHint||mode.title,FONT.plSub,COL.text2,tools.mode-labelW/2,labelY,labelW,labelH);
-  }
+  if(hint||modeHot)tR(gr,hint||'播放模式 · '+mode.title,FONT.plSub,COL.text2,tools.modeLeft,labelY,
+    tools.end-tools.modeLeft+Math.round(18*s),labelH);
   HB_VOL=drawTrackBar(gr,tools.volX,y-Math.round(2*s),tools.volW,4*s,COL.seekbg,clamp01(vol2pos(fb.Volume)),
     null,fullscreen?COL.base:COL.black);
-  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,COL.error,tools.mode-Math.round(20*s),y+Math.round(14*s),
-    Math.max(1,tools.end-tools.mode+Math.round(40*s)),Math.round(20*s));
+  if(ssOutputError||ssError)tL(gr,ssOutputError||ssError,FONT.plSub,COL.error,tools.modeLeft,y+Math.round(20*s),
+    Math.max(1,tools.end-tools.modeLeft+Math.round(20*s)),Math.round(20*s));
 }
 // A title owns only its text viewport. Cache the complete line on the footer's
 // opaque background, then copy a moving crop so glyphs can never reach controls.
@@ -177,7 +179,7 @@ function drawBar(gr){
     drawIcon(gr,'clock',summary.now_later?COL.green:COL.text2,fx+28*s,fy,28*s,28*s,18*s);
     HB_CTRL.push({x0:fx+28*s,y0:fy,x1:fx+56*s,y1:fy+28*s,act:'later'});
   }
-  var tools=ssFooterToolLayout(s),transport=ssTransportLayout(W,R.barInfoW,tools.mode-Math.round(30*s),s);
+  var tools=ssFooterToolLayout(s),transport=ssTransportLayout(W,R.barInfoW,tools.modeLeft-Math.round(8*s),s);
   R.transport=transport;
   ssDrawTransport(gr,by,M.barH,s,transport,COL.black);
   ssDrawFooterTools(gr,by,M.barH,s,tools,false);

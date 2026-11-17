@@ -383,7 +383,7 @@ function drawFsExit(gr){
 }
 function drawFsBar(gr){
   var s=ssDensity,by=H-M.barH,tools=ssFooterToolLayout(s);
-  var transport=ssTransportLayout(W,R.barInfoW,tools.mode-Math.round(30*s),s);
+  var transport=ssTransportLayout(W,R.barInfoW,tools.modeLeft-Math.round(8*s),s);
   ssDrawTransport(gr,by,M.barH,s,transport,COL.base);
   ssDrawFooterTools(gr,by,M.barH,s,tools,true);
 }

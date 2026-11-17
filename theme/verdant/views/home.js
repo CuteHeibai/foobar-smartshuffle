@@ -38,7 +38,6 @@ function ssHomeActionAt(x,y){
   return HB_HOME_ALBUMS&&inRect(x,y,HB_HOME_ALBUMS)?HB_HOME_ALBUMS:null;
 }
 function ssActivateHomeAction(target){
-  if(target.act==='transport'){ssPlayOrPause();return;}
   if(target.act==='featured'){ssPlayCollection('play_album',[target.album]);return;}
   ssHomeFocus='';
   if(target.act==='albums'){view='albums';artScroll=artScrollT=0;}
@@ -65,11 +64,7 @@ function ssHomeFocusRing(gr,box,radius){
 }
 function ssDrawHomePrimary(gr,x,y,w,h,album){
   if(album)HB_HOME_CONTINUE=ssDrawAlbumPlayAction(gr,x,y,w,h);
-  else{
-    var playing=NP&&fb.IsPlaying&&!fb.IsPaused;
-    HB_HOME_CONTINUE=ssDrawLabeledAction(gr,x,y,w,h,NP?(playing?'暂停播放':'继续播放'):'浏览音乐库',
-      NP?(playing?'pause':'play'):'search',NP?'transport':'browse');
-  }
+  else HB_HOME_CONTINUE=ssDrawLabeledAction(gr,x,y,w,h,'浏览音乐库','search','browse');
   HB_HOME_CONTINUE.focus='primary';HB_HOME_CONTINUE.album=album;
   ssHomeFocusRing(gr,HB_HOME_CONTINUE,8);
 }
@@ -79,42 +74,44 @@ function drawHome(gr,r){
   var s=ssDensity,bottom=r.y+r.h,content=ssLibraryReadingRect(r),x=content.x,w=content.w,right=x+w;
   var bh=Math.round(38*s),bw=Math.min(w,Math.round(134*s));
   var selection=ssHomeAlbumSelection(getAlbumCatalog().albums),hasAlbums=selection.length>0,playingRelease=ssHomePlayingRelease();
-  if(playingRelease)selection=selection.filter(function(album){return ssHomeReleaseKey(album.album)!==playingRelease;});
-  var featured=!NP&&r.h>=Math.round(245*s)?selection[0]:null;
-  var showTitle=r.h>=Math.round(55*s),hero=(NP||featured)&&r.h>=Math.round(245*s);
-  var split=hero&&selection.length>(featured?1:0)&&w>=Math.round(575*s)&&r.h>=Math.round(400*s);
+  var featured=r.h>=Math.round(245*s)?selection[0]:null,hero=!!featured;
+  selection=selection.filter(function(album){return album!==featured&&(!playingRelease||ssHomeReleaseKey(album.album)!==playingRelease);});
+  var showTitle=r.h>=Math.round(55*s);
+  var split=hero&&selection.length>0&&w>=Math.round(575*s)&&r.h>=Math.round(400*s);
   var ty=r.y+Math.round(12*s),titleH=Math.round(43*s),headingH=Math.round(26*s);
   var artY=r.y+Math.round(64*s),shelfX=x,shelfW=w;
   gr.FillSolidRect(r.x,r.y,r.w,r.h,COL.base);
   if(showTitle)tL(gr,'唱片室',FONT.title,COL.text,x,ty,Math.max(1,w-(hero?0:bw+16)),titleH);
   if(split){
-    var cover=Math.round((w>=970*s?300:w>=730*s?255:202)*s);
+    artY+=Math.min(Math.round(38*s),Math.max(0,Math.round((r.h-590*s)*.24)));
+    var cover=Math.round((w>=970*s?330:w>=730*s?270:204)*s);
     cover=Math.min(cover,Math.max(1,r.h-Math.round(208*s)));
     var coverY=artY+Math.round(34*s),metaY=coverY+cover+Math.round(12*s);
-    shelfX=x+cover+Math.round(38*s);shelfW=right-shelfX;
-    tL(gr,NP?(fb.IsPaused?'已暂停':'正在播放'):'唱片推荐',FONT.sect,COL.text,x,artY,cover,headingH);
-    drawRounded(gr,x,coverY,cover,6,NP||featured.handle,NP?'np':featured.album);
-    tL(gr,NP?npTitleStr:featured.album,FONT.title,COL.text,x,metaY,cover,Math.round(40*s));
-    tL(gr,NP?npArtistStr:ssArtistName(featured.artist),FONT.meta,COL.text2,x,metaY+Math.round(42*s),cover,Math.round(23*s));
+    shelfX=x+cover+Math.round(36*s);shelfW=right-shelfX;
+    tL(gr,'唱片推荐',FONT.sect,COL.text,x,artY,cover,headingH);
+    drawRounded(gr,x,coverY,cover,6,featured.handle,featured.album);
+    tL(gr,featured.album,FONT.title,COL.text,x,metaY,cover,Math.round(40*s));
+    tL(gr,ssArtistName(featured.artist),FONT.meta,COL.text2,x,metaY+Math.round(42*s),cover,Math.round(23*s));
     ssDrawHomePrimary(gr,x,metaY+Math.round(70*s),cover,Math.max(40,Math.round(42*s)),featured);
   }else if(hero){
     var y=artY+Math.round(5*s),art=Math.min(Math.round(238*s),Math.floor(w*.40),r.h-Math.round(174*s));
     var tx=x+art+Math.round(32*s),tw=Math.max(1,right-tx);
     var labelY=y+Math.max(0,Math.round((art-116*s)/2));
-    drawRounded(gr,x,y,art,7,NP||featured.handle,NP?'np':featured.album);
-    tL(gr,NP?(fb.IsPaused?'已暂停':'正在播放'):'唱片推荐',FONT.eyebrow,COL.text2,tx,labelY,tw,Math.round(20*s));
-    tL(gr,NP?npTitleStr:featured.album,FONT.title,COL.text,tx,labelY+Math.round(22*s),tw,Math.round(42*s));
-    tL(gr,NP?npArtistStr:ssArtistName(featured.artist),FONT.meta,COL.text2,tx,labelY+Math.round(64*s),tw,Math.round(20*s));
-    ssDrawHomePrimary(gr,tx,labelY+Math.round(88*s),featured?tw:Math.min(tw,bw),featured?Math.max(40,Math.round(42*s)):bh,featured);
-    artY=y+Math.max(art,Math.round(88*s)+(featured?Math.max(40,Math.round(42*s)):bh))+Math.round(25*s);
+    drawRounded(gr,x,y,art,7,featured.handle,featured.album);
+    tL(gr,'唱片推荐',FONT.eyebrow,COL.text2,tx,labelY,tw,Math.round(20*s));
+    tL(gr,featured.album,FONT.title,COL.text,tx,labelY+Math.round(22*s),tw,Math.round(42*s));
+    tL(gr,ssArtistName(featured.artist),FONT.meta,COL.text2,tx,labelY+Math.round(64*s),tw,Math.round(20*s));
+    var buttonH=Math.max(40,Math.round(42*s));
+    ssDrawHomePrimary(gr,tx,labelY+Math.round(88*s),tw,buttonH,featured);
+    artY=y+Math.max(art,Math.round(88*s)+buttonH)+Math.round(25*s);
   }else if(ty+bh<=bottom){
     ssDrawHomePrimary(gr,showTitle?right-bw:x,ty,bw,bh,null);
   }
 
   var grid=ssAlbumGrid(shelfW,s),size=grid.size,cols=Math.min(split?4:6,grid.cols);
-  var albums=selection.slice(featured?1:0,(featured?1:0)+Math.min(split?cols*2:6,8));
+  var albums=selection.slice(0,Math.min(split?cols*2:6,8));
   var visibleCols=Math.max(1,Math.min(cols,albums.length));
-  var gap=visibleCols>1?Math.min(Math.round(30*s),Math.floor((shelfW-visibleCols*size)/(visibleCols-1))):grid.gap;
+  var gap=visibleCols>1?Math.min(Math.round(42*s),Math.floor((shelfW-visibleCols*size)/(visibleCols-1))):grid.gap;
   gap=Math.max(grid.gap,gap);
   var shelfEnd=shelfX+visibleCols*size+(visibleCols-1)*gap;
   var top=artY+Math.round(34*s),viewportH=bottom-top;
@@ -132,7 +129,7 @@ function drawHome(gr,r){
       if(ay+cardH<=top)continue;
       drawLibraryAlbumCard(cardsGr,shelfX+(i%cols)*(size+gap),ay,size,albums[i],top,bottom);
     }
-    if(!albums.length&&!selection.length&&!playingRelease)tL(cardsGr,'还没有带专辑标签的歌曲',FONT.plSub,COL.text2,x,top-offset,w,Math.round(30*s));
+    if(!hasAlbums)tL(cardsGr,'还没有带专辑标签的歌曲',FONT.plSub,COL.text2,x,top-offset,w,Math.round(30*s));
   }finally{if(layer)layer.finish();}
 
   var linkW=hasAlbums?Math.min(Math.round(98*s),Math.floor(shelfW/2)):0;

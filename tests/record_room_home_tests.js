@@ -15,7 +15,7 @@ test('home shows real album navigation when verified artist list is empty inside
  c.homeScroll=c.homeScrollT=c.HOME_MAXROW;paints.length=0;c.drawHome(gr,r);assert.equal(c.ssHomeAlbums.length,9);assert.equal(c.HB_CARD.at(-1).id,'album-5');assert.ok(c.HB_CARD.every(a=>a.y0>=layers[1].y&&a.y1<=r.y+r.h));
 });
 
-test('home primary control browses the library while stopped and resumes a paused track',()=>{
+test('home primary control retains the discovery action while playing or paused',()=>{
  const {c,gr}=harness(),r={x:240,y:40,w:900,h:750};
  let playCalls=0;
  c.getAlbumCatalog=()=>({albums:[]});
@@ -26,12 +26,14 @@ test('home primary control browses the library while stopped and resumes a pause
  assert.equal(c.view,'songs');assert.equal(c.songsScroll,0);assert.equal(playCalls,0);
  Object.assign(c,{view:'home',NP:{},npTitleStr:'Paused track',npArtistStr:'Artist'});c.fb.IsPaused=true;
  c.drawHome(gr,r);
- assert.equal(c.HB_HOME_CONTINUE.act,'transport');
+ assert.equal(c.HB_HOME_CONTINUE.act,'browse');
  c.ssActivateHomeAction(c.HB_HOME_CONTINUE);
- assert.equal(playCalls,1);
+ assert.equal(playCalls,0);assert.equal(c.view,'songs');
+ c.getAlbumCatalog=()=>({albums:[{id:'album',album:'A real release',artist:'Artist',handle:{}}]});
+ c.drawHome(gr,r);assert.equal(c.HB_HOME_CONTINUE.act,'featured');assert.equal(c.HB_HOME_CONTINUE.album.id,'album');
 });
 test('home opens a parallel album shelf and reflows it without changing tile size',()=>{
- const {c,gr,paints,layers}=harness();c.ssDensity=1.05;
+ const {c,gr,paints,layers}=harness();
  function grid(width){
   paints.length=0;c.drawHome(gr,{x:300,y:40,w:width,h:750});
   const albums=c.HB_CARD.filter(card=>card.kind==='album'),first=albums[0];
@@ -42,8 +44,8 @@ test('home opens a parallel album shelf and reflows it without changing tile siz
   assert.equal(c.HB_HOME_ALBUMS.x1,Math.max(...albums.map(card=>card.x1)));
   return [albums.filter(card=>card.y0===first.y0).length,first.x1-first.x0];
  }
- assert.deepEqual(grid(1125),[4,165]);
- assert.deepEqual(grid(799),[2,165]);
+ assert.deepEqual(grid(1125),[4,157]);
+ assert.deepEqual(grid(799),[2,157]);
 });
 
 test('a short window keeps the primary action inside the main panel and clears old scroll targets',()=>{

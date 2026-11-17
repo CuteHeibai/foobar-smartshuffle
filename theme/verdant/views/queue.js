@@ -63,17 +63,12 @@ function ssDrawQueueContent(gr){
     return;
   }
 
-  var qy=r.y+70,compactH=ssTrackTextMetrics(ssDensity,true).height;
+  var qy=r.y+64,compactH=ssTrackTextMetrics(ssDensity,true).height;
   if(NP){
     drawIcon(gr,fb.IsPaused?'pause':'equalizer',COL.green,x,qy,18,24,15);
-    tL(gr,fb.IsPaused?'已暂停':'正在播放',FONT.sect,COL.text,x+23,qy,r.w-59,24);
-    qy+=36;
-    qEntry(gr,r,x,qy,48,NP,'np',undefined,npTitleStr,npArtistStr,COL.text);
-  }else{
-    ssDrawIdleRecord(gr,x,qy,48);
-    tL(gr,'尚未播放',FONT.qName,COL.text2,x+60,qy,r.w-96,48);
+    tL(gr,fb.IsPaused?'已暂停':'播放中',FONT.plSub,COL.text2,x+23,qy,r.w-59,24);
+    qy+=35;
   }
-  qy+=Math.max(70,compactH+18);
 
   var rh=Math.max(56,compactH+6), bottom=r.y+r.h-8, shown=0, qi;
   if(pbRepeat!==2 && ssDrawNativeQueue(gr,r,x,qy,bottom)) return;

@@ -84,7 +84,7 @@ function drawSearch(gr,r){
       var active=ssIsCurrentTrack(tr.h);
       ssDrawTrackLead(gr,x0,ry,playW,rh,i+1,active);
       drawCover(gr,artX,ry+(rh-cs)/2,cs,4,tr.h,tr.album||tr.title);
-      var detail=tr.snippet?('歌词 '+(tr.lyric_time!==null&&tr.lyric_time!==undefined?fmtTime(tr.lyric_time):'无时间轴')+' · '+tr.snippet):[tr.artist,tr.album].filter(Boolean).join(' '+CH_DOT+' ');
+      var detail=tr.snippet?('歌词 '+(tr.lyric_time!==null&&tr.lyric_time!==undefined?fmtTime(tr.lyric_time):'无时间轴')+' · '+tr.snippet):[tr.artist,tr.album===tr.title?'':tr.album].filter(Boolean).join(' '+CH_DOT+' ');
       ssDrawTrackLabels(gr,tr.title,detail,COL.text,textX,ry,x0+trackW-durW-textX,rh,s);
       tR(gr,tr.len,FONT.rowCell,COL.text2,x0+trackW-durW,ry,durW,rh);
       var hy0=Math.max(ry,top), hy1=Math.min(ry+rh,cropY);   // clip the click target to the viewport

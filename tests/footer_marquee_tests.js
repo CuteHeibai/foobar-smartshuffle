@@ -66,7 +66,7 @@ test('ordinary and full-screen playback share control order and the lower seek r
   assert.equal(c.HB_CTRL.filter(b=>b.act==='playback_mode').length,1);
   assert.ok(!c.HB_CTRL.some(b=>b.act==='shuffle'||b.act==='repeat'));
   const mode=c.HB_CTRL.find(b=>b.act==='playback_mode'),status=h.words.find(w=>w.s==='顺序播放');
-  assert.ok(status&&Math.abs((status.x+status.w/2)-(mode.x0+mode.x1)/2)<=1,'the mode text belongs above its own button');
+  assert.ok(status&&status.x>mode.x0&&status.x+status.w<=mode.x1&&status.y===mode.y0,'the mode text sits within the same hit target and baseline as its icon');
 
 });
 test('an idle player leaves a rail without time labels or dragging, and only enables play with a source',()=>{
