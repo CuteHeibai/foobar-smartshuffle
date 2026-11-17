@@ -185,7 +185,7 @@ function ssBatchTrackMenu(row,x,y){
   copy.push({label:'新建歌单',run:function(){transfer('',false,true);}});move.push({label:'新建歌单',run:function(){transfer('',true,true);}});
   for(var i=0;i<lists.length;i++)(function(p){if(isHiddenPl(p.name)||!p.writable||p.index===row.pl)return;copy.push({label:p.name,run:function(){transfer(p.guid,false,false);}});move.push({label:p.name,run:function(){transfer(p.guid,true,false);}});})(lists[i]);
   if(copy.length>1){copy.splice(1,0,{separator:true});move.splice(1,0,{separator:true});}
-  var extra=[{label:'加入待播队列',run:function(){ssSend('queue_add',args);}},{label:'添加到歌单',children:copy}];
+  var extra=[{label:'排到待播队尾',run:function(){ssSend('queue_add',args);}},{label:'添加到歌单',children:copy}];
   if(args.tracks.length>1)extra.unshift({label:'已选 '+args.tracks.length+' 首歌曲',heading:true});
   if(canMove)extra.push({label:'移动到歌单',children:move},{label:'从此歌单移除',run:function(){ssSend('tracks_remove',args);}});
   if(typeof ssPersonalEnabled==='function'&&ssPersonalEnabled()){

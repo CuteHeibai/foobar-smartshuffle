@@ -331,7 +331,7 @@ test('new playlist tracks get artwork and artist lookups without a restart and t
  c.ssFlight=null;
  c.ssOpenNativeMenu('context',{tracks:[c.ssTrackID(newTrack)]},0,0);
  c.ssAcceptMenu(c.ssFlight,{response:{menu:{token:'context',items:[{label:'转换',command:1}]}}});
- const options=c.ssPopup.levels[0].items.find(item=>item.label==='更多操作').children;
+ const options=c.ssPopup.levels[0].items.find(item=>item.label==='更多操作').children.flatMap(group=>group.children);
  const refresh=options.find(item=>item.label==='补齐封面和歌手资料');assert.ok(refresh);
  assert.ok(options.some(item=>item.command===1));
  c.ssFlight=null;refresh.run();
@@ -373,7 +373,7 @@ test('context menu preserves native commands when selected IDs have no available
  const h=metadataHarness(),c=h.c;
  c.ssOpenNativeMenu('context',{track_id:'file://D:/absent.flac|0'},0,0);
  c.ssAcceptMenu(c.ssFlight,{response:{menu:{token:'context',track_id:'file://D:/absent.flac|0',items:[{label:'转换',command:1}]}}});
- const options=c.ssPopup.levels[0].items.find(item=>item.label==='更多操作').children;
+ const options=c.ssPopup.levels[0].items.find(item=>item.label==='更多操作').children.flatMap(group=>group.children);
  assert.ok(!options.some(item=>item.label==='补齐封面和歌手资料'));
  assert.ok(options.some(item=>item.command===1));
 });

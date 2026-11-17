@@ -64,7 +64,7 @@ function ssCreateFonts(){return {
   npTitle:F(15,0), npArtist:F(12,0), time:F(12,0),
   icon:gf('Segoe MDL2 Assets',15), iconBtn:gf('Segoe MDL2 Assets',18),
   navIco:gf('Segoe MDL2 Assets',24), cap:gf('Segoe MDL2 Assets',10),
-  menu:F(12), card:F(14,0), sect2:F(20,1),
+  menu:F(12), menuPrimary:F(14,1), card:F(14,0), sect2:F(20,1),
   searchTxt:F(16),
   lyric:F(18,1), fsLyric:F(30,1),
   fsSrc:F(13),

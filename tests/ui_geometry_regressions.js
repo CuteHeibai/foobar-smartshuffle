@@ -166,9 +166,23 @@ test('track context promotes playback and properties and preserves native comman
  const add={label:'加入待播队列',run(){}},recycle={label:'移到回收站',danger:true,run(){}};
  const items=c.ssTrackContextItems([queue,play,tools,{separator:true},props],[add],[recycle]);
  assert.deepEqual(Array.from(items.filter(item=>!item.separator),item=>item.label),['播放','加入待播队列','属性','更多操作']);
- const more=items.at(-1);assert.equal(more.children[0],queue);assert.equal(more.children[1],tools);assert.equal(more.children.at(-1),recycle);
+ const more=items.at(-1);assert.ok(more.drill);assert.equal(more.children.find(item=>item.label==='播放与音频').children[0].command,queue.command);
+ assert.equal(more.children.find(item=>item.label==='工具与扩展').children[0],tools);assert.equal(more.children.find(item=>item.label==='文件与复制').children.at(-1),recycle);
+ assert.notEqual(items[0].label,add.label);
  c.ssShowPopup(items,50,70,'native-token',true,'context');let command;c.ssSend=(op,args)=>command={op,token:args.token,id:args.command};
- c.ssPopupChoose(more.children[1].children[0]);assert.deepEqual(command,{op:'menu_execute',token:'native-token',id:29});
+ c.ssPopupChoose(tools.children[0]);assert.deepEqual(command,{op:'menu_execute',token:'native-token',id:29});
+});
+test('more actions replace the context panel and Back restores its source',()=>{
+ const {c,load}=context();load('ui/menus.js');c.W=760;c.H=500;c.UISCALE=1;c.R={barY:410};c.mx=c.my=-1;const g=graphics();
+ const more={label:'更多操作',drill:true,children:[{label:'文件与复制',children:[{label:'打开所在文件夹',command:31}]}]};
+ c.ssShowPopup([{label:'播放',command:2},more],728,378,'native-token',true,'context');c.ssDrawPopup(g);
+ const root=c.ssPopup.levels[0],bounds={...root.rect};assert.ok(bounds.y+bounds.h<c.R.barY);
+ let hit=c.SS_MENU_HB.find(h=>h.item===more);c.ssPopupMove(hit.x0+15,hit.y0+10);assert.equal(c.ssPopup.levels.length,1);
+ c.ssPopupClick(hit.x0+15,hit.y0+10);c.ssDrawPopup(g);
+ assert.equal(c.ssPopup.levels.length,2);assert.equal(c.ssPopup.levels[1].rect.x,bounds.x);assert.ok(c.SS_MENU_HB.every(h=>h.depth===1));
+ c.ssPopupKey(40);c.ssPopupKey(39);c.ssDrawPopup(g);assert.equal(c.ssPopup.levels.length,3);
+ hit=c.SS_MENU_HB.find(h=>h.back);c.ssPopupClick(hit.x0+15,hit.y0+10);c.ssPopupKey(37);c.ssDrawPopup(g);
+ assert.equal(c.ssPopup.levels.length,1);assert.deepEqual({...root.rect},bounds);
 });
 test('context submenus flip at desktop edges and keep keyboard selection visible',()=>{
  const {c,load}=context();load('ui/menus.js');c.W=760;c.H=600;c.UISCALE=1;c.mx=c.my=-1;const g=graphics();
