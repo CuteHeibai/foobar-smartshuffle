@@ -11,7 +11,7 @@
 ## 实施记录
 
 - 在 `design/desktop-record-room` 分支保留当前未提交功能作为基线；原主题备份在本地 build/record-room-baseline。
-- 已安装 distinctive-ai-design，按其流程进行真实宿主截图与最多两轮独立视觉评审。
+- 已安装 distinctive-ai-design，使用真实宿主截图和独立 Sol 评审逐轮迭代。
 - 保持 bridge v1、原生 Engine、播放来源、队列身份与排序语义；只新增面板属性 `SmartShuffle: right pane open` 和 `SmartShuffle: right pane tab`。
 - 测试使用独立 test-player，正常退出后部署；不操作日常播放器、不发布。
 
@@ -19,11 +19,11 @@
 
 `tests/record_room_layout_tests.js` 检查抽屉默认、持久化、自动收起、首次点击恢复、零宽绘制与原生歌词隐藏。主题、几何、选择、播放、滚动和个人页沿用现有回归检查。
 
-`tests/host_record_room.py` 通过独立 JSplitter 实际绘制位图，覆盖深浅色和三种窗口尺寸；结果位于本地 build/record-room。截图证明绘制状态，不替代实际播放与设备听感检查。
+`tests/host_record_room.py` 通过独立 JSplitter 实际绘制位图。评审使用 1440×900 最大化画布和 1180×780 常规窗口，两档各覆盖深浅色和 15 个页面或状态，包括播放器自身的全屏视图，共 60 张。结果位于本地 `build/record-room`，用于核对绘制状态。实际播放与设备听感另行验证。
 
 交付独立体验版和验证记录，不将测试组件、个人缓存或第三方素材打包发布。
 
-### 本轮结果
+### 早期验证记录
 
 - 12 组主题及交互回归通过。独立宿主完成 39 项 GDI 绘制检查、26 项空输出播放检查，以及个人页与深浅色重启恢复检查。
 - 90 张实际绘制位图覆盖 1440×900、1024×768 与 760×600 的深浅主题。个人页截图来自关闭个人记录的配置，真实个人页交互由独立宿主测试验证。

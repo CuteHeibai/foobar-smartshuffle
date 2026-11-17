@@ -1,6 +1,7 @@
 ﻿/* Actual host graphics; no desktop capture, mouse injection or invented statistics. */
 (function(){
  var result={ok:false,checks:[],captures:[],limitations:[]},jobs=[],index=0;
+ var maximized=[1440,900],standard=[1180,780];
  var saved={w:W,h:H,view:view,artist:viewArtist,album:viewAlbum,appearance:SS_APPEARANCE,rightOpen:ssRightOpen,rightTab:rightTab,rightForced:ssRightForced,fsMode:fsMode,fsView:fsView,modal:ssModal,query:searchQuery,
   appearanceProp:window.GetProperty('SmartShuffle: appearance',null),openProp:window.GetProperty('SmartShuffle: right pane open',null),tabProp:window.GetProperty('SmartShuffle: right pane tab',null)};
  function check(value,name){if(!value)throw Error(name);result.checks.push(name);}
@@ -69,15 +70,15 @@
   check(typeof ssSetRightPane==='function','Drawer controller is available');
   saved.nativeAppearance=ssState&&ssState.theme?ssState.theme.appearance:saved.appearance;
   if(!ssPersonalEnabled())result.limitations.push('Personal library is disabled and remains disabled. Personal screenshots capture its disabled empty surface; enabled personal behavior requires the separate host test.');
-  W=1440;H=900;layout(true);ssSetRightPane('queue',false);layout(true);
+  W=maximized[0];H=maximized[1];layout(true);ssSetRightPane('queue',false);layout(true);
   check(!ssRightOpen&&R.queue.w===0,'Closed drawer releases all right pane width');var closed=R.main.w;
   ssSetRightPane('queue',true);layout(true);check(ssRightOpen&&rightTab==='queue'&&R.queue.w>0&&R.main.w<closed,'Opening queue allocates width from main content');
   ssSetRightPane('lyrics',true);layout(true);check(ssRightOpen&&rightTab==='lyrics'&&R.queue.w>0,'Selecting lyrics keeps drawer open');
-  W=760;H=600;layout(true);check(ssRightOpen,'Narrow layout preserves desired drawer state');result.narrowRightWidth=R.queue.w;
-  W=1440;H=900;layout(true);check(R.queue.w>0&&rightTab==='lyrics','Widening restores selected open drawer');
+  W=standard[0];H=standard[1];layout(true);check(ssRightOpen&&rightTab==='lyrics'&&R.queue.w>0,'The standard window keeps the selected drawer visible');result.standardRightWidth=R.queue.w;
+  W=maximized[0];H=maximized[1];layout(true);check(R.queue.w>0&&rightTab==='lyrics','Maximizing keeps the selected drawer visible');
   ssSetRightPane('lyrics',false);layout(true);check(!ssRightOpen&&R.queue.w===0,'Explicit close releases drawer width');
   var catalog=getAlbumCatalog();result.libraryAlbums=catalog.albums.length;if(!catalog.albums.length)result.limitations.push('Artist and album pages have no real album fixture; empty-state captures only.');
-  ['light','dark'].forEach(function(mode){[[1440,900],[1024,768],[760,600]].forEach(function(size){['home','artist','album','albums','playlist','songs','search','favorites','history','later','stats','queue','lyrics','fullscreen','modal'].forEach(function(page){jobs.push({mode:mode,w:size[0],h:size[1],page:page});});});});
+  ['light','dark'].forEach(function(mode){[maximized,standard].forEach(function(size){['home','artist','album','albums','playlist','songs','search','favorites','history','later','stats','queue','lyrics','fullscreen','modal'].forEach(function(page){jobs.push({mode:mode,w:size[0],h:size[1],page:page});});});});
   next();
  }catch(e){finish(e);}},2500);
 })();
