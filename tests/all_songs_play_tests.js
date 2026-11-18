@@ -33,7 +33,7 @@ test('empty All Songs cannot dispatch playback',()=>{
 });
 test('All Songs header draws a distinct play target below the library cover at both densities',()=>{
   for(const [s,width] of [[1,900],[1,600],[.75,675],[.75,450]]){
-    const h=harness();h.load('views/songs.js');h.c.ssDensity=s;
+    const h=harness();h.load('views/cards.js');h.load('views/songs.js');h.c.ssDensity=s;
     h.c.drawSongs(h.gr,{x:0,y:0,w:width,h:100});
     const box=h.c.HB_SONGS_PLAY;assert.ok(box&&box.label&&box.library);assert.ok(box.x1-box.x0>=32&&box.y1-box.y0>=32);
     assert.equal(box.x0,24);assert.ok(box.y0>16*s+Math.min(160,Math.round(168*s)));
@@ -42,7 +42,7 @@ test('All Songs header draws a distinct play target below the library cover at b
   }
 });
 test('loading and empty library clear a previously clickable header action',()=>{
-  const h=harness();h.load('views/songs.js');h.c.HB_SONGS_PLAY={x0:0};h.c.ensureBuilt=()=>false;h.c.skelVisible=()=>false;
+  const h=harness();h.load('views/cards.js');h.load('views/songs.js');h.c.HB_SONGS_PLAY={x0:0};h.c.ensureBuilt=()=>false;h.c.skelVisible=()=>false;
   h.c.drawSongs(h.gr,{x:0,y:0,w:900,h:100});assert.equal(h.c.HB_SONGS_PLAY,null);
   h.c.ensureBuilt=()=>true;h.c.songsTracks=[];h.c.songsRows=[];h.c.drawSongs(h.gr,{x:0,y:0,w:900,h:100});assert.equal(h.c.HB_SONGS_PLAY,null);
 });

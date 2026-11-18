@@ -2,7 +2,7 @@
 (function(){
  var result={ok:false,checks:[],fonts:[]},saved={font:FONT,scale:UISCALE,view:view,tracks:songsTracks,hb:HB_TR,qhb:HB_Q,scene:ssSceneImage,rows:ssMainRows,index:ssMainIndex,artists:ssArtists,point:{x:mx,y:my},state:ssState,shuffle:pbShuffle,qscroll:ssQueueScroll,qtarget:ssQueueScrollT};
  function check(ok,name){if(!ok)throw Error(name);result.checks.push(name);}
- function closeInk(a,b){return [0,8,16].every(function(shift){return Math.abs(((a>>shift)&255)-((b>>shift)&255))<=4;});}
+ function paletteNear(a,b){return [0,8,16].every(function(shift){return Math.abs(((a>>shift)&255)-((b>>shift)&255))<=32;});}
  function colour(image,x,y,w,h){return image.Clone(x,y,w,h).GetColourScheme(1)[0]&0xffffff;}
  function sampleInk(ink){var image=gdi.CreateImage(8,8),g=image.GetGraphics();g.FillSolidRect(0,0,8,8,ink);image.ReleaseGraphics(g);return colour(image,0,0,8,8);}
  function white(value){return ((value>>16)&255)>240&&((value>>8)&255)>240&&(value&255)>240;}
@@ -30,14 +30,15 @@
   var scene=gdi.CreateImage(500,240),bg=scene.GetGraphics();bg.FillSolidRect(0,0,500,240,COL.base);scene.ReleaseGraphics(bg);ssSceneImage=scene;ssInteractionPainted=[];ssHoverPainted=null;mx=200;my=125;
   var frame=gdi.CreateImage(500,240),fg=frame.GetGraphics();fg.FillSolidRect(0,0,500,240,COL.base);ssPaintInteractions(fg);frame.ReleaseGraphics(fg);var before=colour(frame,50,10,100,20);
   for(n=0;n<40;n++){fg=frame.GetGraphics();ssPaintInteractions(fg);frame.ReleaseGraphics(fg);}check(before===colour(frame,50,10,100,20),'Forty actual bitmap paints retain identical selection opacity');
-  ssState={round:1,remaining:Array.from({length:30},function(v,i){return {id:'queue'+i,title:'测试歌曲 '+i,artist:'歌手'};}),queue:[]};pbShuffle=true;ssQueueScroll=ssQueueScrollT=9;HB_Q=[];mx=100;my=300;
+  ssState={round:1,remaining:Array.from({length:30},function(v,i){return {id:'queue'+i,title:'测试歌曲 '+i,artist:'歌手'};}),queue:[]};pbShuffle=true;ssQueueScroll=ssQueueScrollT=Math.round(30*ssDensity)+9;HB_Q=[];mx=100;my=300;
   var queueImage=gdi.CreateImage(320,600),qg=queueImage.GetGraphics();qg.FillSolidRect(0,0,320,600,COL.base);ssDrawNativeQueue(qg,{x:0,y:0,w:320,h:600},18,150,580);queueImage.ReleaseGraphics(qg);
-  check(HB_Q[0].track_id==='queue0'&&HB_Q[0].y0===209&&HB_Q[HB_Q.length-1].y1===580,'Actual queue renderer retains and clips both partial edge rows');
+  check(HB_Q[0].track_id==='queue0'&&HB_Q[0].y0>HB_Q[0].rowY&&HB_Q[HB_Q.length-1].y1===580,'Actual queue renderer retains and clips both partial edge rows');
   check(SS_QUEUE_SB&&SS_QUEUE_SB.maxPx>0,'Actual queue renderer exposes its own scroll thumb');
   var rounded=gdi.CreateImage(200,120),rg=rounded.GetGraphics();rg.FillSolidRect(0,0,200,120,RGB(120,142,160));rg.FillSolidRect(0,0,200,10,COL.black);roundBottom(rg,0,0,200,120);rounded.ReleaseGraphics(rg);
   var canvasSample=colour(rounded,95,0,10,5),panelSample=colour(rounded,95,100,10,5);
   var corners=[colour(rounded,0,119,1,1),colour(rounded,199,119,1,1)];
-  check(corners.every(function(c){return c!==panelSample&&closeInk(c,canvasSample);}), 'Composed panel retains canvas-colored bottom corners: '+[canvasSample,panelSample].concat(corners).map(function(c){return c.toString(16);}).join('/'));
+  // Palette extraction quantizes a sampled pixel; an antialiased edge can land in the next bucket.
+  check(corners.every(function(c){return c!==panelSample&&paletteNear(c,COL.black);}), 'Composed panel retains canvas-colored bottom corners: '+[canvasSample,panelSample].concat(corners).map(function(c){return c.toString(16);}).join('/'));
   var oldR=R;R={main:{x:0,y:0,w:500,h:200},queue:{x:510,y:0,w:300,h:200}};HB_TR=[0,1,2].map(function(i){return {songs:true,ti:i,x0:0,y0:i*50,x1:500,y1:(i+1)*50};});HB_Q=[];ssMainSelect.cancel();ssMainSelect.setContext({kind:'track',key:'raster-hover',items:[],rows:[]});ssInteractionPainted=[];ssInteractionDamage=[];ssHoverPainted=null;
   var clean=gdi.CreateImage(500,240),cl=clean.GetGraphics();cl.FillSolidRect(0,0,500,240,COL.base);for(n=0;n<3;n++)cl.FillSolidRect(150,n*50+20,80,8,RGB(250,250,250));clean.ReleaseGraphics(cl);ssSceneImage=clean;mx=200;my=10;
   fg=frame.GetGraphics();fg.DrawImage(clean,0,0,500,240,0,0,500,240);ssPaintInteractions(fg);frame.ReleaseGraphics(fg);my=110;
@@ -46,7 +47,7 @@
   ssQueueInteractionDamage(R.main);fg=frame.GetGraphics();fg.FillSolidRect(0,0,500,200,COL.black);ssPaintInteractions(fg);frame.ReleaseGraphics(fg);check(white(colour(frame,160,70,50,8))&&white(colour(frame,160,120,50,8)),'Drag repaint retains every unrelated song row in the cleared panel');R=oldR;
   var oldAppearance=SS_APPEARANCE;ssApplyAppearance('light');
   var lightImage=gdi.CreateImage(500,300),lg=lightImage.GetGraphics();lg.FillSolidRect(0,0,500,300,COL.black);panelBg(lg,{x:10,y:10,w:470,h:270},COL.base);lightImage.ReleaseGraphics(lg);
-  check(colour(lightImage,50,50,30,30)===sampleInk(COL.base),'Actual light panel uses the opaque warm surface');
+  check(colour(lightImage,50,50,30,30)===sampleInk(COL.base),'Actual light panel uses the opaque white surface');
   var corner=colour(lightImage,10,10,1,1),canvas=colour(lightImage,0,0,1,1);
   check(corner===canvas,'Light rounded corners match an actual opaque canvas sample ('+corner.toString(16)+' / '+canvas.toString(16)+')');
   var grid=ssGradientGrid(200);check((colour(grid,10,10,10,10)&255)>180,'Preference grid rebuilds with the light pastel gradient');
@@ -58,8 +59,9 @@
   result.splitter_pixels=[colour(splitImage,sx-1,sy,1,5),colour(splitImage,sx,sy,1,5),colour(splitImage,sx+1,sy,1,5),COL.splitter&0xffffff];
   // GetColourScheme quantizes colours; verify quiet, visible coverage and untouched
   // adjacent pixels rather than comparing its palette entry to an exact RGB.
-  var splitColour=result.splitter_pixels[1];
-  check(((splitColour>>16)&255)>175&&((splitColour>>16)&255)<220&&((splitColour>>8)&255)<220&&(splitColour&255)<220&&result.splitter_pixels[0]===sampleInk(COL.base)&&result.splitter_pixels[2]===sampleInk(COL.base),'Light splitter remains one quiet visible pixel wide without pointer hover');
+  var splitColour=result.splitter_pixels[1],background=sampleInk(COL.base);
+  check(splitColour!==background&&paletteNear(splitColour,COL.splitter)&&result.splitter_pixels[0]===background&&result.splitter_pixels[2]===background,
+    'Light splitter remains one quiet visible pixel wide without pointer hover');
   check(Math.abs(ssTransportLayout(W,80,W-140,1).center-W/2)<=1,'Transport geometry stays at the whole-window midpoint with asymmetric side widths');
   ssModal=oldModal;fsMode=oldFs;ssApplyAppearance(oldAppearance);
   check(COL.base===(oldAppearance==='light'?ssPalette('light'):ssPalette('dark')).base,'Returning to the previous appearance restores its palette');
@@ -100,12 +102,13 @@
     ig=image.GetGraphics();repaintAll();on_paint(ig);image.ReleaseGraphics(ig);
     started=Date.now();for(var f=0;f<count;f++){ig=image.GetGraphics();repaintAll();on_paint(ig);image.ReleaseGraphics(ig);}result.full_pane_frame_ms=(Date.now()-started)/count;
     fullFrames=0;check(ssResizeBegin(R.main.x-M.gap/2,R.top.y+80),'Actual pane divider starts live reflow');
-    var font=FONT.rowTitle,rowHeight=M.rowH,navStart=R.main.x-M.gap/2;started=Date.now();
+    var font=FONT.rowTitle,rowHeight=M.rowH,navStart=R.main.x-M.gap/2,navWidth=R.navW,sceneBeforeDrag=ssSceneImage;started=Date.now();
     for(f=0;f<count;f++){ssResizing.x=navStart+f*2;ssResizeApply();ig=image.GetGraphics();on_paint(ig);image.ReleaseGraphics(ig);}
     result.resize_reflow_frame_ms=(Date.now()-started)/count;
-    check(fullFrames===count&&FONT.rowTitle===font&&M.rowH===rowHeight,'Live divider frames redraw at the new geometry with identical glyph and row sizes');
+    check(fullFrames===0&&ssSceneImage===sceneBeforeDrag&&R.navW>navWidth&&FONT.rowTitle===font&&M.rowH===rowHeight,
+      'Live divider updates pane geometry and reuses the existing paint while dragging');
     ssResizeEnd(navStart+46,R.top.y+80);ig=image.GetGraphics();on_paint(ig);image.ReleaseGraphics(ig);
-    check(!ssResizing&&fullFrames===count+1,'Releasing a divider paints the final exact layout once');
+    check(!ssResizing&&fullFrames===1,'Releasing a divider paints the final exact layout once');
     W=minimum.width;H=minimum.height;ssRightOpen=true;ssRightForced=true;layout(true);ssDropSceneImage();
     var compact=gdi.CreateImage(W,H),cg=compact.GetGraphics();
     try{

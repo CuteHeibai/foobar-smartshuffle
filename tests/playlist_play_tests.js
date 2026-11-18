@@ -35,8 +35,10 @@ test('playlist action rejects stale missing or internal identity without sending
 });
 test('cover play target stays distinct from dots and card navigation and preserves cached image',()=>{
   const h=harness();h.load('views/cards.js');h.c.hv=()=>false;h.c.drawPlaylistCard(h.gr,10,20,176,1,0,220);
-  assert.ok(h.draws.indexOf('image')>=0&&h.draws.indexOf('play')>h.draws.indexOf('image'),'overlay must draw after original cached cover');
-  h.c.HB_PLPLAY=[];h.c.HB_CARD=[];h.c.hv=()=>true;h.c.drawPlaylistCard(h.gr,10,20,176,1,0,220);
+  assert.deepEqual(h.draws,['image'],'idle card blits the cached artwork');
+  assert.equal(h.c.HB_PLPLAY.length,0,'a hidden play action cannot intercept normal card navigation');
+  h.draws.length=0;h.c.HB_CARD=[];h.c.hv=()=>true;h.c.drawPlaylistCard(h.gr,10,20,176,1,18,220);
+  assert.ok(h.draws.indexOf('image')>=0&&h.draws.indexOf('play')>h.draws.indexOf('image'),'hover action draws above the clipped artwork');
   assert.equal(h.c.HB_PLPLAY.length,1);assert.equal(h.c.HB_CARD.length,1);const play=h.c.HB_PLPLAY[0],dots=h.c.HB_DOTS[0];
   assert.equal(play.pl,1);assert.ok(play.label);assert.ok(play.x1-play.x0>=40&&play.y1-play.y0>=40);
   assert.ok(play.x1<=dots.x0||play.y1<=dots.y0||play.y0>=dots.y1||play.x0>=dots.x1,'play target must not open dots');
@@ -44,7 +46,7 @@ test('cover play target stays distinct from dots and card navigation and preserv
   h.c.HB_PLPLAY=[];h.c.drawPlaylistCard(h.gr,-130,20,176,1,0,30);assert.equal(h.c.HB_PLPLAY.length,0,'off-viewport action must not be clickable');
 });
 test('playlist header action is available before track viewport and cleared while loading',()=>{
-  const h=harness();h.load('views/playlist.js');h.c.drawPlaylist(h.gr,{x:0,y:0,w:900,h:100});
+  const h=harness();h.load('views/cards.js');h.load('views/playlist.js');h.c.drawPlaylist(h.gr,{x:0,y:0,w:900,h:100});
   assert.equal(h.c.HB_PLAYLIST_PLAY.pl,1);assert.ok(h.c.HB_PLAYLIST_PLAY.label);h.c.ensureBuilt=()=>false;
   h.c.skelVisible=()=>false;h.c.drawPlaylist(h.gr,{x:0,y:0,w:900,h:100});assert.equal(h.c.HB_PLAYLIST_PLAY,null);
 });

@@ -30,16 +30,94 @@ test('disabled personal pages open without requesting data or reserving track ac
  c.ssState=null;assert.equal(c.ssPersonalEnabled(),false,'startup without a state must stay hidden');
 });
 
-test('the disabled personal settings action opens settings without enabling the feature',()=>{
- const {c,sent}=harness(false);
- c.ssOpenPersonal('favorites');
- c.ssModal=c.ssPopup=false;
+test('disabled personal pages explain their own purpose and link to the shared setting',()=>{
+ const h=harness(false),{c,sent}=h,labels=[],icons=[];
+ h.load('views/personal.js');
+ Object.assign(c,{COL:{},FONT:{},ssModal:false,ssPopup:false,hv:()=>false,tL:(g,t)=>labels.push(t),tC:(g,t)=>labels.push(t),drawIcon:(g,name)=>icons.push(name)});
  c.inRect=(x,y,box)=>x>=box.x0&&x<box.x1&&y>=box.y0&&y<box.y1;
- c.HB_PERSONAL_ACTIONS=[{x0:10,y0:10,x1:150,y1:50,settings:true}];
- assert.ok(c.ssPersonalPointerDown(20,20));
- assert.ok(c.ssPersonalPointerUp(20,20));
- assert.deepEqual(sent.map(request=>request.op),['settings']);
+ const gr=new Proxy({},{get:()=>()=>{}});
+ for(const [kind,title,purpose] of [
+  ['history','播放历史','查找最近播放过的歌曲。'],
+  ['favorites','我的收藏','保存喜欢的歌曲，随时再听。'],
+  ['later','稍后听','把想听的歌曲留到以后播放。']
+ ]){
+  labels.length=0;c.HB_PERSONAL_ACTIONS=[];c.ssOpenPersonal(kind);c.drawPersonal(gr,c.R.main);
+  assert.equal(labels[0],title);assert.ok(labels.includes(purpose));
+  assert.ok(labels.some(t=>t.includes('「启用播放历史、收藏和稍后听」')));
+  assert.equal(c.HB_PERSONAL_ACTIONS.length,1);
+  const {x0,y0,settings}=c.HB_PERSONAL_ACTIONS[0];assert.equal(settings,true);
+  assert.ok(c.ssPersonalPointerDown(x0+1,y0+1));assert.ok(c.ssPersonalPointerUp(x0+1,y0+1));
+ }
+ assert.equal(new Set(icons).size,3);
+ assert.deepEqual(sent.map(request=>request.op),['settings','settings','settings']);
  assert.equal(c.ssPersonalEnabled(),false);
+});
+
+test('an empty personal collection gives the real add action without pagination',()=>{
+ const h=harness(),c=h.c,labels=[];h.load('views/personal.js');
+ Object.assign(c,{COL:{},FONT:{},hv:()=>false,tL:(g,t)=>labels.push(t),tC:(g,t)=>labels.push(t),drawIcon(){}});
+ c.ssOpenPersonal('later');h.accept(h.sent[0],{kind:'later',offset:0,total:0,revision:1,items:[]});
+ c.drawPersonal(new Proxy({},{get:()=>()=>{}}),c.R.main);
+ assert.ok(labels.includes('暂时没有稍后听的歌曲'));
+ assert.ok(labels.some(t=>t.includes('「添加到稍后听」')));
+ assert.ok(!labels.some(t=>/上一页|下一页|1 \/ 1/.test(t)));
+});
+
+function statsHarness(){
+ const h=harness(),c=h.c,labels=[];
+ Object.assign(c,{COL:{},FONT:{},ssModal:false,ssPopup:null,hv:()=>false,applyKeyMode(){},drawIcon(){},drawScrollbar(){},
+   tL:(g,t,f,color,x,y)=>labels.push({t,x,y}),tC:(g,t,f,color,x,y)=>labels.push({t,x,y}),
+   inRect:(x,y,box)=>x>=box.x0&&x<box.x1&&y>=box.y0&&y<box.y1,
+   hit:(boxes,x,y)=>boxes.find(box=>c.inRect(x,y,box)),
+   ssBeginViewport:(key,g)=>({gr:g,finish(){}})});
+ c.window.SetInterval=()=>1;
+ h.load('data/stats.js');h.load('views/stats.js');
+ const gr=new Proxy({},{get:()=>()=>{}});c.ssStatsOpen();
+ return {...h,labels,draw(){labels.length=0;c.drawStats(gr,c.R.main);},
+  acceptStats(request,result={}){
+   const stats={rows:[],total:0,first:'',last:'',recording:false,smart:false,progress:null,
+    overview:{seconds:0,plays:0,unique:0,daily:{},artists:[],albums:[]},...result};
+   c.ssAcceptStats(request,{personal:c.ssState.personal,response:{stats}});
+  },
+  click(predicate){const box=c.HB_STATS.find(predicate);assert.ok(box);assert.ok(c.ssStatsPointerDown(box.x0+1,box.y0+1));assert.ok(c.ssStatsPointerUp(box.x0+1,box.y0+1));}
+ };
+}
+
+test('paused ranks with no stored listening history show settings and keep their tabs',()=>{
+ const h=statsHarness(),{c,sent,labels}=h;
+ h.acceptStats(sent[0]);h.draw();
+ assert.deepEqual(Array.from(c.HB_STATS.filter(b=>b.tab),b=>b.tab),['rank','overview','progress']);
+ assert.ok(!c.HB_STATS.some(b=>b.days||b.field||b.order));
+ const settings=c.HB_STATS.find(b=>b.settings),notice=labels.find(b=>b.t==='听歌统计已暂停');
+ assert.ok(settings&&notice);assert.equal(settings.x0,c.HB_STATS[0].x0);assert.equal(notice.x,settings.x0);
+ h.click(b=>b.settings);assert.deepEqual(sent.map(r=>r.op),['listening_stats','settings']);
+ h.click(b=>b.tab==='progress');h.draw();assert.ok(labels.some(b=>b.t==='当前未启用智能随机'));
+});
+
+test('paused date ranges can reach earlier saved ranks with keyboard date entry',()=>{
+ const h=statsHarness(),{c,sent,labels}=h;
+ const [first]=c.ssStatsRange(60),[last]=c.ssStatsRange(52);
+ h.acceptStats(sent[0],{first,last});h.draw();
+ assert.ok(c.HB_STATS.some(b=>b.days===90));assert.ok(c.HB_STATS.some(b=>b.order==='score'));
+ assert.ok(labels.some(b=>b.t==='该日期范围还没有记录'));
+ h.click(b=>b.field==='from');
+ for(const date of [first,last]){
+  for(const ch of date)assert.equal(c.ssStatsInput(ch.charCodeAt(0)),true);
+  assert.equal(c.ssStatsInput(13),true);
+ }
+ const query=sent.at(-1);
+ assert.equal(query.op,'listening_stats');assert.equal(query.from,first);assert.equal(query.to,last);
+ h.acceptStats(query,{first:query.from,last:query.to,total:1,rows:[{id:'saved',title:'之前播放的歌曲',artist:'歌手',samples:1,plays:1,switches:0,average:45,score:90}]});
+ h.draw();assert.ok(labels.some(b=>b.t.includes('之前播放的歌曲')));assert.ok(c.HB_STATS.some(b=>b.order==='score'));
+});
+
+test('receiving an empty paused snapshot leaves the active keyboard date edit intact',()=>{
+ const h=statsHarness(),{c,sent}=h;
+ h.draw();h.click(b=>b.field==='from');
+ h.acceptStats(sent[0]);h.draw();
+ assert.ok(c.HB_STATS.some(b=>b.field==='from'));
+ assert.equal(c.ssStatsInput(27),true);h.draw();
+ assert.ok(!c.HB_STATS.some(b=>b.field));
 });
 
 test('turning the feature off keeps its disabled state and discards pending gestures and late responses',()=>{

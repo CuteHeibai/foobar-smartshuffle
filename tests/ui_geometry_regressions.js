@@ -15,7 +15,7 @@ function context(){
  function app(){let text=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(text.slice(0,text.lastIndexOf('\nlayout();')),c);c.dupPrompt=c.rgPrompt=null;c.sgMenuOpen=c.plSortMenuOpen=c.vizMenuOpen=false;}
  return {c,load,app,advance(ms){now+=ms;},tick(ms){now+=ms;c.scrollTick();},flush(){let jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
 }
-function graphics(){return {SetTextRenderingHint(){},SetSmoothingMode(){},SetInterpolationMode(){},CalcTextHeight:(s,f)=>f.Size*1.3,CalcTextWidth:(s,f)=>Array.from(String(s)).length*f.Size*.9,DrawString(){},DrawImage(){},FillSolidRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},FillEllipse(){},DrawEllipse(){},DrawLine(){},DrawRect(){}};}
+function graphics(){return {SetTextRenderingHint(){},SetSmoothingMode(){},SetInterpolationMode(){},CalcTextHeight:(s,f)=>f.Size*1.3,CalcTextWidth:(s,f)=>Array.from(String(s)).length*f.Size*.9,MeasureString(s,f){return {Width:this.CalcTextWidth(s,f)};},DrawString(){},DrawImage(){},FillSolidRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},FillEllipse(){},DrawEllipse(){},DrawLine(){},DrawRect(){}};}
 test('large fonts stay inside each supplied text box at 200 percent scale',()=>{
  const {c}=context(),draws=[],g=graphics();g.DrawString=(s,f,col,x,y,w,h)=>draws.push({s,f,x,y,w,h});
  c.tL(g,'大标题',c.FONT.title,1,10,10,180,26);c.tL(g,'副标题',c.FONT.meta,1,10,40,180,18);
@@ -32,31 +32,45 @@ test('footer removes analysis counts and ineffective scan controls',()=>{
  c.tL=c.tR=c.tC=(g,s)=>words.push(s);c.drawBar(graphics());assert.ok(!words.some(s=>/分析|暂停|继续/.test(s)));assert.ok(!c.HB_CTRL.some(h=>h.act==='scan_pause'||h.act==='scan_retry'));
 });
 test('queue keeps partial rows at both viewport edges during fractional scrolling',()=>{
- const {c,load}=context();load('views/queue.js');load('views/preference.js');c.R={};c.UISCALE=1;c.pbShuffle=true;c.ssState={remaining:Array.from({length:30},(_,i)=>({id:'t'+i,title:'song'+i})),queue:[{id:'manual',title:'Manually queued'}]};c.ssQueueScroll=9;c.ssQueueScrollT=9;c.HB_Q=[];c.qRow=(g,r,x,y,rh)=>({x0:x,y0:y,x1:r.x+r.w,y1:y+rh});c.tL=()=>{};c.drawSBV=()=>null;c.SB_QUEUE={};c.hv=()=>false;c.drag=null;
- const marks=[];c.ssDrawTrackLabels=(g,title,detail,color,x,y,w,h)=>{marks.push({title,x,y,w,h});};
+ const {c,load}=context();load('views/queue.js');load('views/preference.js');c.R={};c.UISCALE=1;c.pbShuffle=true;c.ssState={remaining:Array.from({length:30},(_,i)=>({id:'t'+i,title:'song'+i})),queue:[{id:'manual',title:'Manually queued'}]};c.ssQueueScroll=c.ssQueueScrollT=40;c.HB_Q=[];c.qRow=(g,r,x,y,rh)=>({x0:x,y0:y,x1:r.x+r.w,y1:y+rh});c.tL=()=>{};c.drawSBV=()=>null;c.SB_QUEUE={};c.hv=()=>false;c.drag=null;
+ const marks=[];c.ssDrawQueueTrackLabels=(g,title,artist,x,y,w,h)=>{marks.push({title,x,y,w,h});};
  c.NP=null;c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
- assert.equal(c.HB_Q[0].track_id,'manual','partially visible priority item must remain');assert.ok(c.HB_Q[0].y0>=209);assert.equal(c.HB_Q.at(-1).y1,580,'last partial row stays clipped and hittable');
+ assert.equal(c.HB_Q[0].track_id,'manual','partially visible priority item must remain');assert.ok(c.HB_Q[0].y0>c.HB_Q[0].rowY);assert.equal(c.HB_Q.at(-1).y1,580,'last partial row stays clipped and hittable');
  assert.deepEqual(Array.from(c.HB_Q.filter(row=>row.next),row=>row.track_id),['manual'],'only the first upcoming item is marked next');
  assert.equal(c.HB_Q[0].rowH,c.HB_Q[1].rowH,'the next cue shares the row instead of stacking a heading above it');
- const next=marks.find(m=>m.title==='Manually queued');assert.ok(next);assert.ok(next.x>18,'the next marker sits inline ahead of the title');
+ const next=marks.find(m=>m.title==='Manually queued');assert.ok(next);assert.equal(next.x,marks.find(m=>m.title==='song0').x,'all titles start on the same column');
+ assert.deepEqual(Array.from(c.HB_Q.slice(0,3),row=>[row.scope,row.queueIndex]),[['priority',0],['remaining',0],['remaining',1]]);
  c.R.queue={x:0,w:300};c.ssQueueSelectionContext(c.HB_Q[0]);
  const {x0,y0}=c.HB_Q[0];c.ssQueueSelect.start({x:x0+1,y:y0+1,index:0});c.ssQueueSelect.end(x0+1,y0+1);
  assert.ok(c.ssQueueRowSelected(c.HB_Q[0]));assert.ok(!c.ssQueueRowSelected(c.HB_Q[1]));
  assert.ok(!c.ssQueueRowSelected({...c.HB_Q[0],track_id:'replacement'}),'a changed track cannot inherit the selection');
 });
 
+test('queue actions outside a clipped row ignore the pointer',()=>{
+ const {c}=context();
+ const hidden={x0:170,y0:204,x1:195,y1:224};
+ c.HB_Q=[{x0:18,y0:224,x1:220,y1:249,remove:hidden}];
+ assert.equal(c.ssQueueActionAt(180,215),null);
+});
 test('queue rows show visible manage actions and labels stop before them',()=>{
  const {c,load}=context();load('views/queue.js');load('views/preference.js');c.R={};c.UISCALE=1;c.pbShuffle=true;
  c.ssState={remaining:[{id:'a',title:'A'},{id:'b',title:'B'}],queue:[{id:'m',title:'Manual'}],remaining_count:2};c.ssQueueScroll=c.ssQueueScrollT=0;c.HB_Q=[];
  c.drawSBV=()=>null;c.SB_QUEUE={};c.hv=()=>false;c.drag=null;c.NP={};const words=[],icons=[],marks=[];
- c.tL=c.tR=(g,s)=>words.push(s);c.drawIcon=(g,name,col,x,y,w,h)=>icons.push({name,x,y,w,h});c.ssDrawTrackLabels=(g,title,detail,color,x,y,w)=>marks.push({title,x,w});c.ssDrawCachedRow=(g,k,x,y,w,h,draw)=>draw(g);
+ c.tL=c.tR=c.tC=(g,s)=>words.push(s);c.drawIcon=(g,name,col,x,y,w,h)=>icons.push({name,x,y,w,h});c.ssDrawQueueTrackLabels=(g,title,artist,x,y,w,h,metrics,next)=>marks.push({title,x,w,next});c.ssDrawCachedRow=(g,k,x,y,w,h,draw)=>draw(g);
  c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
  assert.equal(c.HB_Q.length,3);
+ assert.ok(c.HB_Q[0].remove.x1-c.HB_Q[0].remove.x0>=34&&c.HB_Q[0].more.x1-c.HB_Q[0].more.x0>=34);
  for(const row of c.HB_Q){assert.ok(row.more,'every queue row exposes a more button');assert.ok(icons.some(i=>i.name==='more'&&i.x>=row.more.x0&&i.x+i.w<=row.more.x1+1&&i.y>=row.more.y0-1));}
  assert.ok(c.HB_Q[0].remove,'manually queued rows can be removed');assert.ok(icons.some(i=>i.name==='close'));
  assert.ok(!c.HB_Q[1].remove&&!c.HB_Q[2].remove,'the shuffle round has no removal API, so no fake button');
  for(const m of marks){const row=c.HB_Q.find(r=>m.title.endsWith(r.track_id==='m'?'Manual':r.track_id.toUpperCase()));const left=row.remove?row.remove.x0:row.more.x0;assert.ok(m.x+m.w<=left,'labels end before the action buttons');}
- assert.ok(words.includes('拖动排序'),'the header tells people rows can be dragged');
+ assert.ok(words.includes('长按拖动排序'),'the header explains how to start a reorder');
+ assert.ok(words.includes('手动待播')&&words.includes('智能随机 · 本轮剩余'),'each source has a visible section heading');
+ assert.ok(words.includes('1 首')&&words.includes('2 首')&&words.includes('3 首'),'section counts are distinct from the total');
+ assert.equal(marks[0].x,marks[1].x);assert.equal(marks[0].next,true);
+ c.HB_Q=[];words.length=0;c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:420,h:600},18,150,580);
+ assert.ok(words.includes('移除'),'large drawers label the remove action');
+ assert.ok(c.HB_Q[0].remove.x1<=c.HB_Q[0].more.x0);
 });
 test('queue remove button drops the matching manual queue entry',()=>{
  const {c,load}=context();load('views/queue.js');load('data/playback.js');const removed=[];
@@ -66,8 +80,22 @@ test('queue remove button drops the matching manual queue entry',()=>{
  assert.ok(c.ssRemoveQueueRow(c.HB_Q[0]));assert.deepEqual([...removed],[1]);
  assert.ok(!c.ssRemoveQueueRow({scope:'remaining',track_id:'y|0',queueIndex:0}));
 });
+test('long queue titles wrap before routing actions and retain the artist and next cue',()=>{
+ const {c,load}=context();load('views/cards.js');load('views/queue.js');
+ const lines=[],gr=graphics(),metrics=c.ssTrackTextMetrics(1,true);
+ c.ssDrawFixedLabel=(g,text,font,color,x,y,w,h)=>lines.push({text,x,y,w,h});
+ const title='A deliberately long title that needs a second row';
+ const height=Math.max(56,metrics.height+metrics.title+4);
+ c.ssDrawQueueTrackLabels(gr,title,'Tagged Artist',30,80,285,height,metrics,true);
+ assert.equal(lines.length,4);
+ assert.equal(lines[0].x,30);assert.equal(lines[1].x,30);
+ assert.ok(lines[1].y>lines[0].y);
+ assert.equal(lines[2].text,'下一首');assert.equal(lines[3].text,'Tagged Artist');
+ assert.ok(lines[3].x>lines[2].x&&lines[3].y===lines[2].y);
+ assert.ok(lines.every(line=>line.x+line.w<=315&&line.y>=80&&line.y+line.h<=80+height));
+});
 test('playlist header play sits below the cover and every row shows play and more',()=>{
- const {c,load}=context();load('data/playback.js');load('views/playlist.js');
+ const {c,load}=context();load('data/playback.js');load('views/cards.js');load('views/playlist.js');
  c.M.cpad=24;c.M.artSz=160;c.M.headH=260;c.M.rowH=56;c.ssDensity=1;c.ROW_GATE_MS=0;
  c.activePl=()=>({i:1,name:'B',count:2});c.ensureBuilt=c.gateReady=()=>true;c.metaReady=()=>true;c.metaSteps=c.rowHandlesPl=()=>[];
  c.plChoice=()=>({single:null});c.artHue=()=>1;c.canEditPl=()=>false;c.playingLoc=()=>null;c.npIsShuffleOf=()=>false;
@@ -93,13 +121,35 @@ test('playlist header play sits below the cover and every row shows play and mor
  assert.ok(!labels.some(l=>l.s==='专辑'),'the album column heading is gone');
  assert.ok(labels.some(l=>String(l.s).includes('同一张很长的专辑名称')),'the album stays readable on the secondary line');
 });
-test('queue header hides the round counter and retains the remaining track count',()=>{
- const {c,load}=context();load('views/preference.js');c.R={};c.pbShuffle=true;c.ssState={round:42,remaining_count:17,remaining:[],queue:[]};c.ssQueueScroll=c.ssQueueScrollT=0;c.HB_Q=[];c.hv=()=>false;c.drag=null;c.drawSBV=()=>null;c.SB_QUEUE={};const words=[];c.NP={};c.tL=(g,s)=>words.push(s);
+test('empty queue omits sorting instructions and names the completed round state',()=>{
+ const {c,load}=context();load('views/preference.js');c.R={};c.pbShuffle=true;c.ssState={source:'list',round:42,remaining_count:0,remaining:[],queue:[]};c.ssQueueScroll=c.ssQueueScrollT=0;c.HB_Q=[];c.hv=()=>false;c.drag=null;c.drawSBV=()=>null;c.SB_QUEUE={};const words=[];c.NP={};c.tL=c.tR=(g,s)=>words.push(s);
  c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
- assert.ok(words.includes('接下来'));assert.ok(words.includes('本轮剩余 17 首'));assert.ok(!words.some(s=>/第\s*42\s*轮/.test(s)));
+ assert.ok(words.includes('接下来'));assert.ok(words.some(s=>s.includes('本轮已播完')));assert.ok(!words.includes('拖动排序')&&!words.some(s=>/第\s*42\s*轮/.test(s)));
+});
+test('idle lyrics has an easy to find play action only when a source is ready',()=>{
+ const {c,load}=context();load('views/preference.js');load('views/queue.js');c.NP=null;c.rightTab='lyrics';c.R={queue:{x:900,y:40,w:330,h:620}};
+ c.panelBg=()=>{};c.hv=()=>false;c.ssHasTransportSource=()=>true;const labels=[];c.tC=c.tL=(g,label)=>labels.push(label);
+ c.ssDrawQueueContent(graphics());
+ assert.ok(labels.includes('播放音乐')&&labels.includes('播放后在此显示歌词'));
+ assert.ok(c.SS_LYRIC_PLAY&&c.SS_LYRIC_PLAY.x1<=1230);
+ c.ssHasTransportSource=()=>false;c.ssDrawQueueContent(graphics());
+ assert.equal(c.SS_LYRIC_PLAY,null);
+});
+test('random preferences replace blank preview rows with guidance and three presets',()=>{
+ const {c,load}=context();load('views/preference.js');c.W=1440;c.H=900;c.ssModal=true;c.ssDraft={x:0,y:0};
+ c.ssApplyId=c.ssMessage='';c.ssState={source:'',preview:null};c.ssReady=()=>false;c.hv=()=>false;c.strokeRound=()=>{};c.ssGradientGrid=()=>({});
+ const labels=[];c.tL=c.tC=(g,label)=>labels.push(label);
+ c.drawPreference(graphics(),true);
+ assert.ok(labels.includes('播放歌单后即可生成预览'));
+ assert.ok(!labels.includes('—')&&!labels.includes('正在等待预览…'));
+ assert.deepEqual(Array.from(c.SS_HB,b=>b.act),['balanced','familiar','explore','cancel','apply']);
+ assert.equal(c.SS_HB.find(b=>b.act==='apply').enabled,false);
+ labels.length=0;c.ssState.preview={tracks:[{title:'one'},{title:'two'}]};c.drawPreference(graphics(),true);
+ assert.ok(labels.includes('播放顺序预览 · 前 2 首')&&labels.includes('two'));
+ assert.ok(!labels.includes('—'));
 });
 test('all-songs header cover is never erased by a row crop mask and has no scan caption',()=>{
- const {c,load}=context();load('data/playback.js');load('views/songs.js');c.ROW_GATE_MS=0;c.ssDensity=1.25;c.M.cpad=24;c.M.artSz=200;c.SHEAD=320;c.SG_CROP=120;
+ const {c,load}=context();load('data/playback.js');load('views/cards.js');load('views/songs.js');c.ROW_GATE_MS=0;c.ssDensity=1.25;c.M.cpad=24;c.M.artSz=200;c.SHEAD=320;c.SG_CROP=120;
  c.ensureBuilt=c.gateReady=()=>true;c.songsReady=c.songsSteps=c.rowHandlesSongs=()=>[];c.libChoice=()=>({single:null});c.artHue=()=>1;c.songsGroup='none';c.songsScroll=c.songsScrollT=0;c.songsContentH=70;c.songsTotalSec=1000;c.songsFirstAt=()=>0;c.NP=null;
  c.songsTracks=Array.from({length:214},()=>({}));c.songsRows=[{k:'t',y:0,h:70,n:1,ti:0,t:{title:'Title',artist:'Artist',album:'Album',len:'1:00'}}];c.rgStat={scanned:1,total:214,missing:[1]};c.rgScanFailed=false;c.rgModeOn=()=>false;
  c.drawNormalizePill=c.drawDropPill=()=>null;c.SONGS_GROUPS=[['不分组','none']];c.drawScrollbar=c.drawGroupMenu=()=>{};c.sgMenuOpen=false;c.hv=()=>false;c.drag=null;
@@ -224,12 +274,24 @@ test('track context promotes playback and properties and preserves native comman
  const play={label:'播放',command:17},props={label:'属性',command:28},queue={label:'添加到播放队列',command:19},tools={label:'工具',children:[{label:'组件命令',command:29}]};
  const add={label:'加入待播队列',run(){}},recycle={label:'移到回收站',danger:true,run(){}};
  const items=c.ssTrackContextItems([queue,play,tools,{separator:true},props],[add],[recycle]);
- assert.deepEqual(Array.from(items.filter(item=>!item.separator),item=>item.label),['播放','加入待播队列','属性','更多操作']);
+ assert.deepEqual(Array.from(items.filter(item=>!item.separator),item=>item.label),['播放','加入待播队列','属性','音频、文件、标签与工具']);
  const more=items.at(-1);assert.ok(more.drill);assert.equal(more.children.find(item=>item.label==='播放与音频').children[0].command,queue.command);
  assert.equal(more.children.find(item=>item.label==='工具与扩展').children[0],tools);assert.equal(more.children.find(item=>item.label==='文件与复制').children.at(-1),recycle);
  assert.notEqual(items[0].label,add.label);
  c.ssShowPopup(items,50,70,'native-token',true,'context');let command;c.ssSend=(op,args)=>command={op,token:args.token,id:args.command};
  c.ssPopupChoose(tools.children[0]);assert.deepEqual(command,{op:'menu_execute',token:'native-token',id:29});
+});
+test('playback mode menu enlarges and highlights the selected row on a large screen',()=>{
+ const {c,load}=context();load('ui/menus.js');load('views/fullscreen.js');
+ c.W=2560;c.H=1440;c.UISCALE=1;c.mx=c.my=-1;c.ssState={enabled:true};c.ssOpen=()=>{};
+ const active=[],labels=[],g=graphics();
+ c.ssFillContinuousRect=(gr,x,y,w,h,rx,ry,ink)=>{if(ink===c.COL.rowActive&&w>200)active.push({x,y,w,h});};
+ c.tL=(gr,text,font)=>labels.push({text,font});
+ c.ssShowPlaybackModes(2210,1200,{x0:2160,y0:1290,x1:2350,y1:1325});c.ssDrawPopup(g);
+ const current=c.SS_MENU_HB.find(box=>box.item.checked);
+ assert.ok(current.x1-current.x0>=240&&current.y1-current.y0>=36);
+ assert.ok(active.some(fill=>fill.y===current.y0&&fill.h===current.y1-current.y0));
+ assert.ok(labels.find(label=>label.text==='智能随机').font.Size>c.FONT.pl.Size);
 });
 test('more actions replace the context panel and Back restores its source',()=>{
  const {c,load}=context();load('ui/menus.js');c.W=760;c.H=500;c.UISCALE=1;c.R={barY:410};c.mx=c.my=-1;const g=graphics();

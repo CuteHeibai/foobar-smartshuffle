@@ -23,7 +23,8 @@ test('lyrics are the initial right pane and its first tab',()=>{
   const h=harness(),c=h.c;let app=fs.readFileSync(path.join(root,'app.js'),'utf8');
   vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
   assert.equal(c.rightTab,'lyrics');c.R={queue:{x:800,y:40,w:290,h:600}};c.ssLyricVisible=true;
-  h.load('views/queue.js');c.drawQueue({FillSolidRect(){}});assert.equal(c.HB_TABS[0].tab,'lyrics');
+  h.load('views/bar.js');h.load('views/queue.js');
+  c.drawQueue({FillSolidRect(){},FillPolygon(){}});assert.equal(c.HB_TABS[0].tab,'lyrics');
 });
 test('rapid pointer events update the ball immediately and schedule at most one frame',()=>{
   const h=harness(),c=h.c;c.ssModal=true;c.ssDragging=true;
@@ -48,15 +49,42 @@ test('track right-click retains plugin context commands even in locked playlists
   assert.equal(h.writes.at(-1).op,'menu_open');assert.equal(h.writes.at(-1).kind,'context');
   assert.equal(h.writes.at(-1).playlist,2);assert.equal(h.writes.at(-1).item,4);
 });
-test('playback modes and preference share one menu',()=>{
-  const h=harness(),c=h.c;c.ssState={enabled:true,orders:[{index:0,name:'默认'},{index:1,name:'列表循环'},{index:2,name:'单曲循环'},{index:4,name:'随机'}]};
+test('playback modes lead the menu with preferences, statistics and a smart-only restart',()=>{
+  const h=harness(),c=h.c;let stats=0;
+  c.ssStatsOpen=()=>stats++;
+  c.ssState={enabled:true,listening_stats:true,orders:[{index:0,name:'默认'},{index:1,name:'列表循环'},{index:2,name:'单曲循环'},{index:4,name:'随机'}]};
   assert.equal(typeof c.ssShowPlaybackModes,'function');c.ssShowPlaybackModes(100,200);
   const rows=c.ssPopup.levels[0].items;
-  assert.ok(rows.some(r=>r.label==='智能随机（每轮全覆盖）'));
-  assert.ok(rows.some(r=>r.label==='调整随机偏好…'));
-  assert.ok(rows.some(r=>r.label==='列表循环'));
+  assert.deepEqual(Array.from(rows.slice(0,4),r=>r.label),['智能随机','顺序播放','列表循环','单曲循环']);
+  assert.equal(rows[0].checked,true);assert.equal(rows[4].separator,true);
+  assert.equal(rows.find(r=>r.label==='调整随机偏好…').run,c.ssOpen);
+  c.ssPopupChoose(rows.find(r=>r.label==='聆听统计…'));assert.equal(stats,1);
+  c.ssShowPlaybackModes(100,200);c.ssPopupChoose(rows.find(r=>r.label==='重新开始一轮'));
+  assert.equal(h.writes.at(-1).op,'restart');
+  c.ssAcceptState({...c.ssState,version:1,request_id:h.writes.at(-1).id,response:{ok:true}});
+  c.ssShowPlaybackModes(100,200);
   c.ssPopupChoose(rows.find(r=>r.label==='列表循环'));
   assert.equal(h.writes.at(-1).op,'playback_mode');assert.equal(h.writes.at(-1).order,1);
+  c.ssState.enabled=false;c.ssState.native_order=1;c.ssShowPlaybackModes(100,200);
+  const native=c.ssPopup.levels[0].items;
+  assert.ok(!native.some(r=>r.label==='重新开始一轮'));assert.equal(native.find(r=>r.label==='列表循环').checked,true);
+});
+test('the playback plugin submenu keeps both settings and update accessible',()=>{
+  const h=harness(),c=h.c;c.ssState={update:{available:true,release:{version:'v1.2.3'}}};
+  c.ssMeasureText=(gr,t)=>t.length*12;
+  const gr={FillSolidRect(){},FillPolygon(){},DrawPolygon(){},DrawLine(){},SetSmoothingMode(){}};
+  c.ssShowPlaybackModes(800,500,{x0:977,y0:650,x1:1027,y1:682});c.ssDrawPopup(gr);
+  const plugin=c.SS_MENU_HB.find(h=>h.item.label==='插件 · 有更新');assert.ok(plugin);
+  const x=plugin.x0+10,y=plugin.y0+10;
+  c.ssPopupMove(x,y);assert.equal(c.ssPopup.levels.length,1);
+  c.ssPopupClick(x,y);assert.equal(c.ssPopup.levels.length,2);
+  c.ssDrawPopup(gr);
+  const settings=c.SS_MENU_HB.find(h=>h.item.label==='插件设置…');assert.ok(settings);
+  c.ssPopupClick(settings.x0+10,settings.y0+10);assert.equal(h.writes.at(-1).op,'settings');
+  c.ssAcceptState({...c.ssState,version:1,request_id:h.writes.at(-1).id,response:{ok:true}});
+  c.ssShowPlaybackModes(800,500);
+  c.ssPopupKey(38);c.ssPopupKey(39);c.ssPopupKey(38);c.ssPopupKey(13);
+  assert.equal(h.writes.at(-1).op,'update_open');
 });
 test('context and regular popups share row, check and submenu visuals',()=>{
  const {c}=harness();
@@ -178,6 +206,20 @@ test('footer divider positions no longer capture drags while both upper dividers
   }
   assert.equal(c.ssResizing,null);assert.equal(props.size,0);
 });
+test('a maximized library can drag beyond the old 260-pixel cap and restore the saved width',()=>{
+ const {h,c,props}=layoutHarness();
+ c.W=2560;c.H=1440;c.ssWidths.nav=260;c.layout();
+ const initial=c.R.navW,y=c.R.top.y+40,start=c.R.main.x-c.M.gap/2,target=start+240;
+ assert.equal(initial,260);
+ assert.ok(c.ssResizeBegin(start,y));
+ assert.ok(c.ssResizeMove(target,y));h.flush();
+ assert.equal(c.R.navW,500);
+ assert.ok(c.ssResizeEnd(target,y));
+ assert.equal(props.get(c.SS_WIDTH_KEYS.nav),500);
+ assert.ok(c.R.main.w>=720&&c.R.queue.w>=220);
+ c.W=1180;c.H=780;c.layout();assert.ok(c.R.navW<=240);
+ c.W=2560;c.H=1440;c.layout();assert.equal(c.R.navW,500);
+});
 test('splitter drags coalesce geometry updates and save the constrained width',()=>{
   const {h,c,props}=layoutHarness();let hidden=0;c.ssHideLyrics=()=>hidden++;
   assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),true);
@@ -190,8 +232,9 @@ test('splitter movement reflows the panes without scaling a snapshot or touching
  const {h,c}=layoutHarness();let clones=0,chrome=0,paints=0;const image={Clone(){clones++;return {Dispose(){}};}};c.ssSceneImage=image;c.ssSceneW=c.W;c.ssSceneH=c.H;c.ssHideLyrics=()=>{};c.repaintAll=()=>{paints++;};c.UIWizard={set FrameStyle(v){chrome++;},set MoveStyle(v){chrome++;},set DisableWindowSizing(v){chrome++;},SetCaptionAreaSize(){chrome++;}};
  c.ssResizeBegin(c.R.main.x-c.M.gap/2,120);
  for(let frame=0;frame<10;frame++){c.ssResizeMove(250+frame*4,120);h.flush();}
- assert.equal(chrome,0);assert.equal(clones,0);assert.equal(paints,10);
- c.ssResizeEnd(286,120);assert.equal(c.ssResizing,null);
+ assert.equal(chrome,0);assert.equal(clones,0);assert.equal(paints,0);
+ let blits=0;assert.ok(c.ssPaintResizePreview({DrawImage(source){assert.equal(source,image);blits++;}}));assert.equal(blits,1);
+ c.ssResizeEnd(286,120);assert.equal(c.ssResizing,null);assert.equal(paints,1);
 });
 
 test('outer resize preserves the text font objects, nominal row height and UI scale',()=>{
@@ -246,7 +289,7 @@ test('window resizing keeps text metrics stable and lays out square covers and c
   const {h,c}=layoutHarness();c.gdi={Font:(name,size,style)=>({name,size,style})};h.load('core/tokens.js');
   c.ssWidths.nav=290;c.W=850;c.H=600;c.layout();const small={font:c.FONT.rowTitle.size,row:c.M.rowH,cover:c.M.artSz,scale:c.ssDensity};
   c.W=1800;c.H=1100;c.layout();assert.equal(c.FONT.rowTitle.size,small.font);assert.equal(c.M.rowH,small.row);assert.ok(c.M.artSz>=small.cover);assert.equal(c.ssDensity,small.scale);
-  assert.equal(c.ssWidths.nav,290);assert.equal(c.R.navW,260);
+  assert.equal(c.ssWidths.nav,290);assert.equal(c.R.navW,290);
 });
 test('recycle action requires a matching preparation and explicit confirmation; cancel never applies',()=>{
   const h=harness(),c=h.c;c.ssRecyclePrepare('file://D:/music/song.flac|0');
@@ -372,7 +415,7 @@ test('new playlist tracks get artwork and artist lookups without a restart and t
  c.ssFlight=null;
  c.ssOpenNativeMenu('context',{tracks:[c.ssTrackID(newTrack)]},0,0);
  c.ssAcceptMenu(c.ssFlight,{response:{menu:{token:'context',items:[{label:'转换',command:1}]}}});
- const options=c.ssPopup.levels[0].items.find(item=>item.label==='更多操作').children.flatMap(group=>group.children);
+ const options=c.ssPopup.levels[0].items.find(item=>item.label==='音频、文件、标签与工具').children.flatMap(group=>group.children);
  const refresh=options.find(item=>item.label==='补齐封面和歌手资料');assert.ok(refresh);
  assert.ok(options.some(item=>item.command===1));
  c.ssFlight=null;refresh.run();
@@ -414,7 +457,7 @@ test('context menu preserves native commands when selected IDs have no available
  const h=metadataHarness(),c=h.c;
  c.ssOpenNativeMenu('context',{track_id:'file://D:/absent.flac|0'},0,0);
  c.ssAcceptMenu(c.ssFlight,{response:{menu:{token:'context',track_id:'file://D:/absent.flac|0',items:[{label:'转换',command:1}]}}});
- const options=c.ssPopup.levels[0].items.find(item=>item.label==='更多操作').children.flatMap(group=>group.children);
+ const options=c.ssPopup.levels[0].items.find(item=>item.label==='音频、文件、标签与工具').children.flatMap(group=>group.children);
  assert.ok(!options.some(item=>item.label==='补齐封面和歌手资料'));
  assert.ok(options.some(item=>item.command===1));
 });
@@ -467,6 +510,29 @@ test('multi-select context menu sends the full selected occurrence set to native
  let request;c.ssOpenNativeMenu=(kind,args,x,y,extra)=>request={kind,args,extra};c.ssBatchTrackMenu(c.HB_TR[1],100,60);
  assert.equal(request.args.tracks.length,3);assert.ok(!request.extra.some(i=>i.label==='移动到歌单'));assert.ok(request.extra.find(i=>i.label==='添加到歌单').children[0].run);
 });
+test('Ctrl-clicking sidebar playlists queues the selected GUIDs in sidebar order without changing the active playlist',()=>{
+ const h=harness(),c=h.c;h.load('data/playlist_edit.js');h.load('data/library.js');
+ c.window.GetProperty=(k,d)=>d;
+ const app=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
+ const ignore=()=>false;
+ Object.assign(c,{view:'playlist',vizMenuOpen:false,dupPrompt:null,rgPrompt:null,SS_ARTIST_HB:null,SS_QUEUE_SB:null,
+  ssPointerDown:ignore,ssPointerUp:ignore,ssResizeBegin:ignore,ssResizeEnd:ignore,
+  inRect:(x,y,r)=>x>=r.x0&&x<=r.x1&&y>=r.y0&&y<=r.y1,repaintNav(){},repaintAll(){}});
+ c.utils.IsKeyPressed=key=>key===17;
+ c.plman.ActivePlaylist=0;c.plman.GetPlaylistName=i=>'List '+i;c.plman.IsPlaylistLocked=()=>false;
+ c.ssState={playlists:[{index:0,guid:'current'},{index:1,guid:'first'},{index:2,guid:'second'}]};
+ c.HB_PL=[1,2].map((i)=>({i,x0:0,x1:150,y0:i*50,y1:(i+1)*50}));
+ c.on_mouse_lbtn_down(60,125);c.on_mouse_lbtn_up(60,125);
+ c.on_mouse_lbtn_down(60,75);c.on_mouse_lbtn_up(60,75);
+ assert.equal(c.plman.ActivePlaylist,0);assert.equal(h.writes.length,0);
+ assert.ok(c.on_mouse_rbtn_up(60,125));
+ const command=c.ssPopup.levels[0].items[0];
+ assert.equal(command.label,'将 2 张歌单排到待播队尾');
+ let drawer;c.ssSetRightPane=(tab,open)=>drawer={tab,open};command.run();
+ assert.equal(h.writes.at(-1).op,'queue_add_playlists');
+ assert.deepEqual(Array.from(h.writes.at(-1).playlist_guids),['first','second']);
+ assert.deepEqual(drawer,{tab:'queue',open:true});
+});
 test('a double click inserts and starts one song without creating a route playlist',()=>{
  const h=harness(),c=h.c;h.load('data/library.js');c.vizMenuOpen=false;c.window.GetProperty=(k,d)=>d;const app=fs.readFileSync(path.join(root,'app.js'),'utf8');vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);
  c.ssModal=false;c.dupPrompt=c.rgPrompt=null;c.HB_TR=[{songs:true,ti:0,x0:0,y0:0,x1:500,y1:60}];c.songsTracks=[{h:{Path:'song',SubSong:2}}];c.HB_Q=[];c.on_mouse_lbtn_dblclk(100,20);
@@ -474,7 +540,9 @@ test('a double click inserts and starts one song without creating a route playli
 });
 test('playback menu hides redundant native random modes and keeps four choices',()=>{
  const h=harness(),c=h.c;c.ssState={orders:[0,1,2,3,4,5,6].map(index=>({index,name:'order'+index}))};c.ssShowPlaybackModes(0,40);
- assert.deepEqual(Array.from(c.ssPopup.levels[0].items.slice(0,4),i=>i.label),['智能随机（每轮全覆盖）','顺序播放','列表循环','单曲循环']);assert.equal(c.ssPopup.levels[0].items.length,10);
+ const rows=c.ssPopup.levels[0].items;
+ assert.deepEqual(Array.from(rows.slice(0,4),i=>i.label),['智能随机','顺序播放','列表循环','单曲循环']);
+ assert.ok(rows.slice(4).every(row=>!row.checked));
 });
 test('startup cover filter skips real artwork and groups missing tracks for one album lookup',()=>{
  const h=metadataHarness(),c=h.c;

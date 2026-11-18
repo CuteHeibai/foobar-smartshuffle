@@ -4,13 +4,14 @@
 
 var HB_ARTISTS_NAV=null,HB_STATS_NAV=null;
 // one sidebar row: cover + name + subtitle. pi<0 draws the library mosaic instead of a playlist cover.
-function drawNavRow(gr,y,h,on,hov,pi,name,sub){
-  if(on||hov) ssFillContinuousRect(gr,R.navLib.x+8,y,R.navLib.w-16,h-4,6,6,on?COL.rowActive:COL.rowHover);
+function drawNavRow(gr,y,h,on,hov,pi,name,sub,picked){
+  if(on||hov||picked) ssFillContinuousRect(gr,R.navLib.x+8,y,R.navLib.w-16,h-4,6,6,on||picked?COL.rowActive:COL.rowHover);
   var s=ssDensity,cs=44*s, cx=R.navLib.x+16*s, cy=y+(h-cs)/2;
   if(pi>=0) drawPlCover(gr,cx,cy,cs,4,pi,name); else drawLibCover(gr,cx,cy,cs,4);
-  var tx=cx+cs+12, tw=R.navLib.x+R.navLib.w-16-tx-((hov&&pi>=0)?26:0);   // leave room for the "..." button
+  var right=R.navLib.x+R.navLib.w,tx=cx+cs+12,tw=right-16-tx-(picked?44:(hov&&pi>=0)?26:0);
   tL(gr,name,FONT.pl,on?COL.green:COL.text,tx,y+8*s,tw,20*s);
   tL(gr,sub,FONT.plSub,COL.text2,tx,y+30*s,tw,16*s);
+  if(picked)tC(gr,'\uE73E',FONT.icon,COL.green,right-59,y,24,h-4);
 }
 function drawNav(gr){
   HB_PL=[];
@@ -67,7 +68,8 @@ function drawNav(gr){
     // "All Songs" header is painted over, so it must not answer the mouse there either
     var hy0=Math.max(ry,listTop), hy1=Math.min(ry+rh,cropY);
     var rowHov=(hy1>hy0) && hv(R.navLib.x,hy0,R.navLib.x+R.navLib.w,hy1);
-    drawNavRow(gr,ry,rh,view==='playlist'&&i2===active,rowHov,i2,nm,plCount(i2)+' 首歌曲');
+    var info=ssPickedPlaylists.size&&ssPlaylistInfo(i2);
+    drawNavRow(gr,ry,rh,view==='playlist'&&i2===active,rowHov,i2,nm,plCount(i2)+' 首歌曲',info&&ssPickedPlaylists.has(info.guid));
     if(rowHov && ry>=listTop) drawDots(gr,R.navLib.x+R.navLib.w-32,ry+(rh-24)/2,i2);
     if(hy1>hy0) HB_PL.push({x0:R.navLib.x,y0:hy0,x1:R.navLib.x+R.navLib.w,y1:hy1,i:i2});
   }

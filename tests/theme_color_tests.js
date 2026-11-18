@@ -19,13 +19,15 @@ function harness(mode){
 }
 function luminance(c){return [.2126,.7152,.0722].reduce((v,weight,i)=>{let n=((c>>((2-i)*8))&255)/255;return v+weight*(n<=.04045?n/12.92:((n+.055)/1.055)**2.4);},0);}
 function contrast(a,b){let x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
-test('light palette keeps text, secondary labels and accent controls legible on warm surfaces',()=>{
- const {c}=harness('light');assert.equal(c.SS_APPEARANCE,'light');assert.equal(c.COL.base&0xffffff,0xfdfcfa);
+test('light palette keeps text, secondary labels and accent controls legible on white',()=>{
+ const {c}=harness('light');assert.equal(c.SS_APPEARANCE,'light');assert.equal(c.COL.base&0xffffff,0xffffff);
  for(const name of ['text','text2','text3','green'])assert.ok(contrast(c.COL[name],c.COL.base)>=4.5,name);
  assert.ok(contrast(c.COL.onAccent,c.COL.green)>=4.5);assert.ok(contrast(c.COL.onDanger,c.COL.danger)>=4.5);
 });
-test('light hairlines are opaque and visible on the white and elevated panels',()=>{
- const {c}=harness('light');assert.equal(c.COL.line>>>24,255);assert.ok(contrast(c.COL.line,c.COL.base)>=1.5);assert.ok(contrast(c.COL.line,c.COL.elev)>=1.4);
+test('the light divider stays clearer than decorative hairlines on both panel surfaces',()=>{
+ const {c}=harness('light');assert.equal(c.COL.line>>>24,255);assert.equal(c.COL.splitter>>>24,255);
+ assert.ok(contrast(c.COL.splitter,c.COL.base)>=1.45);assert.ok(contrast(c.COL.splitter,c.COL.elev)>=1.35);
+ assert.ok(contrast(c.COL.line,c.COL.base)>=1.2&&contrast(c.COL.line,c.COL.elev)>=1.15);
 });
 test('changing appearance clears every colour-dependent bitmap while preserving music and geometry',()=>{
  const {c,props,calls}=harness();const art=c.artCache,state={source:'keep',remaining:['song']};c.ssState=state;
@@ -67,10 +69,13 @@ test('native state selects the saved appearance without sending another setting 
 });
 
 
-test('desktop fullscreen keeps artwork beside metadata and above transport',()=>{
+test('desktop fullscreen centers artwork and metadata above transport',()=>{
  const {c,load}=harness();load('core/util.js');load('views/fullscreen.js');
  for(const [w,h] of [[1024,720],[1280,800],[1920,1080],[2560,1440]]){
- const m=c.ssFsDefaultGeometry(w,h-172);assert.ok(m.size>0);assert.ok(m.textX>=m.x+m.size+30);assert.ok(m.textX+m.textW<=w);assert.ok(m.y+m.size<=h-172);assert.ok(m.textY+142<=h-172);
+ const s=c.ssFsScale(w,h),bottom=c.ssFsStageBottom(w,h);
+ const m=c.ssFsDefaultGeometry(w,bottom,s,c.ssFsCoverScale(w,h));
+ assert.ok(m.size>0&&Math.abs(m.x+m.size/2-w/2)<=1&&Math.abs(m.textX+m.textW/2-w/2)<=1);
+ assert.ok(m.y+m.size<m.textY&&m.textY+Math.round(126*s)<=bottom);
  }
 });
 test('dark record-room palette retains readable text and accent actions',()=>{

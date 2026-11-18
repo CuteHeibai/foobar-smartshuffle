@@ -1,5 +1,5 @@
 ﻿/* Random preference modal: native preview is the only source of proposed tracks. */
-var SS_HB=[], SS_GRID=null, SS_LYRIC_BTN=null;
+var SS_HB=[], SS_GRID=null, SS_LYRIC_BTN=null, SS_LYRIC_PLAY=null;
 var ssLyricChild=null, ssLyricTried=false, ssLyricVisible=false, ssLyricShown=null, ssLyricBounds='';
 var ssNativeLyricKey='';
 var ssGridImage=null,ssGridSize=0;
@@ -88,34 +88,42 @@ function drawPreference(gr,staticOnly){
   ssFillContinuousRect(gr,x,y,w,h,12,12,COL.base);
   strokeRound(gr,x,y,w,h,12,1,COL.line);
   tL(gr,'随机偏好',FONT.sect2,COL.text,x+24,y+18,w-48,34);
-  tL(gr,ssPreferenceLabel()+'  ·  拖动绿球或按方向键微调',FONT.meta,COL.text2,x+24,y+60,w-48,28);
+  tL(gr,ssPreferenceLabel()+'  ·  拖动圆点或按方向键微调',FONT.meta,COL.text2,x+24,y+60,w-48,28);
   var px=x+24,pw=m.left-12, rowH=Math.floor((m.areaH-30)/8), tracks=(ssState&&ssState.preview&&ssState.preview.tracks)||[];
-  tL(gr,'即将播放 · 前 8 首',FONT.sect,COL.text,px,m.top,pw,28);
-  for(var i=0;i<8;i++){
+  var count=Math.min(tracks.length,8),hasSource=!!(ssState&&ssState.source);
+  var pending=!!(ssState&&ssState.preview_pending);
+  tL(gr,count?'播放顺序预览 · 前 '+count+' 首':'播放顺序预览',FONT.sect,COL.text,px,m.top,pw,28);
+  if(!count){
+    var emptyY=m.top+Math.round(m.areaH*.33);
+    drawIcon(gr,'queue',COL.text2,px,emptyY,pw,36,24);
+    tC(gr,pending?'正在生成预览…':hasSource?'暂无可预览的歌曲':'播放歌单后即可生成预览',
+      FONT.pl,COL.text2,px+12,emptyY+44,pw-24,30);
+  }
+  for(var i=0;i<count;i++){
     var ry=m.top+34+i*rowH, tr=tracks[i];
     if(i%2===0) gr.FillSolidRect(px,ry,pw,rowH,COL.elev);
     tL(gr,String(i+1),FONT.rowNum,COL.text3,px+6,ry,28,rowH);
-    var label=tr?((tr.title||'未知曲目')+(tr.artist?' · '+tr.artist:'')+(tr.analyzed===false?' [待分析]':'')):(i===0?'选择歌单并播放，即可生成预览':'—');
-    tL(gr,label,FONT.qName,tr?COL.text:COL.text3,px+36,ry,pw-42,rowH);
+    var label=(tr.title||'未知曲目')+(tr.artist?' · '+tr.artist:'')+(tr.analyzed===false?' [待分析]':'');
+    tL(gr,label,FONT.qName,COL.text,px+36,ry,pw-42,rowH);
   }
   tC(gr,'风格跳跃',FONT.pl,COL.text2,m.rightX,m.top,m.rightW,26);
   gr.DrawImage(ssGradientGrid(size),gx,gy,size,size,0,0,size,size);
   for(var j=0;j<=4;j++){
     var p=Math.round(j*size/4);
-    gr.DrawLine(gx+p+.5,gy,gx+p+.5,gy+size,j===2?1.5:1,j===2?COL.gridAxis:COL.gridLine);
-    gr.DrawLine(gx,gy+p+.5,gx+size,gy+p+.5,j===2?1.5:1,j===2?COL.gridAxis:COL.gridLine);
+    var line=j===2?ssInk(92):ssInk(40);
+    gr.DrawLine(gx+p+.5,gy,gx+p+.5,gy+size,j===2?1.5:1,line);
+    gr.DrawLine(gx,gy+p+.5,gx+size,gy+p+.5,j===2?1.5:1,line);
   }
   strokeRound(gr,gx,gy,size,size,5,1,COL.line);
   tC(gr,'极少听',FONT.pl,COL.text2,m.rightX,gy+size/2-18,m.labelW,36);
   tC(gr,'最常听',FONT.pl,COL.text2,gx+size+4,gy+size/2-18,m.labelW,36);
   tC(gr,'风格相似',FONT.pl,COL.text2,m.rightX,gy+size+5,m.rightW,26);
   if(!staticOnly)ssDrawGlassBall(gr,gx,gy,size);
-  var fy=y+h-118, gap=10, btnW=Math.floor((w-48-gap*3)/4), bh=36;
-  ssButton(gr,x+24,fy,btnW,bh,'均衡', 'balanced',!ssApplyId,false);
-  ssButton(gr,x+24+btnW+gap,fy,btnW,bh,'常听优先','familiar',!ssApplyId,false);
-  ssButton(gr,x+24+(btnW+gap)*2,fy,btnW,bh,'少听探索','explore',!ssApplyId,false);
-  ssButton(gr,x+24+(btnW+gap)*3,fy,btnW,bh,'回到中心','center',!ssApplyId,false);
-  var ready=ssReady(), waiting=ssApplyId?'正在应用…':ready?'应用后按此预览顺序播放':(ssState&&ssState.preview_pending?'正在计算预览…':'正在等待预览…');
+  var fy=y+h-118, gap=8, btnW=Math.floor((m.rightW-gap*2)/3), bh=36;
+  ssButton(gr,m.rightX,fy,btnW,bh,'均衡','balanced',!ssApplyId,false);
+  ssButton(gr,m.rightX+btnW+gap,fy,btnW,bh,'常听优先','familiar',!ssApplyId,false);
+  ssButton(gr,m.rightX+(btnW+gap)*2,fy,btnW,bh,'少听探索','explore',!ssApplyId,false);
+  var ready=ssReady(), waiting=ssApplyId?'正在应用…':ready?'应用后按此预览顺序播放':count?'正在更新预览…':'';
   var error=ssError||ssMessage||(ssState&&ssState.error)||'';
   tL(gr,error||waiting,FONT.plSub,error?COL.error:COL.text2,x+24,fy+42,w-304,28);
   ssButton(gr,x+w-266,fy+46,110,40,'取消','cancel',!ssApplyId,false);
@@ -144,48 +152,69 @@ function ssPointerUp(x,y){
 }
 function ssDrawNativeQueue(gr,r,x,qy,bottom){
   if(!ssState) return false;
-  var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rows=priority.concat(list);
-  var rh=Math.max(46,Math.round(37*UISCALE),ssTrackTextMetrics(ssDensity,true).height+4);
-  var act=Math.round(24*ssDensity),actGap=Math.round(2*ssDensity),actW=act*2+actGap+Math.round(6*ssDensity);
+  var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], count=priority.length+list.length;
+  var metrics=ssTrackTextMetrics(ssDensity,true);
+  var rh=Math.max(56,metrics.height+metrics.title+4);
+  var headerH=Math.round(30*ssDensity),act=Math.max(34,Math.round(32*ssDensity)),actGap=Math.round(5*ssDensity),width=r.w-36;
+  var labelRemove=r.w>=380,removeW=labelRemove?Math.max(act,Math.round(50*ssDensity)):act;
+  var source=ssState.source_name,showSource=source&&!isHiddenPl(source);
+  var autoLabel=pbShuffle?'智能随机 · 本轮剩余':showSource?'歌单 · '+source:'歌单后续';
+  var sections=[];
+  if(priority.length)sections.push({label:'手动待播',scope:'priority',items:priority});
+  if(list.length)sections.push({label:autoLabel,scope:pbShuffle?'remaining':'native',items:list});
   var queued=null;
-  tL(gr,NP?'接下来':'待播放',FONT.sect,COL.text,x,qy,r.w-36,28); qy+=29;
-  var count=NP?(ssState.remaining_count||0):rows.length;
-  tL(gr,pbShuffle?(NP?'本轮剩余 ':'')+count+' 首':(!isHiddenPl(ssState.source_name)&&ssState.source_name)||'顺序播放',FONT.qArtist,COL.text2,x,qy,r.w-36-actW,24);
-  tR(gr,'拖动排序',FONT.qArtist,COL.text3,x,qy,r.w-36,24); qy+=30;
-  var viewport=Math.max(0,bottom-qy),contentH=rows.length*rh;
-  SS_QUEUE_MAX=Math.max(0,contentH-viewport);ssQueueScroll=clampPx(ssQueueScroll,SS_QUEUE_MAX);ssQueueScrollT=clampPx(ssQueueScrollT,SS_QUEUE_MAX);
-  if(viewport<1)return true;
-  var drawScroll=Math.round(ssQueueScroll),top=qy,start=Math.max(0,Math.floor(drawScroll/rh));
-  var parentGr=gr,layer=ssBeginViewport('queue-list',gr,r.x,top,r.w,viewport);
-  gr=layer.gr;qy+=start*rh-drawScroll;
-  for(var i=start;i<rows.length&&qy<bottom;i++){
-    var tr=rows[i],next=i===0;
-    if(queued===null&&ssQueueNeedsMetadata(tr)){
-      try{queued=plman.GetPlaybackQueueContents()||[];}catch(e){queued=[];}
-    }
-    var meta=ssQueueDisplayMeta(tr,queued||[]);
-    var hb={x0:x-8,y0:Math.max(top,qy),x1:r.x+r.w-18,y1:Math.min(bottom,qy+rh),rowY:qy,rowH:rh,next:next};
-    hb.track_id=tr.id;hb.scope=i<priority.length?'priority':pbShuffle?'remaining':'native';hb.queueIndex=i<priority.length?i:pbShuffle?i-priority.length:tr.item;if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}
-    var mx1=r.x+r.w-18,my0=qy+Math.round((rh-act)/2);
-    hb.more={x0:mx1-act,y0:my0,x1:mx1,y1:my0+act};if(hb.scope==='priority')hb.remove={x0:hb.more.x0-actGap-act,y0:my0,x1:hb.more.x0-actGap,y1:my0+act};HB_Q.push(hb);
-    ssDrawCachedRow(gr,'queue:'+i+':'+tr.id+':'+meta.t+':'+meta.a+(next?':next':''),r.x,qy,r.w,rh,function(gr){
-      var lx=x;
-      if(next){
-        var m=ssTrackTextMetrics(ssDensity,true),topY=qy+Math.round((rh-m.title-m.detail)/2);
-        var pw=Math.ceil(gr.CalcTextWidth('下一首',FONT.qArtist))+Math.round(12*ssDensity);
-        ssFillContinuousRect(gr,x,topY+2,pw,m.title-4,6,6,ssAccent(24));
-        tL(gr,'下一首',FONT.qArtist,COL.green,x,topY,pw,m.title);
-        lx=x+pw+8;
-      }
-      var reserved=act+Math.round(8*ssDensity)+(hb.remove?act+actGap:0);
-      ssDrawTrackLabels(gr,(i<priority.length&&!next?'优先 · ':'')+meta.t,meta.a,COL.text,lx,qy,r.w-36-(lx-x)-reserved,rh,ssDensity,true);
-      drawIcon(gr,'more',COL.text2,hb.more.x0,hb.more.y0,act,act,Math.round(14*ssDensity));
-      if(hb.remove)drawIcon(gr,'close',COL.text2,hb.remove.x0,hb.remove.y0,act,act,Math.round(12*ssDensity));
-    });qy+=rh;
+  tL(gr,NP?'接下来':'待播放',FONT.sect,COL.text,x,qy,width,28); qy+=29;
+  if(count){
+    var canSort=priority.length>1||(list.length>1&&(pbShuffle||ssCanReorder(ssPlaylistInfo(list[0].playlist))));
+    var sortW=canSort?Math.min(width,Math.round(114*ssDensity)):0;
+    tL(gr,count+' 首',FONT.qArtist,COL.text2,x,qy,width-sortW,24);
+    if(canSort)tR(gr,'长按拖动排序',FONT.pl,COL.text2,x+width-sortW,qy,sortW,24);
+  }else{
+    tL(gr,pbShuffle?(ssState.source?'本轮已播完，可重新开始一轮。':'播放歌单后查看待播曲目。'):'已到歌单末尾',FONT.plSub,COL.text2,x,qy,width,32);
   }
-  layer.finish();gr=parentGr;
+  qy+=30;
+  var viewport=Math.max(0,bottom-qy),contentH=count*rh+sections.length*headerH;
+  SS_QUEUE_MAX=Math.max(0,contentH-viewport);ssQueueScroll=clampPx(ssQueueScroll,SS_QUEUE_MAX);ssQueueScrollT=clampPx(ssQueueScrollT,SS_QUEUE_MAX);
+  if(viewport<1||!count)return true;
+  var drawScroll=Math.round(ssQueueScroll),top=qy,sectionY=top-drawScroll;
+  var parentGr=gr,layer=ssBeginViewport('queue-list',gr,r.x,top,r.w,viewport);
+  gr=layer.gr;
+  try{
+    for(var section of sections){
+      if(sectionY>=bottom)break;
+      var rowTop=sectionY+headerH,first=Math.max(0,Math.floor((top-rowTop)/rh));
+      if(rowTop>top){
+        gr.FillSolidRect(x,sectionY,width,1,COL.line);
+        tL(gr,section.label,FONT.pl,COL.text,x,sectionY+1,width-58,headerH-1);
+        tR(gr,section.items.length+' 首',FONT.qArtist,COL.text2,x,sectionY+1,width,headerH-1);
+      }
+      for(var i=first;i<section.items.length;i++){
+        var rowY=rowTop+i*rh;
+        if(rowY>=bottom)break;
+        var tr=section.items[i],next=section===sections[0]&&i===0;
+        if(queued===null&&ssQueueNeedsMetadata(tr)){
+          try{queued=plman.GetPlaybackQueueContents()||[];}catch(e){queued=[];}
+        }
+        var meta=ssQueueDisplayMeta(tr,queued||[]);
+        var hb={x0:x-8,y0:Math.max(top,rowY),x1:r.x+r.w-18,y1:Math.min(bottom,rowY+rh),rowY:rowY,rowH:rh,next:next};
+        hb.track_id=tr.id;hb.scope=section.scope;hb.queueIndex=section.scope==='native'?tr.item:i;
+        if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}
+        var right=r.x+r.w-18,actionY=rowY+Math.round((rh-act)/2);
+        hb.more={x0:right-act,y0:actionY,x1:right,y1:actionY+act};
+        if(section.scope==='priority')hb.remove={x0:hb.more.x0-actGap-removeW,y0:actionY,x1:hb.more.x0-actGap,y1:actionY+act};
+        HB_Q.push(hb);
+        var actionLeft=(hb.remove||hb.more).x0;
+        ssDrawCachedRow(gr,'queue:'+section.scope+':'+i+':'+tr.id+':'+meta.t+':'+meta.a+(next?':next':''),r.x,rowY,r.w,rh,function(gr){
+          ssDrawQueueTrackLabels(gr,meta.t,meta.a,x,rowY,actionLeft-x-Math.round(10*ssDensity),rh,metrics,next);
+          ssDrawQueueAction(gr,hb.more,'more','');
+          if(hb.remove)ssDrawQueueAction(gr,hb.remove,'close',labelRemove?'移除':'');
+        });
+      }
+      sectionY=rowTop+section.items.length*rh;
+    }
+  }finally{layer.finish();}
+  gr=parentGr;
   SS_QUEUE_SB=drawSBV(gr,r.x+r.w-10,top,viewport,ssQueueScroll,SS_QUEUE_MAX,viewport,contentH,hv(r.x,top,r.x+r.w,bottom)||drag==='scrollq',SB_QUEUE);
-  if(!rows.length) tL(gr,pbShuffle?'本轮已播完，点击「重开一轮」继续。':'已到歌单末尾',FONT.qArtist,COL.text3,x,qy,r.w-36,32);
   return true;
 }
 function ssNativeLyrics(){

@@ -20,7 +20,7 @@ function ssPalette(mode){
     text:RGB(18,18,18),text2:RGB(72,72,72),text3:RGB(92,92,92),
     green:RGB(10,110,240),greenC:RGB(10,110,240),greenHover:RGB(0,92,214),
     rowHover:RGBA(16,17,19,10),rowActive:RGBA(10,110,240,18),line:RGB(228,230,234),seekbg:RGB(219,222,227),
-    splitter:RGB(228,230,234),gridLine:RGBA(16,17,19,40),gridAxis:RGBA(16,17,19,80),
+    splitter:RGB(210,212,218),gridLine:RGBA(16,17,19,40),gridAxis:RGBA(16,17,19,80),
     popup:RGB(255,255,255),popupAlt:RGB(249,250,252),button:RGB(238,239,243),buttonHover:RGB(228,230,235),
     input:RGB(242,243,246),banner:RGB(246,247,250),cardHover:RGB(242,243,246),skeleton:RGB(236,237,241),
     pill:RGB(240,241,245),accentMuted:RGB(214,228,252),onAccent:RGB(255,255,255),onDanger:RGB(255,255,255),
@@ -65,9 +65,9 @@ function ssCreateFonts(){return {
   navIco:gf('Segoe MDL2 Assets',24), cap:gf('Segoe MDL2 Assets',10),
   menu:F(12), menuPrimary:F(13,1), card:F(14,1), sect2:F(20,1),
   searchTxt:F(16),
-  lyric:F(18,1), fsLyric:F(30,1), fsTitle:gf('Inter',28,1),
-  fsSrc:F(13),
-  fsSrcName:F(13,1)   // bold: the playlist name, vs. the plain-weight fixed caption
+  lyric:F(18,1),
+  fsLyric:gf('Segoe UI',28), fsTitle:gf('Segoe UI Semibold',26), fsArtist:gf('Segoe UI',18),
+  fsSrc:gf('Segoe UI',13), fsSrcName:gf('Segoe UI Semibold',13)
 };}
 var FONT=ssCreateFonts();
 function chr(c){ return String.fromCharCode(c); }
@@ -116,7 +116,7 @@ var SS_RUN_FORMAT=0x1800; // NoWrap and MeasureTrailingSpaces
 var SS_GRAPHEMES=typeof Intl!=='undefined'&&typeof Intl.Segmenter==='function'?new Intl.Segmenter():null;
 function ssCjkFont(font){
   var meta=null;for(var i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
-  if(!meta||(meta.name!=='Inter'&&meta.name!=='Inter Medium'))return font;
+  if(!meta||(meta.name!=='Inter'&&meta.name!=='Inter Medium'&&meta.name!=='Segoe UI'&&meta.name!=='Segoe UI Semibold'))return font;
   // YaHei UI covers kana as well, so Chinese and Japanese share one face with Latin.
   // Inter Medium has no style bit, so the matching CJK weight is YaHei UI bold.
   var style=meta.name==='Inter Medium'?1:meta.style,key=meta.size+'|'+style;
@@ -178,9 +178,10 @@ function ssMeasureText(gr,text,font,h){
   for(var run of ssMeasuredRuns(gr,text,font,h,false))width+=run.width;
   return width;
 }
+var ssTextRenderingHint=5;
 function ssText(gr,s,f,c,x,y,w,h,align,ellipsis,fixed){
   if(w<=0||h<=0)return;
-  s=String(s);gr.SetTextRenderingHint(5);
+  s=String(s);gr.SetTextRenderingHint(ssTextRenderingHint);
   var runs=ssTextRuns(s,f);
   if(runs.length===1){
     var font=fixed?runs[0].font:ssFitFont(gr,runs[0].font,h);

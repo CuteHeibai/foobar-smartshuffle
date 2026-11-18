@@ -2,8 +2,21 @@
    Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
+var ssPickedPlaylists=new Set();
+function ssPickedPlaylistGuids(info){
+  if(!info)return [];
+  if(!ssPickedPlaylists.has(info.guid))return [info.guid];
+  return ssState.playlists.filter(function(p){return ssPickedPlaylists.has(p.guid);}).map(function(p){return p.guid;});
+}
 function openPlaylistMenu(pl,x,y){
   var items=[],name=plman.GetPlaylistName(pl);
+  var guids=ssPickedPlaylistGuids(ssPlaylistInfo(pl));
+  if(guids.length)items.push({label:guids.length>1?'将 '+guids.length+' 张歌单排到待播队尾':'将歌单排到待播队尾',
+    run:function(){
+      guids.forEach(function(guid){ssPickedPlaylists.delete(guid);});
+      ssSend('queue_add_playlists',{playlist_guids:guids});
+      ssSetRightPane('queue',true);
+    }},{separator:true});
   function addToPlaylist(add){firstRow=firstRowT=0;view='playlist';repaintAll();add(pl);}
   if(!plman.IsPlaylistLocked(pl))items.push({label:'添加文件…',run:function(){addToPlaylist(addFilesToPl);}},{label:'添加文件夹…',run:function(){addToPlaylist(addFolderToPl);}},{separator:true});
   items.push({label:'重命名',run:function(){startRename(pl);}},{separator:true},

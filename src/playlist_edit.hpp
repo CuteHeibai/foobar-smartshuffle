@@ -5,11 +5,12 @@ metadb_handle_ptr handle_id(const std::string& id){
     auto text=id.substr(cut+1);size_t used=0;auto sub=std::stoul(text,&used);if(used!=text.size()||sub>UINT_MAX)throw std::runtime_error("子曲目标识无效");
     metadb_handle_ptr h;metadb::get()->handle_create(h,make_playable_location(id.substr(0,cut).c_str(),unsigned(sub)));return h;
 }
-size_t edit_playlist(const json& req,const char* field="playlist_guid"){
-    auto pm=playlist_manager_v5::get();auto pi=pm->find_playlist_by_guid(parseguid(req.at(field).get<std::string>()));
+size_t edit_playlist_guid(const std::string& guid){
+    auto pm=playlist_manager_v5::get();auto pi=pm->find_playlist_by_guid(parseguid(guid));
     if(pi>=pm->get_playlist_count())throw std::runtime_error("歌单已变化，请重新选择");
     pfc::string8 name;pm->playlist_get_name(pi,name);if(name==Managed||temporary_source_name(name))throw std::runtime_error("内部歌单不能编辑");return pi;
 }
+size_t edit_playlist(const json& req,const char* field="playlist_guid"){return edit_playlist_guid(req.at(field).get<std::string>());}
 bool playlist_writable(size_t pi){return playlist_manager::get()->playlist_lock_get_filter_mask(pi)==0;}
 // Add/remove locks do not imply an order lock (standard autoplaylists use mask 11).
 bool playlist_reorderable(size_t pi){return (playlist_manager::get()->playlist_lock_get_filter_mask(pi)&playlist_lock::filter_reorder)==0;}

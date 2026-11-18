@@ -20,7 +20,7 @@ function ssIsCurrentTrack(handle){return typeof NP!=='undefined'&&!!(NP&&handle&
 function ssDrawTrackLead(gr,x,y,w,h,active){
   var hot=hv(x,y,x+w,y+h);
   var icon=active?(fb.IsPaused?'pause':'equalizer'):'play';
-  drawIcon(gr,icon,active?COL.green:hot?COL.text:COL.text2,x,y,w,h,16);
+  drawIcon(gr,icon,active?COL.green:hot?COL.text:COL.text2,x,y,w,h,Math.min(22,Math.round(w*.55)));
 }
 function ssDrawTrackLabels(gr,title,detail,color,x,y,w,h,s,compact){
   if(!detail){ssDrawFixedLabel(gr,title,FONT.rowTitle,color,x,y,w,h);return;}

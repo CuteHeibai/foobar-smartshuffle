@@ -72,7 +72,10 @@ function ssFitWidths(left,right,budget,minLeft,minRight){
   if(excess>0){var free=left-minLeft+right-minRight,ratio=free?excess/free:0;left-=(left-minLeft)*ratio;right-=(right-minRight)*ratio;}
   return {left:Math.round(left),right:Math.round(right)};
 }
-function ssDefaultNavWidth(w){return Math.min(M.navW,228,Math.round(w*.24));}
+function ssDefaultNavWidth(w){
+  var scale=Math.max(1,Math.min(1.65,w/1440));
+  return Math.min(Math.round(Math.min(M.navW,228)*scale),Math.round(w*.24));
+}
 function ssDefaultQueueWidth(w){
   var extra=Math.round(Math.max(0,Math.min(120,(w-1600)*.15)));
   return Math.min(M.queueW+extra,Math.round(w*.225),w<1280?268:w);
@@ -81,13 +84,18 @@ function ssLibraryScales(w,h,nav,main,right){
   var navBase=ssDefaultNavWidth(w);
   var mainBase=w-M.gap*(right>0?4:3)-navBase-(right>0?ssDefaultQueueWidth(w):0);
   var windowScale=Math.min(w/1180,h/780);
-  function scale(ratio){return Math.max(.8,Math.min(1.45,Math.round(windowScale*ratio*40)/40));}
-  return {nav:scale(nav/navBase),main:scale(main/Math.max(1,mainBase))};
+  function scale(ratio,max){return Math.max(.8,Math.min(max,Math.round(windowScale*ratio*40)/40));}
+  return {nav:scale(nav/navBase,1.18),main:scale(main/Math.max(1,mainBase),1.25)};
+}
+function ssDesktopBarScale(w,h){
+  return Math.max(1,Math.min(1.35,Math.round(Math.min(w/1180,h/780)*40)/40));
 }
 function ssLayoutWidths(w){
   var customNav=ssWidths.nav>0;
   var navMin=Math.min(customNav?156:180,Math.round(w*.18)),rightMin=Math.min(220,Math.round(w*.24));
-  var standard=w<1280,navRequest=customNav?Math.min(ssWidths.nav,standard?240:260,Math.round(w*.24)):ssDefaultNavWidth(w);
+  var standard=w<1280;
+  var navMax=standard?Math.min(240,Math.round(w*.24)):Math.min(720,Math.round(w*.28));
+  var navRequest=customNav?Math.min(ssWidths.nav,navMax):ssDefaultNavWidth(w);
   var rightRequest=Math.min(ssWidths.right||ssDefaultQueueWidth(w),standard?268:w);
   var available=w-M.gap*4;
   var mainMin=Math.min(available-navMin-rightMin,Math.min(720,Math.ceil(w*.54)));
@@ -119,16 +127,22 @@ function ssResizeMove(x,y){
   if(!ssResizeTimer)ssResizeTimer=window.SetTimeout(function(){ssResizeTimer=0;ssResizeApply();},16);
   return true;
 }
-function ssResizeApply(){
+function ssResizeApply(preview){
   if(!ssResizing)return;
   var key=ssResizing.key,x=ssResizing.x;
   ssWidths[key]=Math.max(1,key==='nav'?x-M.gap*1.5:W-x-M.gap*1.5);
-  layout(true);repaintAll();
+  layout(true);
+  if(preview!==false)window.Repaint();
+}
+function ssPaintResizePreview(gr){
+  if(!ssResizing||!ssSceneImage||ssSceneW!==W||ssSceneH!==H)return false;
+  gr.DrawImage(ssSceneImage,0,0,W,H,0,0,W,H);
+  return true;
 }
 function ssResizeEnd(x,y){
   if(!ssResizing)return false;
   ssResizing.x=x;if(ssResizeTimer){window.ClearTimeout(ssResizeTimer);ssResizeTimer=0;}
-  ssResizeApply();var key=ssResizing.key;
+  ssResizeApply(false);var key=ssResizing.key;
   // Save the visible, constrained width rather than an out-of-window pointer position.
   ssWidths[key]=key==='nav'?R.navW:R.queueW;
   window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);ssResizing=null;ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();return true;
@@ -140,7 +154,8 @@ function ssDrawResizers(gr){
     if(keys[i]==='right'&&R.queue.w<=0)continue;
     var key=keys[i],x=key==='nav'?R.main.x-M.gap/2:R.queue.x-M.gap/2;
     var y=R.top.y+14,h=R.main.h-28;
-    gr.FillSolidRect(Math.round(x),Math.round(y),1,Math.round(Math.max(4,h)),key===active?COL.text2:COL.splitter);
+    if(active&&key!==active)continue;
+    gr.FillSolidRect(Math.round(x),Math.round(y),active?2:1,Math.round(Math.max(4,h)),active?COL.green:COL.splitter);
   }
 }
 function ssResetLayout(){

@@ -17,7 +17,7 @@ function drawPlaylistCard(gr,x,y,w,i,clipL,clipR){
   else paintPlCard(gr,x,y,w,i,cardHov);
   // Draw over the cached card without mutating its cover bitmap. Fully clipped buttons have no target.
   var playSize=Math.round(40*ssDensity),playX=x+w-14*ssDensity-playSize,playY=y+w-14*ssDensity-playSize;
-  if(playX>=hx0&&playX+playSize<=hx1){var pbh={x0:playX,y0:playY,x1:playX+playSize,y1:playY+playSize};if(cardHov)pbh=drawPlaylistPlay(gr,playX,playY,playSize,i);HB_PLPLAY.push(pbh);}
+  if(cardHov&&playX>=hx0&&playX+playSize<=hx1)HB_PLPLAY.push(drawPlaylistPlay(gr,playX,playY,playSize,i));
   var dx=x+w-32;
   if(cardHov && dx>=hx0 && dx+32<=hx1) drawDots(gr,dx,y+12,i);
   HB_CARD.push({x0:hx0,y0:y,x1:hx1,y1:y+h,kind:'pl',id:i});
@@ -100,45 +100,76 @@ function drawArtistCard(gr,x,y,w,a,clipTop,clipBot){
 
 // Caller supplies a clipped bitmap viewport; hit targets use that same vertical band.
 // Drawer width changes the column count, while cover size follows window density.
-function ssAlbumGrid(width,scale,coverSize){
+function ssAlbumGrid(width,scale,coverSize,maxCols){
   if(coverSize===undefined)coverSize=157;
   var gap=Math.round(24*scale),size=Math.max(1,Math.min(width,Math.round(coverSize*scale)));
-  return {gap:gap,size:size,cols:Math.max(1,Math.floor((width+gap)/(size+gap)))};
+  var cols=Math.max(1,Math.floor((width+gap)/(size+gap)));
+  if(maxCols&&cols>maxCols){
+    cols=maxCols;
+    size=Math.floor((width-gap*(cols-1))/cols);
+  }
+  return {gap:gap,size:size,cols:cols};
 }
-function ssLibraryReadingRect(r){
-  var inset=Math.min(M.cpad,Math.floor((r.w-1)/2));
+function ssLibraryReadingRect(r,padding){
+  var inset=Math.max(0,Math.min(padding===undefined?M.cpad:padding,Math.floor((r.w-1)/2)));
   return {x:r.x+inset,w:Math.max(1,r.w-2*inset)};
 }
-function ssDrawLabeledAction(gr,x,y,w,h,label,icon,act,font){
+function ssTrackNumberWidth(s,count){return Math.round(Math.max(26,String(count).length*8+6)*s);}
+function ssLibraryTrackLayout(r,s,padding,secondaryColumn){
+  var pane=ssLibraryReadingRect(r,padding),x=pane.x,end=r.x+r.w;
+  // The caret queries this layout outside the scaled paint scope.
+  var gutter=typeof ssPersonalGutter==='function'?Math.round(ssPersonalGutter()*s/ssDensity):0;
+  var measure=secondaryColumn?1300:1100;
+  var w=Math.max(1,Math.min(pane.w-gutter,Math.round(measure*s))),right=x+w;
+  var gap=Math.round(12*s),durW=Math.round(64*s),moreW=Math.round(24*s);
+  return {x:x,w:w,right:right,gap:gap,durW:durW,moreW:moreW,moreX:right-durW-gap-moreW,playW:ssTrackPlayWidth(s),
+    rowLeft:Math.max(r.x,x-8),rowRight:Math.min(end,right+8),personalRight:Math.min(end,right+gutter+8)};
+}
+function ssDrawLibraryRowSurface(gr,layout,y,h,hot,alternate){
+  if(hot||(alternate&&layout.w>=760))
+    ssFillContinuousRect(gr,layout.rowLeft,y,layout.personalRight-layout.rowLeft,h,4,4,hot?COL.rowHover:ssInk(7));
+}
+function ssDrawLabeledAction(gr,x,y,w,h,label,icon,act,font,primary){
   font=font||FONT.pl;
   var size=Math.min(w,h),gap=Math.round(10*ssDensity);
   var width=Math.min(w,size+gap+Math.ceil(ssMeasureText(gr,label,font,h))+4);
   var hot=hv(x,y,x+width,y+h),cy=y+(h-size)/2;
-  gr.FillEllipse(x,cy,size,size,hot?COL.hover:COL.elev);
-  drawIcon(gr,icon,hot?COL.green:COL.text,x,cy,size,size,Math.round(size*.50));
+  var fill=hot?COL.hover:COL.elev,glyph=hot?COL.green:COL.text;
+  if(primary){fill=hot?COL.greenHover:COL.play;glyph=COL.onAccent;}
+  gr.FillEllipse(x,cy,size,size,fill);
+  drawIcon(gr,icon,glyph,x,cy,size,size,Math.round(size*.50));
   tL(gr,label,font,COL.text,x+size+gap,y,width-size-gap,h);
   return {x0:x,y0:y,x1:x+width,y1:y+h,act:act};
 }
-function ssDrawAlbumPlayAction(gr,x,y,w,h,label,font){
-  return ssDrawLabeledAction(gr,x,y,w,h,label||'播放专辑','play','featured',font);
+function ssDrawAlbumPlayAction(gr,x,y,w,h,label,font,primary){
+  return ssDrawLabeledAction(gr,x,y,w,h,label||'播放专辑','play','featured',font,primary);
 }
 var ssAlbumTitleCache=new Map(),ssAlbumTitleFont=null;
+function ssTitlePrefix(gr,title,w,font){
+  var chars=ssTextClusters(title),lo=0,hi=chars.length;
+  while(lo<hi){
+    var mid=(lo+hi+1)>>1;
+    if(ssMeasureText(gr,chars.slice(0,mid).join(''),font)<=w)lo=mid;else hi=mid-1;
+  }
+  return chars.slice(0,lo).join('').trimEnd();
+}
 function ssAlbumTitleLines(gr,title,w){
   if(ssAlbumTitleFont!==FONT.card){ssAlbumTitleFont=FONT.card;ssAlbumTitleCache.clear();}
   var key=w+'|'+title,cached=ssAlbumTitleCache.get(key);
   if(cached)return cached;
   var lines=[title];
   if(title&&ssMeasureText(gr,title,FONT.card)>w){
-    var chars=ssTextClusters(title),lo=1,hi=chars.length;
-    while(lo<hi){
-      var mid=(lo+hi+1)>>1;
-      if(ssMeasureText(gr,chars.slice(0,mid).join(''),FONT.card)<=w)lo=mid;else hi=mid-1;
+    var tag=title.match(/(?:\[[^\[\]]+\]|\([^()]+\)|［[^［］]+］|（[^（）]+）|\b(?:disc|disk|cd|vol(?:ume)?|part)\.?\s*\d+(?:\s*\/\s*\d+)?|\b(?:deluxe|special|expanded|limited|anniversary|remastered)\s+(?:edition|version))\s*$/i);
+    var suffix=tag?tag[0].trimEnd():'',keepSuffix=suffix&&ssMeasureText(gr,suffix,FONT.card)<=w;
+    var stem=keepSuffix?title.slice(0,tag.index).trimEnd():title;
+    var first=ssTitlePrefix(gr,stem,w,FONT.card)||ssTextClusters(stem)[0]||'',space=first.lastIndexOf(' ');
+    if(first.length<stem.length&&space>first.length*.64)first=first.slice(0,space).trimEnd();
+    var remainder=title.slice(first.length).trim();
+    if(keepSuffix&&ssMeasureText(gr,remainder,FONT.card)>w){
+      var end='… '+suffix,endW=ssMeasureText(gr,end,FONT.card);
+      remainder=endW<=w?ssTitlePrefix(gr,stem.slice(first.length).trim(),w-endW,FONT.card)+end:suffix;
     }
-    var first=chars.slice(0,lo).join(''),space=first.lastIndexOf(' ');
-    if(space>first.length*.64)lo=ssTextClusters(first.slice(0,space)).length;
-    var remainder=chars.slice(lo).join('').trim();
-    lines=[chars.slice(0,lo).join('').trim()];
-    if(remainder)lines.push(remainder);
+    if(first&&remainder)lines=[first,remainder];
   }
   if(ssAlbumTitleCache.size>=512)ssAlbumTitleCache.clear();
   ssAlbumTitleCache.set(key,lines);

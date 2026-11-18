@@ -7,7 +7,7 @@ function ssMenuLeave(){
 function ssShowPopup(items,x,y,token,nativeMenu,kind){
   ssMenuKeepOpen();
   if(typeof ssDropPopupImage==='function')ssDropPopupImage();
-  ssPopupRestore=false;ssPopup={serial:++ssPopupSerial,x:x,y:y,token:token||'',nativeMenu:!!nativeMenu,context:kind==='context',levels:[{items:items,scroll:0,selected:-1}]};
+  ssPopupRestore=false;ssPopup={serial:++ssPopupSerial,x:x,y:y,token:token||'',nativeMenu:!!nativeMenu,context:kind==='context',clickSubmenus:kind==='playback',levels:[{items:items,scroll:0,selected:-1}]};
   if(!nativeMenu&&typeof ssHideLyrics==='function')ssHideLyrics();applyKeyMode();repaintAll();
 }
 function ssStopMenuPoll(){if(ssMenuPollTimer)window.ClearInterval(ssMenuPollTimer);ssMenuPollTimer=0;}
@@ -78,7 +78,7 @@ function ssTrackContextItems(nativeItems,extra,details){
   if(play)items.splice(items.length&&items[0].heading?1:0,0,play);
   if(items.length>1&&(properties||more.length))items.push({separator:true});
   if(properties)items.push(properties);
-  if(more.length)items.push({label:'更多操作',children:more,drill:true});
+  if(more.length)items.push({label:'音频、文件、标签与工具',children:more,drill:true});
   return items;
 }
 function ssPopupChoose(item){
@@ -88,11 +88,12 @@ function ssPopupChoose(item){
   if(item.run)item.run();else if(item.command!==undefined)ssSend('menu_execute',{token:token,command:item.command});
 }
 function ssMenuLabel(label){var text=String(label||'').replace(/&&/g,'\u0001').replace(/&/g,'').replace(/\u0001/g,'&').split('\t')[0];return typeof ssLocalLabel==='function'?ssLocalLabel(text):text;}
-function ssPopupMenuWidth(gr,level,rh,scale){
-  var items=level.items,width=level.drill?Math.max(200,level.drill.w):156;
+function ssPopupMenuWidth(gr,level,rh,scale,style){
+  var items=level.items,width=level.drill?Math.max(200,level.drill.w):style.minWidth;
   for(var i=0;i<items.length;i++)if(!items[i].separator){
     if(items[i].drill)width=Math.max(width,200);
-    width=Math.max(width,Math.ceil(ssMeasureText(gr,ssMenuLabel(items[i].label),items[i].primary?FONT.menuPrimary:FONT.pl,rh))+(items[i].children||items[i].checked?46:30));
+    var item=items[i],font=item.primary||style.playback&&item.checked?style.primary:style.label;
+    width=Math.max(width,Math.ceil(ssMeasureText(gr,ssMenuLabel(item.label),font,rh))+(item.children||item.checked?46:30));
   }
   return Math.max(1,Math.min(width,Math.round(308*scale),W-16));
 }
@@ -118,9 +119,13 @@ function ssDrawContextScroll(gr,x,y,width,height,depth,step){
 }
 function ssDrawPopup(gr){
   SS_MENU_HB=[];if(!ssPopup)return;
-  var previous=null,context=ssPopup.context,scale=Math.max(1,UISCALE),pad=6;
-  var rh=Math.max(30,Math.round(24*scale)),inset=14;
-  var widths=ssPopup.levels.map(function(level){return ssPopupMenuWidth(gr,level,rh,scale);});
+  var previous=null,context=ssPopup.context,playback=ssPopup.clickSubmenus,scale=Math.max(1,UISCALE),pad=6;
+  var menuScale=playback?Math.max(1,Math.min(1.32,W/1280,H/800)):1;
+  var style={playback:playback,minWidth:playback?Math.round(204*menuScale):156,
+    primary:menuScale>1?ssFsFont(FONT.menuPrimary,menuScale):FONT.menuPrimary,
+    label:menuScale>1?ssFsFont(FONT.pl,menuScale):FONT.pl};
+  var rh=Math.max(30,Math.round(24*scale),Math.round(30*menuScale)),inset=14;
+  var widths=ssPopup.levels.map(function(level){return ssPopupMenuWidth(gr,level,rh,scale,style);});
   var first=ssPopupFirstVisible();
   var limit=context&&typeof R!=='undefined'&&R.barY>TBH+80?R.barY-6:H-8;
   for(var d=first;d<ssPopup.levels.length;d++){
@@ -156,13 +161,15 @@ function ssDrawPopup(gr){
         if(it.separator)gr.FillSolidRect(x+inset,rowY+4,width-2*inset,1,COL.line);
         else if(it.heading)tL(gr,ssMenuLabel(it.label),FONT.plSub,COL.text2,x+inset,rowY,width-inset*2,ih);
         else{
-          if(!it.disabled&&(level.selected===i||level.hover===i))ssFillContinuousRect(gr,x+4,rowY,width-8,ih,4,4,COL.rowHover);
-          var color=it.disabled?COL.text3:it.danger?COL.dangerHover:COL.text;
-          tL(gr,ssMenuLabel(it.label),it.primary?FONT.menuPrimary:FONT.pl,color,x+inset,rowY,width-inset-(it.children||it.checked?29:inset),ih);
+          var current=playback&&it.checked;
+          if(!it.disabled&&(current||level.selected===i||level.hover===i))
+            ssFillContinuousRect(gr,x+4,rowY,width-8,ih,4,4,current?COL.rowActive:COL.rowHover);
+          var color=it.disabled?COL.text3:it.danger?COL.dangerHover:current?COL.green:COL.text;
+          tL(gr,ssMenuLabel(it.label),it.primary||current?style.primary:style.label,color,x+inset,rowY,width-inset-(it.children||it.checked?29:inset),ih);
           if(it.children){
             var left=level.selected===i&&widths[d+1]&&width+6+x+widths[d+1]>W-8;
             ssDrawContextChevron(gr,x+width-17,Math.round(rowY+ih/2),left?-1:1,it.disabled?COL.text3:COL.text2);
-          }else if(it.checked)tC(gr,'✓',FONT.pl,COL.green,x+width-27,rowY,18,ih);
+          }else if(it.checked)tC(gr,'✓',style.label,COL.green,x+width-27,rowY,18,ih);
           SS_MENU_HB.push({x0:x,y0:rowY,x1:x+width,y1:rowY+ih,depth:d,index:i,item:it});
         }
       }
@@ -187,7 +194,7 @@ function ssPopupMove(x,y){
   var inside=ssPopup.levels.slice(ssPopupFirstVisible()).some(function(level){return ssPopupContains(level.rect,x,y);});
   if(inside)ssMenuKeepOpen();else ssMenuLeave();
   var h=ssPopupHit(x,y);if(!h||!h.item)return true;
-  if(ssPopup.root){var hovered=ssPopup.levels[h.depth];if(hovered.hover!==h.index){hovered.hover=h.index;repaintAll();}return true;}
+  if(ssPopup.root||ssPopup.clickSubmenus){var hovered=ssPopup.levels[h.depth];if(hovered.hover!==h.index){hovered.hover=h.index;repaintAll();}return true;}
   var level=ssPopup.levels[h.depth];if(level.selected===h.index||ssPopup.context&&h.item.disabled)return true;
   level.selected=h.index;ssPopup.levels.length=h.depth+1;
   if(h.item.children&&!h.item.disabled&&!h.item.drill&&!level.drill)ssPopup.levels.push({items:h.item.children,scroll:0,selected:-1});
@@ -246,14 +253,18 @@ function ssPopupKey(key){
   return true;
 }
 function ssShowPlaybackModes(x,y,anchor){
-  var items=[{label:'智能随机（每轮全覆盖）',checked:!!(ssState&&ssState.enabled),run:function(){ssSend('playback_mode',{mode:'smart'});}}];
+  var smart=!!(ssState&&ssState.enabled),update=ssState&&ssState.update;
+  var items=[{label:'智能随机',checked:smart,run:function(){ssSend('playback_mode',{mode:'smart'});}}];
   var orders=(ssState&&ssState.orders)||[{index:0,name:'顺序播放'},{index:1,name:'列表循环'},{index:2,name:'单曲循环'}];
-  for(var i=0;i<orders.length;i++)if(orders[i].index<3)(function(order){items.push({label:['顺序播放','列表循环','单曲循环'][order.index],checked:!!(ssState&&!ssState.enabled&&ssState.native_order===order.index),run:function(){ssSend('playback_mode',{mode:'native',order:order.index});}});})(orders[i]);
-  items.push({separator:true},{label:'调整随机偏好…',run:ssOpen},{label:'重新开始一轮',run:function(){ssSend('restart');}},{separator:true},{label:(ssState&&ssState.update&&ssState.update.available?'发现更新 '+ssState.update.release.version:'检查更新…'),run:function(){ssSend('update_open');}},{label:'插件设置…',run:function(){ssSend('settings');}});
-  if(typeof ssStatsOpen==='function'&&ssState&&ssState.listening_stats){
-    var at=items.findIndex(function(item){return item.run===ssOpen;});
-    items.splice(at+1,0,{label:'歌曲排行…',run:ssStatsOpen});
-  }
-  ssShowPopup(items,x,y);
+  for(var i=0;i<orders.length;i++)if(orders[i].index<3)(function(order){items.push({label:['顺序播放','列表循环','单曲循环'][order.index],checked:!!(ssState&&!smart&&ssState.native_order===order.index),run:function(){ssSend('playback_mode',{mode:'native',order:order.index});}});})(orders[i]);
+  items.push({separator:true},{label:'调整随机偏好…',run:ssOpen});
+  if(smart)items.push({label:'重新开始一轮',run:function(){ssSend('restart');}});
+  if(typeof ssStatsOpen==='function'&&ssState&&ssState.listening_stats)items.push({label:'聆听统计…',run:ssStatsOpen});
+  var hasUpdate=update&&update.available;
+  items.push({separator:true},{label:hasUpdate?'插件 · 有更新':'插件',children:[
+    {label:'插件设置…',run:function(){ssSend('settings');}},
+    {label:hasUpdate?'发现更新 '+update.release.version:'检查更新…',run:function(){ssSend('update_open');}}
+  ]});
+  ssShowPopup(items,x,y,'',false,'playback');
   if(anchor)ssPopup.anchor=anchor;
 }

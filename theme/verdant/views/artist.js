@@ -7,7 +7,7 @@ function ssBuildCollectionRows(albumOnly,s,width){
   var namedAlbums=albumOnly?[]:artistAlbums.filter(function(album){return album.named;});
   if(namedAlbums.length){
     var sectionH=Math.round(34*s),grid=ssAlbumGrid(width,s),gap=grid.gap,cols=grid.cols;
-    var size=grid.size,step=size+ssAlbumLabelHeight(s,1)+Math.round(10*s);
+    var size=grid.size,step=size+ssAlbumLabelHeight(s)+Math.round(10*s);
     ssCollectionRows.push({y:y,h:sectionH,label:'专辑'});y+=sectionH;
     for(var a=0;a<namedAlbums.length;a+=cols){ssCollectionRows.push({y:y,h:step,tiles:namedAlbums.slice(a,a+cols),size:size,gap:gap});y+=step;}
     ssCollectionRows.push({y:y,h:sectionH,label:'曲目'});y+=sectionH;
@@ -51,15 +51,18 @@ function ssDisplayAlbumYear(year){return /^[1-9]\d{3}$/.test(year)?year:'';}
 function drawArtist(gr,r){
   HB_TR=[];HB_ARTIST_PLAY=null;
   var albumOnly=view==='album',album=albumOnly?artistAlbums[0]:null,s=ssDensity;
-  var content=ssLibraryReadingRect(r),x=content.x,w=content.w,right=x+w;
+  var content=ssLibraryTrackLayout(r,s),x=content.x,w=content.w,right=content.right;
   var art=Math.round(Math.min(r.w<600?96:112,Math.max(64,r.h*.24))*s),ay=r.y+Math.round(24*s);
   var name=albumOnly?(album?album.album:'专辑已移除'):ssArtistName(viewArtist);
   var top=ay+art+Math.round(60*s),songs=0;
   for(var group of artistAlbums)songs+=group.tracks.length;
+  var numX=x+content.playW+Math.round(4*s),numW=albumOnly?ssTrackNumberWidth(s,songs):0;
+  var trackX=(albumOnly?numX+numW:x+content.playW)+content.gap,trackW=content.moreX-content.gap-trackX;
   gr.FillGradRect(r.x,r.y,r.w,Math.min(r.h,top-r.y),90,COL.base,COL.base,1.0);
   if(album){drawRounded(gr,x,ay,art,7,album.handle,album.album);}
   else if(!albumOnly)ssDrawArtistAvatar(gr,x,ay,art,viewArtist);
-  var tx=x+art+Math.round(18*s),tw=Math.max(1,right-tx),text=ssHeaderBoxes(art,true,s);
+  var headRight=albumOnly?ssLibraryTrackLayout(r,s,undefined,true).right:right;
+  var tx=x+art+Math.round(18*s),tw=Math.max(1,headRight-tx),text=ssHeaderBoxes(art,true,s);
   tL(gr,albumOnly?'专辑':'歌手',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
   tL(gr,name,FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
   var caption=albumOnly?(album?ssArtistName(album.artist)+CH_DOT:''):artistAlbums.length+' 张专辑 '+CH_DOT+' ';
@@ -76,6 +79,14 @@ function drawArtist(gr,r){
   ssFillContinuousRect(gr,infoX,by,bw,button,8,8,hv(link.x0,link.y0,link.x1,link.y1)?COL.rowHover:COL.elev);
   tC(gr,albumOnly?'返回':'歌手资料',FONT.pl,COL.text2,infoX,by,bw,button);
   if(albumOnly)HB_ALBUM_BACK=link;else SS_ARTIST_HB=link;
+  if(albumOnly&&songs){
+    var headerH=Math.round(26*s);
+    tR(gr,'#',FONT.head,COL.text2,numX,top,numW,headerH);
+    tL(gr,'歌曲',FONT.head,COL.text2,trackX,top,trackW,headerH);
+    drawIcon(gr,'clock',COL.text2,right-Math.round(16*s),top,Math.round(16*s),headerH,Math.round(15*s));
+    gr.FillSolidRect(x,top+headerH-1,w,1,COL.line);
+    top+=headerH;
+  }
   ssBuildCollectionRows(albumOnly,s,w);
   var layer=ssCollectionViewport(gr,r,top,ssCollectionHeight);
   if(!layer)return;
@@ -90,7 +101,7 @@ function drawArtist(gr,r){
           var tileBox={x0:cx,y0:Math.max(top,cy),x1:cx+row.size,y1:Math.min(layer.bottom,y+row.h),kind:'album',id:tile.id};
           drawRounded(layer.gr,cx,cy,row.size,4,tile.handle,tile.album);
           var detail=[ssDisplayAlbumYear(tile.year),tile.tracks.length+' 首歌曲'].filter(Boolean).join(' '+CH_DOT+' ');
-          ssDrawAlbumLabels(layer.gr,tile.album,detail,cx,cy+row.size,row.size,s,1);
+          ssDrawAlbumLabels(layer.gr,tile.album,detail,cx,cy+row.size,row.size,s);
           if(tile.named&&tileBox.y1>tileBox.y0)HB_CARD.push(tileBox);
         }
       }else if(row.label){
@@ -103,16 +114,17 @@ function drawArtist(gr,r){
         tL(layer.gr,[ssDisplayAlbumYear(a.year),a.tracks.length+' 首歌曲'].filter(Boolean).join(' '+CH_DOT+' '),FONT.meta,COL.text2,dx,y+Math.round(34*s),right-dx,Math.round(20*s));
         if(a.named){box.kind='album';box.id=a.id;HB_CARD.push(box);}
       }else{
-        var tr=row.track,playW=ssTrackPlayWidth(s),tx=x+playW+Math.round(12*s),durW=Math.round(56*s),moreW=Math.round(24*s),measureRight=Math.min(right,x+Math.round((albumOnly?645:900)*s));
-        var active=ssIsCurrentTrack(tr.handle),moreX=measureRight-durW-Math.round(12*s)-moreW,moreY=y+Math.round((row.h-moreW)/2);
-        box.x1=measureRight+4;
+        var tr=row.track,moreX=content.moreX,moreW=content.moreW,moreY=y+Math.round((row.h-moreW)/2);
+        var active=ssIsCurrentTrack(tr.handle);
+        box.x0=content.rowLeft;box.x1=content.personalRight;
         var hovering=ssRowHover(box.x0,box.y0,box.x1,box.y1),group=artistAlbums[row.block];
-        if(hovering)ssFillContinuousRect(layer.gr,box.x0,y,box.x1-box.x0,row.h,4,4,COL.rowHover);
-        ssDrawTrackLead(layer.gr,x,y,playW,row.h,active);
-        ssDrawTrackLabels(layer.gr,tr.title,row.number&&group.named&&group.album!==tr.title?group.album:'',COL.text,tx,y,moreX-Math.round(12*s)-tx,row.h,s);
-        drawIcon(layer.gr,'more',COL.text2,moreX,moreY,moreW,moreW,Math.round(14*s));
-        tR(layer.gr,tr.dur,FONT.rowCell,COL.text2,measureRight-durW,y,durW,row.h);
-        box.lib=true;box.block=row.block;box.idx=row.idx;box.rowY=y;box.rowH=row.h;box.pgx0=x;box.pgx1=x+playW;box.playOnHover=true;box.playVisible=true;box.playId=tr.handle?ssTrackID(tr.handle):row.block+":"+row.idx;box.more={x0:moreX,y0:moreY,x1:moreX+moreW,y1:moreY+moreW};HB_TR.push(box);
+        ssDrawLibraryRowSurface(layer.gr,content,y,row.h,hovering,row.idx%2===1);
+        ssDrawTrackLead(layer.gr,x,y,content.playW,row.h,active);
+        if(albumOnly)tR(layer.gr,String(row.idx+1),FONT.rowNum,active?COL.green:COL.text2,numX,y,numW,row.h);
+        ssDrawTrackLabels(layer.gr,tr.title,row.number&&group.named&&group.album!==tr.title?group.album:'',COL.text,trackX,y,trackW,row.h,s);
+        drawIcon(layer.gr,'more',hovering?COL.text:COL.text2,moreX,moreY,moreW,moreW,Math.round(17*s));
+        tR(layer.gr,tr.dur,FONT.rowCell,COL.text2,right-content.durW,y,content.durW,row.h);
+        box.lib=true;box.block=row.block;box.idx=row.idx;box.rowY=y;box.rowH=row.h;box.pgx0=x;box.pgx1=x+content.playW;box.playOnHover=true;box.playVisible=true;box.playId=tr.handle?ssTrackID(tr.handle):row.block+":"+row.idx;box.more={x0:moreX,y0:moreY,x1:moreX+moreW,y1:moreY+moreW};HB_TR.push(box);
       }
     }
   }finally{layer.finish();}
@@ -123,8 +135,8 @@ function drawAlbums(gr,r){
   tL(gr,'专辑',FONT.title,COL.text,x,r.y+Math.round(10*s),w,Math.round(40*s));
   tL(gr,albums.length+' 张专辑',FONT.meta,COL.text2,x,r.y+Math.round(50*s),w,Math.round(20*s));
   if(!albums.length)tL(gr,'还没有带专辑标签的歌曲',FONT.pl,COL.text2,x,top,w,Math.round(36*s));
-  var grid=ssAlbumGrid(w,s),gap=grid.gap,cols=grid.cols;
-  var tileW=grid.size,tileH=tileW+ssAlbumLabelHeight(s,1),rowStep=tileH+Math.round(18*s);
+  var grid=ssAlbumGrid(w,s,undefined,7),gap=grid.gap,cols=grid.cols;
+  var tileW=grid.size,tileH=tileW+ssAlbumLabelHeight(s),rowStep=tileH+Math.round(18*s);
   var contentH=Math.ceil(albums.length/cols)*rowStep;
   var layer=ssCollectionViewport(gr,r,top,contentH);
   if(!layer)return;
@@ -138,7 +150,7 @@ function drawAlbums(gr,r){
       var box={x0:tx,y0:Math.max(top,ty),x1:tx+tileW,y1:Math.min(layer.bottom,ty+tileH),kind:'album',id:a.id};
       if(hv(box.x0,box.y0,box.x1,box.y1))ssFillContinuousRect(layer.gr,tx-6,ty,tileW+12,tileH+10,8,8,COL.rowHover);
       drawRounded(layer.gr,tx,ty,tileW,6,a.handle,a.album);
-      ssDrawAlbumLabels(layer.gr,a.album,ssArtistName(a.artist),tx,ty+tileW,tileW,s,1);
+      ssDrawAlbumLabels(layer.gr,a.album,ssArtistName(a.artist),tx,ty+tileW,tileW,s);
       HB_CARD.push(box);
     }
   }finally{layer.finish();}

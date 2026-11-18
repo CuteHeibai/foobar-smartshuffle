@@ -35,24 +35,35 @@ function ssHasTransportSource(){
   }
   return plman.ActivePlaylist>=0&&plCount(plman.ActivePlaylist)>0;
 }
-function ssDrawTransport(gr,by,height,s,layout,trackBg){
+function ssDrawTransport(gr,by,height,s,layout,trackBg,timeFont){
+  timeFont=timeFont||FONT.time;
   var center=layout.center,cy=by+Math.round(height*.40),side=58*s,enabled=ssHasTransportSource();
   var hot=enabled&&hv(center-27*s,by+7*s,center+27*s,by+61*s);
   var size=(hot?52:48)*s,px=center-size/2,py=cy-size/2;
   ctrlBtn(gr,'prev',center-side,cy,false,'prev',22*s,26*s,enabled);
-  gr.FillEllipse(px,py,size,size,enabled?COL.play:COL.elev);
-  drawIcon(gr,fb.IsPlaying&&!fb.IsPaused?'pause':'play',enabled?COL.onPlay:COL.text3,px,py,size,size,Math.round(size*.5));
+  var secondary=enabled&&layout.secondaryPlay;
+  gr.FillEllipse(px,py,size,size,secondary?(hot?COL.hover:COL.elev):enabled?COL.play:COL.elev);
+  drawIcon(gr,fb.IsPlaying&&!fb.IsPaused?'pause':'play',secondary?COL.text:enabled?COL.onPlay:COL.text3,px,py,size,size,Math.round(size*.5));
   if(enabled)HB_CTRL.push({x0:px,y0:py,x1:px+size,y1:py+size,act:'play'});
   ctrlBtn(gr,'next',center+side,cy,false,'next',22*s,26*s,enabled);
 
   var w=layout.seekWidth,x=center-w/2,y=by+Math.round(height*.76),th=4*s,len=Number(fb.PlaybackLength);
   HB_SEEK=null;
-  if(!NP||!(len>0)){gr.FillSolidRect(x,y,w,th,COL.seekbg);return;}
+  if(!NP){
+    if(layout.startLabel){
+      var labelH=Math.round(20*s),labelW=Math.min(360*s,W),labelY=Math.round(py+size+4*s);
+      tCE(gr,layout.startLabel,timeFont,secondary?COL.text2:COL.text,center-labelW/2,labelY,labelW,labelH);
+    }
+    if(!layout.hideIdleSeek)gr.FillSolidRect(x,y,w,th,COL.seekbg);
+    return;
+  }
+  if(!(len>0)){gr.FillSolidRect(x,y,w,th,COL.seekbg);return;}
   var pos=drag==='seek'?dragFrac:clamp01(fb.PlaybackTime/len);
   HB_SEEK=drawTrackBar(gr,x,y,w,th,COL.seekbg,pos,COL.green,trackBg);
   HB_SEEK.y0=Math.max(HB_SEEK.y0,cy+size/2+1);
-  tR(gr,fmtTime(drag==='seek'?len*dragFrac:fb.PlaybackTime),FONT.time,COL.text3,x-Math.round(54*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
-  tL(gr,fmtTime(len),FONT.time,COL.text3,x+w+Math.round(10*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
+  var timeColor=layout.timeColor||COL.text2;
+  tR(gr,fmtTime(drag==='seek'?len*dragFrac:fb.PlaybackTime),timeFont,timeColor,x-Math.round(54*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
+  tL(gr,fmtTime(len),timeFont,timeColor,x+w+Math.round(10*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
 }
 function ssFooterToolLayout(s,fullscreen){
   var end=W-Math.round(28*s),gap=Math.max(44,Math.round(46*s)),queue=end-gap,lyrics=queue-gap;
@@ -79,9 +90,9 @@ function ssDrawFooterTools(gr,by,height,s,tools,fullscreen){
   if(tools.modeWidth>iconW+16)tL(gr,mode.title,tools.modeFont||FONT.plSub,COL.text2,modeBox.x0+iconW,modeBox.y0,tools.modeWidth-iconW-4,modeH);
   HB_CTRL.push(modeBox);
   var hint=ssDrawFooterTool(gr,tools.output,y,s,'output','volume',false,'音频输出');
-  hint=ssDrawFooterTool(gr,tools.lyrics,y,s,'lyrics','lyric',lyricsOn,'歌词')||hint;
+  hint=ssDrawFooterTool(gr,tools.lyrics,y,s,'lyrics','lyric',lyricsOn,'歌词',tools.panelLabelFont)||hint;
   if(fullscreen){
-    hint=ssDrawFooterTool(gr,tools.queue,y,s,'viz','equalizer',fsView==='viz','频谱')||hint;
+    hint=ssDrawFooterTool(gr,tools.queue,y,s,'viz','equalizer',fsView==='viz','频谱',tools.panelLabelFont)||hint;
   }else{
     var queueOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&R.queue&&R.queue.w>0&&rightTab==='queue';
     hint=ssDrawFooterTool(gr,tools.queue,y,s,'queue','queue',queueOn,'播放队列')||hint;
@@ -150,15 +161,17 @@ function ssDrawIdleRecord(gr,x,y,size){
   gr.DrawEllipse(ix,iy,d,d,Math.max(1,Math.round(size*.035)),COL.text3);
   gr.FillEllipse(Math.round(x+(size-dot)/2),Math.round(y+(size-dot)/2),dot,dot,COL.text3);
 }
-function ssDrawFooterTool(gr,x,y,s,act,icon,active,label){
+function ssDrawFooterTool(gr,x,y,s,act,icon,active,label,labelFont){
   var panel=act==='queue'||act==='lyrics'||act==='fullscreen'||act==='viz';
-  var size=panel?Math.max(38,Math.round(40*s)):Math.max(34,Math.round(34*s)),r=size/2;
+  var size=panel?Math.max(38,Math.round((labelFont?44:40)*s)):Math.max(34,Math.round(34*s)),r=size/2;
   var box={x0:x-r,y0:y-r,x1:x+r,y1:y+r,act:act};
   var hot=hv(box.x0,box.y0,box.x1,box.y1);
   if(hot||(panel&&active))ssFillContinuousRect(gr,box.x0,box.y0,size,size,7,7,panel&&active?COL.rowActive:COL.rowHover);
-  drawIcon(gr,icon,active?COL.green:hot?COL.text:COL.text2,box.x0,box.y0,size,size,Math.round(19*s));
+  var color=active?COL.green:hot?COL.text:COL.text2,iconW=labelFont?Math.round(18*s):size;
+  drawIcon(gr,icon,color,box.x0,box.y0,iconW,size,Math.round((labelFont?15:19)*s));
+  if(labelFont)tL(gr,label,labelFont,color,box.x0+iconW+Math.round(2*s),box.y0,size-iconW-Math.round(3*s),size);
   HB_CTRL.push(box);
-  return hot?label:'';
+  return hot&&!labelFont?label:'';
 }
 function drawBar(gr){
   HB_CTRL=[];

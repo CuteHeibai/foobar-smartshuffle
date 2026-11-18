@@ -26,6 +26,37 @@ function ssQueueDisplayMeta(row,contents){
   }
   return {t:'未知曲目',a:row.artist||''};
 }
+function ssDrawQueueTrackLabels(gr,title,artist,x,y,w,h,metrics,next){
+  var first=title,second='';
+  if(ssMeasureText(gr,title,FONT.rowTitle)>w){
+    var prefix=ssTitlePrefix(gr,title,w,FONT.rowTitle),space=prefix.lastIndexOf(' ');
+    if(space>prefix.length*.72)prefix=prefix.slice(0,space);
+    if(prefix){first=prefix;second=title.slice(prefix.length).trimStart();}
+  }
+  var height=(second?2:1)*metrics.title+(artist||next?metrics.detail:0);
+  var top=y+Math.round((h-height)/2);
+  ssDrawFixedLabel(gr,first,FONT.rowTitle,COL.text,x,top,w,metrics.title);
+  top+=metrics.title;
+  if(second){
+    ssDrawFixedLabel(gr,second,FONT.rowTitle,COL.text,x,top,w,metrics.title);
+    top+=metrics.title;
+  }
+  var inset=0;
+  if(next){
+    var nextWidth=Math.ceil(ssMeasureText(gr,'下一首',FONT.qArtist))+2;
+    ssDrawFixedLabel(gr,'下一首',FONT.qArtist,COL.green,x,top,nextWidth,metrics.detail);
+    inset=nextWidth+Math.round(8*ssDensity);
+  }
+  if(artist)ssDrawFixedLabel(gr,artist,FONT.rowArtist,COL.text2,x+inset,top,w-inset,metrics.detail);
+}
+function ssDrawQueueAction(gr,box,icon,label){
+  var w=box.x1-box.x0,h=box.y1-box.y0;
+  var hot=!ssQuietRows&&hv(box.x0,box.y0,box.x1,box.y1);
+  var color=hot?(icon==='close'?COL.dangerHover:COL.text):COL.text2;
+  ssFillContinuousRect(gr,box.x0+1,box.y0+1,w-2,h-2,6,6,hot?COL.buttonHover:COL.button);
+  if(label)tC(gr,label,FONT.pl,color,box.x0,box.y0,w,h);
+  else drawIcon(gr,icon,color,box.x0,box.y0,w,h,Math.round(h*.64));
+}
 // hover cue + click target for one queue row; rows are rh apart so the boxes tile exactly
 function qRow(gr,r,x,qy,rh){
   var x0=x-8, y0=qy-6, x1=r.x+r.w-10, y1=qy+rh-6;
@@ -44,38 +75,53 @@ function qEntry(gr,r,x,y,cs,h,seed,key,title,artist,tcol,next){
   if(next)tw-=ssDrawQueueNext(gr,r,y,textH);
   ssDrawTrackLabels(gr,title,artist,tcol,tx,y,tw,textH,ssDensity,true);
 }
+function ssDrawLyricsNotice(gr,r,title,description,detail,canPlay){
+  var x=r.x+18,w=r.w-36,y=r.y+64;
+  var h=Math.min(canPlay?154:detail?122:96,Math.max(0,r.h-76));
+  if(h<76)return;
+  ssFillContinuousRect(gr,x,y,w,h,8,8,COL.elev);
+  drawIcon(gr,'lyric',COL.green,x+12,y+12,24,28,18);
+  tL(gr,title,FONT.sect,COL.text,x+44,y+11,w-56,30);
+  tL(gr,description,FONT.meta,COL.text2,x+14,y+47,w-28,26);
+  if(detail&&h>=107)tL(gr,detail,FONT.plSub,COL.text2,x+14,y+74,w-28,28);
+  if(canPlay&&h>=130){
+    var bx=x+14,by=y+94,bw=Math.min(118,w-28),bh=36,hot=hv(bx,by,bx+bw,by+bh);
+    ssFillContinuousRect(gr,bx,by,bw,bh,6,6,hot?COL.greenHover:COL.green);
+    drawIcon(gr,'play',COL.onAccent,bx+6,by,28,bh,16);
+    tL(gr,'播放音乐',FONT.pl,COL.onAccent,bx+38,by,bw-42,bh);
+    SS_LYRIC_PLAY={x0:bx,y0:by,x1:bx+bw,y1:by+bh};
+  }
+}
 function drawQueue(gr){
-  if(!R.queue||R.queue.w<=0){HB_TABS=[];HB_Q=[];SS_LYRIC_BTN=null;SS_QUEUE_SB=null;return;}
+  if(!R.queue||R.queue.w<=0){HB_TABS=[];HB_Q=[];SS_LYRIC_BTN=SS_LYRIC_PLAY=null;SS_QUEUE_SB=null;return;}
   ssDrawQueueContent(gr);
   var r=R.queue;roundBottom(gr,r.x,r.y,r.w,r.h);
 }
 function ssDrawQueueContent(gr){
-  HB_TABS=[]; HB_Q=[]; SS_LYRIC_BTN=null;SS_QUEUE_SB=null;
+  HB_TABS=[]; HB_Q=[]; SS_LYRIC_BTN=SS_LYRIC_PLAY=null;SS_QUEUE_SB=null;
   var r=R.queue; panelBg(gr,r,COL.base);
   var x=r.x+18;
   var qOn=rightTab==='queue';
   tL(gr,'歌词',FONT.tab,qOn?COL.text2:COL.text,x,r.y+16,64,26);
   tL(gr,'队列',FONT.tab,qOn?COL.text:COL.text2,x+70,r.y+16,64,26);
+  gr.FillSolidRect(x,r.y+48,r.w-36,1,COL.line);
   gr.FillSolidRect(qOn?x+70:x,r.y+46,50,3,COL.green);
   HB_TABS.push({x0:x-6,y0:r.y+8,x1:x+64,y1:r.y+48,tab:'lyrics'});
   HB_TABS.push({x0:x+70,y0:r.y+8,x1:x+134,y1:r.y+48,tab:'queue'});
 
   if(!qOn){
     SS_LYRIC_BTN={x0:r.x+r.w-86,y0:r.y+12,x1:r.x+r.w-12,y1:r.y+44};
-    tC(gr,'ESLyric',FONT.qArtist,COL.green,SS_LYRIC_BTN.x0,SS_LYRIC_BTN.y0,74,32);
+    if(hv(SS_LYRIC_BTN.x0,SS_LYRIC_BTN.y0,SS_LYRIC_BTN.x1,SS_LYRIC_BTN.y1))
+      ssFillContinuousRect(gr,SS_LYRIC_BTN.x0,SS_LYRIC_BTN.y0,74,32,5,5,COL.rowHover);
+    tC(gr,'ESLyric',FONT.plSub,COL.text2,SS_LYRIC_BTN.x0,SS_LYRIC_BTN.y0,74,32);
     if(typeof NP!=='undefined'&&!NP){
-      var middle=r.y+Math.round(r.h/2);
-      drawIcon(gr,'lyric',COL.text2,r.x,middle-62,r.w,32,24);
-      tC(gr,'尚未播放',FONT.sect,COL.text,r.x,middle-20,r.w,30);
-      tC(gr,'播放歌曲后在这里查看歌词',FONT.plSub,COL.text2,r.x+12,middle+14,r.w-24,24);
+      ssDrawLyricsNotice(gr,r,'尚未播放','播放后在此显示歌词','',ssHasTransportSource());
       return;
     }
     if(ssLyricVisible) return;
     loadLyrics();
     if(noLyrics()){
-      tC(gr,'未找到歌词',FONT.sect,COL.text2,r.x,r.y+Math.round(r.h/2)-28,r.w,24);
-      tC(gr,'将 .lrc 保存到歌曲旁，',FONT.qArtist,COL.text3,r.x,r.y+Math.round(r.h/2)+2,r.w,24);
-      tC(gr,'或播放器的 lyrics 文件夹。',FONT.qArtist,COL.text3,r.x,r.y+Math.round(r.h/2)+28,r.w,24);
+      ssDrawLyricsNotice(gr,r,'未找到歌词','将 .lrc 保存到歌曲旁，','或播放器的 lyrics 文件夹。',false);
       return;
     }
     var viewTop=r.y+64, viewBot=r.y+r.h-16, maxW=r.w-28;

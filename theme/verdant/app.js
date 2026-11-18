@@ -81,7 +81,7 @@ var navRevealPl=-1;
 function revealPlaylist(i){ navRevealPl=i; }
 var plDropHover=false, HB_PLADD_FILES=null, HB_PLADD_FOLDER=null;   // empty-playlist "add songs" zone
 // playlist edit: context menu, inline rename, delete confirm
-var HB_DOTS=[], renameEdit=null, confirmDel=null, CONF_HB=null, RENAME_HB=null;
+var HB_DOTS=[], renameEdit=null, confirmDel=null, CONF_HB=null, RENAME_HB=null, ssPlaylistPickDown=null, ssLyricPlayDown=false;
 
 var rightTab=typeof ssRightTab==='string'?ssRightTab:'lyrics';
 var view='home', viewArtist='', viewAlbum='', artistAlbums=[], homeScroll=0, artScroll=0, artScrollT=0,ssOpenCatalog=null,ssAlbumBack=null;
@@ -106,6 +106,8 @@ function snapShelf(px){ var st=HOME_STRIDE||1; return clampPx(Math.round(px/st)*
 
 function layout(contentOnly){
   var g=M.gap, top0=TBH+g;   // one uniform gap on every side, incl. below the title bar and above the bar
+  R.barScale=ssDesktopBarScale(W,H);
+  M.barH=Math.round(96*R.barScale);
   R.barY=H-M.barH;
   R.top={x:g,y:top0,bottom:R.barY-g};
   var widths=ssLayoutWidths(W);
@@ -177,15 +179,19 @@ function drawMainCounted(gr){
   roundBottom(gr,R.main.x,R.main.y,R.main.w,R.main.h);
   shimSettle();
 }
+function drawDesktopBar(gr){
+  ssDrawScaledLibrary(gr,drawBar,R.barScale,false);
+}
 function ssDrawBase(gr){
   HB_DOTS=[];gr.FillSolidRect(0,0,W,H,COL.black);
-  drawTitleBar(gr);drawMainCounted(gr);drawLibraryNav(gr);drawQueue(gr);drawBar(gr);ssDrawResizers(gr);
+  drawTitleBar(gr);drawMainCounted(gr);drawLibraryNav(gr);drawQueue(gr);drawDesktopBar(gr);ssDrawResizers(gr);
 }
 function on_paint(gr){
   ssPaintFrame(gr);
   if(!ssModal&&!ssPopup&&!fsMode&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt)ssDrawResizers(gr);
 }
 function ssPaintFrame(gr){
+  if(typeof ssPaintResizePreview==='function'&&ssPaintResizePreview(gr))return;
   if(ssSelectionDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!ssModal&&!ssPopup&&!fsMode){
     ssPaintInteractions(gr);return;
   }
@@ -244,7 +250,7 @@ function ssPaintFrame(gr){
     dirtySearch=false;
     if(view==='search')ssDrawScaledLibrary(gr,function(g){drawSearchBox(g,R.main);},ssSearchScale(R.main),false);
   }
-  if(dirtyBar){ dirtyBar=false; drawBar(gr); }
+  if(dirtyBar){ dirtyBar=false; drawDesktopBar(gr); }
   ssEndScene(targetGraphics,gr,regions);gr=targetGraphics;ssPaintInteractions(gr);
   ssDrawTransitions(gr);
   ssDrawResizers(gr);
@@ -280,6 +286,8 @@ function ssRowPlayAt(x,y){
 }
 function on_mouse_lbtn_down(x,y){
   ssPlaylistPlayDown=ssTrackPlayDown=ssRowMoreDown=null;
+  ssPlaylistPickDown=null;
+  ssLyricPlayDown=false;
   if(ssPopup)return;
   if(ssPointerDown(x,y)) return;
   if(confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;   // overlays are modal; dismissal/actions handled on button-up
@@ -287,6 +295,7 @@ function on_mouse_lbtn_down(x,y){
   if(!fsMode&&typeof ssPersonalPointerDown==='function'&&ssPersonalPointerDown(x,y))return;
   if(!fsMode){var playTarget=ssHeaderPlayAt(x,y);if(playTarget){ssPlaylistPlayDown=playTarget;return;}}
   if(ssResizeBegin(x,y))return;
+  if(!fsMode&&rightTab==='lyrics'&&typeof SS_LYRIC_PLAY!=='undefined'&&SS_LYRIC_PLAY&&inRect(x,y,SS_LYRIC_PLAY)){ssLyricPlayDown=true;return;}
   if(HB_SEEK && inRect(x,y,HB_SEEK)){ drag='seek'; dragFrac=seekFrac(x); repaintBar(); return; }
   if(HB_VOL && inRect(x,y,HB_VOL)){ drag='vol'; applyVol(x); return; }
   if(SS_QUEUE_SB&&inRect(x,y,SS_QUEUE_SB)){drag='scrollq';setQueueScroll(y);return;}
@@ -299,6 +308,8 @@ function on_mouse_lbtn_down(x,y){
   if(moreRow&&moreRow.more&&inRect(x,y,moreRow.more)){ssRowMoreDown={view:view,id:moreRow.playId};return;}
   var trackButton=fsMode?null:ssRowPlayAt(x,y);
   if(trackButton&&!utils.IsKeyPressed(17)){ssTrackPlayDown={view:view,id:trackButton.playId};return;}
+  var navRow=!fsMode&&utils.IsKeyPressed(17)&&!hit(HB_DOTS,x,y)&&hit(HB_PL,x,y);
+  if(navRow){ssPlaylistPickDown=ssPlaylistInfo(navRow.i)||{};return;}
   ssSelectionDown(x,y);
 }
 function on_mouse_rbtn_up(x,y){
@@ -372,6 +383,8 @@ function doCtrl(act,button){
 }
 function on_mouse_lbtn_up(x,y){
   var playlistPressed=ssPlaylistPlayDown,trackPressed=ssTrackPlayDown,queuePressed=ssQueueActionDown,morePressed=ssRowMoreDown;
+  var playlistPick=ssPlaylistPickDown;ssPlaylistPickDown=null;
+  var lyricPlay=ssLyricPlayDown;ssLyricPlayDown=false;
   ssPlaylistPlayDown=ssTrackPlayDown=ssQueueActionDown=ssRowMoreDown=null;
   if(ssRecycleClick(x,y))return;
   if(!trackPressed&&!ssPopup&&!ssModal&&SS_ARTIST_HB&&inRect(x,y,SS_ARTIST_HB)){ssArtistMenu(viewArtist,x,y);return;}
@@ -380,6 +393,19 @@ function on_mouse_lbtn_up(x,y){
   if(ssPointerUp(x,y)) return;
   if(typeof ssStatsPointerUp==='function'&&ssStatsPointerUp(x,y))return;
   if(typeof ssPersonalPointerUp==='function'&&ssPersonalPointerUp(x,y))return;
+  if(lyricPlay){
+    if(!fsMode&&!NP&&rightTab==='lyrics'&&R.queue&&R.queue.w>0&&SS_LYRIC_PLAY&&inRect(x,y,SS_LYRIC_PLAY))doCtrl('play');
+    return;
+  }
+  if(playlistPick){
+    var navRow=!fsMode&&!ssModal&&!drag&&hit(HB_PL,x,y), info=navRow&&ssPlaylistInfo(navRow.i);
+    if(info&&info.guid===playlistPick.guid&&!hit(HB_DOTS,x,y)){
+      if(ssPickedPlaylists.has(info.guid))ssPickedPlaylists.delete(info.guid);
+      else ssPickedPlaylists.add(info.guid);
+      repaintNav();
+    }
+    return;
+  }
   if(morePressed){
     var moreAgain=fsMode?null:hit(HB_TR,x,y);
     if(!drag&&!ssModal&&view===morePressed.view&&moreAgain&&moreAgain.more&&moreAgain.playId===morePressed.id&&inRect(x,y,moreAgain.more))ssBatchTrackMenu(moreAgain,moreAgain.more.x0,moreAgain.more.y1);
@@ -492,7 +518,7 @@ function on_mouse_lbtn_up(x,y){
     else loadArtist(t.id);
     repaintAll(); return;
   }
-  if((t=hit(HB_PL,x,y))){ plman.ActivePlaylist=t.i; firstRow=firstRowT=0; view='playlist'; repaintAll(); return; }
+  if((t=hit(HB_PL,x,y))){ ssPickedPlaylists.clear(); plman.ActivePlaylist=t.i; firstRow=firstRowT=0; view='playlist'; repaintAll(); return; }
   if((t=hit(HB_Q,x,y)))return;
   // Keep the lyric hit and legacy row action for lists with a hover-only play glyph.
   if((t=hit(HB_TR,x,y))){
@@ -562,11 +588,18 @@ function hoverSig(x,y){
   if(SB && inRect(x,y,SB)) return 'sb';
   if((i=hitIdx(HB_CTRL,x,y))>=0) return 'c'+i;
   if((i=hitIdx(HB_TABS,x,y))>=0) return 't'+i;
+  if(!fsMode&&rightTab==='lyrics'){
+    if(typeof SS_LYRIC_PLAY!=='undefined'&&SS_LYRIC_PLAY&&inRect(x,y,SS_LYRIC_PLAY))return 'lyrics-play';
+    if(typeof SS_LYRIC_BTN!=='undefined'&&SS_LYRIC_BTN&&inRect(x,y,SS_LYRIC_BTN))return 'lyrics-component';
+  }
   if(HB_HOME && inRect(x,y,HB_HOME)) return 'h';
   if(HB_SEARCH && inRect(x,y,HB_SEARCH)) return 's';
   if((i=hitIdx(HB_CARD,x,y))>=0) return 'k'+i;
   if((i=hitIdx(HB_PL,x,y))>=0) return 'p'+HB_PL[i].i;
-  if((i=hitIdx(HB_Q,x,y))>=0) return 'q'+i;
+  if((i=hitIdx(HB_Q,x,y))>=0){
+    var row=HB_Q[i];
+    return 'q'+i+(row.remove&&inRect(x,y,row.remove)?'-remove':row.more&&inRect(x,y,row.more)?'-more':'');
+  }
   if((i=hitIdx(HB_TR,x,y))>=0) return 'r'+i;
   return '';
 }
@@ -805,4 +838,4 @@ drpSync();         // make foo_verdant agree with the Discord property before an
 
 ssLoadArtists();ssStart();
 ssStartCovers();
-console.log('Smart Shuffle Chinese Verdant 1.0.19 ready');
+console.log('Smart Shuffle Chinese Verdant 1.0.20 ready');

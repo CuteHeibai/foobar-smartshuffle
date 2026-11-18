@@ -81,6 +81,32 @@ test('the idle homepage can play its featured album through the native collectio
  c.ssActivateHomeAction(c.HB_HOME_CONTINUE);
  assert.equal(sent.op,'play_album');assert.equal(sent.albums[0].id,'album-7');
 });
+test('the home recommendation uses a contrasting play circle in both themes',()=>{
+ const {c,gr}=harness(),r={x:240,y:40,w:1125,h:750};
+ const palette={UISCALE:1,gdi:{Font:()=>({})}};
+ vm.runInNewContext(fs.readFileSync('theme/verdant/core/tokens.js','utf8'),palette);
+ function luminance(color){
+  return [0.2126,0.7152,0.0722].reduce((total,weight,i)=>{
+   const channel=((color>>((2-i)*8))&255)/255;
+   return total+weight*(channel<=0.04045?channel/12.92:((channel+0.055)/1.055)**2.4);
+  },0);
+ }
+ function contrast(a,b){const values=[luminance(a),luminance(b)];return (Math.max(...values)+0.05)/(Math.min(...values)+0.05);}
+ for(const mode of ['dark','light']){
+  const circles=[],plays=[];
+  c.COL=palette.ssPalette(mode);
+  gr.FillEllipse=(x,y,w,h,color)=>circles.push({x,y,w,h,color});
+  c.drawIcon=(g,name,color)=>{if(name==='play')plays.push(color);};
+  c.drawHome(gr,r);
+  assert.equal(circles.length,1);assert.equal(plays.length,1);
+  const circle=circles[0],hit=c.HB_HOME_CONTINUE;
+  assert.ok(contrast(circle.color,c.COL.base)>=3,mode+' button against the page');
+  assert.ok(contrast(plays[0],circle.color)>=3,mode+' icon against the button');
+  assert.equal(circle.w,42);assert.equal(circle.h,42);
+  assert.deepEqual([circle.x,circle.y],[hit.x0,hit.y0]);
+  assert.ok(hit.x1>hit.x0+circle.w,'the label remains part of the same action');
+ }
+});
 test('album names reserve two title lines and the selection avoids repeated names',()=>{
  const {c}=harness(),gr={CalcTextWidth:s=>Array.from(s).length*8};
  const long='TV Soundtrack Special Edition';

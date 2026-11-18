@@ -63,7 +63,7 @@ function ssHomeFocusRing(gr,box,radius){
   if(ssHomeFocus===box.focus)ssStrokeContinuousRect(gr,box.x0-2,box.y0-2,box.x1-box.x0+4,box.y1-box.y0+4,radius,radius,1,COL.green);
 }
 function ssDrawHomePrimary(gr,x,y,w,h,album){
-  if(album)HB_HOME_CONTINUE=ssDrawAlbumPlayAction(gr,x,y,w,h);
+  if(album)HB_HOME_CONTINUE=ssDrawAlbumPlayAction(gr,x,y,w,h,'播放专辑',FONT.pl,true);
   else HB_HOME_CONTINUE=ssDrawLabeledAction(gr,x,y,w,h,'浏览音乐库','search','browse');
   HB_HOME_CONTINUE.focus='primary';HB_HOME_CONTINUE.album=album;
   ssHomeFocusRing(gr,HB_HOME_CONTINUE,8);

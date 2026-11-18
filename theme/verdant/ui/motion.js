@@ -50,7 +50,7 @@ function ssTrailSamples(now){
 function ssPreferenceCacheKey(){
   var hot=-1;if(typeof SS_HB!=='undefined')for(var i=0;i<SS_HB.length;i++){var b=SS_HB[i];if(mx>=b.x0&&mx<=b.x1&&my>=b.y0&&my<=b.y1){hot=i;break;}}
   var state=ssState||{};
-  return JSON.stringify([W,H,typeof SS_APPEARANCE==='undefined'?'dark':SS_APPEARANCE,ssPreferenceLabel(),ssApplyId,ssError,ssMessage,state.error,state.preview_pending,ssReady(),state.preview&&state.preview.tracks,hot]);
+  return JSON.stringify([W,H,typeof SS_APPEARANCE==='undefined'?'dark':SS_APPEARANCE,ssPreferenceLabel(),ssApplyId,ssError,ssMessage,state.error,state.source,state.preview_pending,ssReady(),state.preview&&state.preview.tracks,hot]);
 }
 function ssPaintModal(gr,forceFull){
   if(!ssModalImage||ssModalImageW!==W||ssModalImageH!==H){

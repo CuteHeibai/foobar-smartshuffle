@@ -28,23 +28,38 @@ function ssDrawPersonalRowActions(gr){
   ssPersonalVisible(ids,prefetch?prefetch.ids:[]);
 }
 function drawPersonal(gr,r){
-  if(!ssPersonalEnabled()){
-    var s=ssDensity,x=r.x+M.cpad,w=r.w-2*M.cpad,y=r.y+Math.round(18*s);
-    tL(gr,ssPersonalTitle(view),FONT.title,COL.text,x,y,w,42*s);
-    var middle=y+Math.min(r.h*.34,206*s),buttonW=Math.min(w,156*s),buttonX=x+(w-buttonW)/2,buttonY=middle+113*s;
-    drawIcon(gr,view==='favorites'?'heart':'clock',COL.text2,x,middle,w,44*s,32*s);
-    tC(gr,ssPersonalTitle(view)+'已关闭',FONT.sect2,COL.text,x,middle+46*s,w,32*s);
-    tC(gr,'在插件设置中启用「播放历史、收藏和稍后听」',FONT.meta,COL.text2,x,middle+80*s,w,25*s);
-    ssFillContinuousRect(gr,buttonX,buttonY,buttonW,36*s,6,6,hv(buttonX,buttonY,buttonX+buttonW,buttonY+36*s)?COL.rowHover:COL.elev);
-    tC(gr,'打开插件设置',FONT.pl,COL.text,buttonX,buttonY,buttonW,36*s);
-    HB_PERSONAL_ACTIONS.push({x0:buttonX,y0:buttonY,x1:buttonX+buttonW,y1:buttonY+36*s,settings:true});
+  HB_TR=[];
+  var s=ssDensity,lx=r.x+M.cpad,rx=r.x+r.w-M.cpad,w=rx-lx,p=ssPersonal;
+  var enabled=ssPersonalEnabled(),history=view==='history',later=view==='later';
+  var titleY=r.y+18*s,titleH=34*s,bottom=r.y+r.h;
+  tL(gr,ssPersonalTitle(view),enabled?FONT.sect2:FONT.title,COL.text,lx,titleY,w,titleH);
+  if(!enabled||!p.loading&&!p.error&&!p.items.length&&!p.total){
+    SS_PERSONAL_MAX=ssPersonalScroll=ssPersonalScrollT=0;
+    var status='功能未启用',detail=history?'查找最近播放过的歌曲。':later?'把想听的歌曲留到以后播放。':'保存喜欢的歌曲，随时再听。';
+    var paused=enabled&&history&&ssState.personal.history_enabled===false;
+    if(enabled){
+      status=history?'还没有播放记录':later?'暂时没有稍后听的歌曲':'还没有收藏的歌曲';
+      detail=history?(paused?'在插件设置中开启「记录听歌统计」。':'播放歌曲后，记录会显示在这里。'):
+        later?'右键点击歌曲并选择「添加到稍后听」。':'点击歌曲旁的爱心即可收藏。';
+    }
+    var y=titleY+titleH+Math.round(26*s),iconBox=Math.round(28*s),offset=iconBox+Math.round(8*s);
+    drawIcon(gr,history?'order':later?'clock':'heart',COL.text2,lx,y,iconBox,iconBox,Math.round(22*s));
+    tL(gr,status,FONT.sect2,COL.text,lx+offset,y,w-offset,iconBox);
+    tL(gr,detail,FONT.meta,COL.text2,lx,y+Math.round(34*s),w,Math.round(24*s));
+    if(!enabled)tL(gr,'勾选「启用播放历史、收藏和稍后听」。',FONT.meta,COL.text2,lx,y+Math.round(58*s),w,Math.round(24*s));
+    if(!enabled||paused){
+      var bw=Math.min(w,Math.round(142*s)),by=y+Math.round((enabled?65:89)*s),bh=Math.round(34*s);
+      if(by+bh<=bottom){
+        ssFillContinuousRect(gr,lx,by,bw,bh,6,6,hv(lx,by,lx+bw,by+bh)?COL.buttonHover:COL.button);
+        tC(gr,'打开插件设置',FONT.pl,COL.text,lx,by,bw,bh);
+        HB_PERSONAL_ACTIONS.push({x0:lx,y0:by,x1:lx+bw,y1:by+bh,settings:true});
+      }
+    }
     return;
   }
-  HB_TR=[];var s=ssDensity,lx=r.x+M.cpad,rx=r.x+r.w-M.cpad,w=rx-lx,p=ssPersonal;
-  var titleY=r.y+18*s,titleH=34*s,subY=titleY+titleH+4*s,headY=subY+46*s,rowsTop=Math.round(headY+28*s);
-  var footerH=Math.round(42*s),cropY=Math.max(rowsTop,Math.floor(r.y+r.h-footerH)),viewH=cropY-rowsTop,history=view==='history';
-  tL(gr,ssPersonalTitle(view),FONT.sect2,COL.text,lx,titleY,w,titleH);
-  tL(gr,history?'由听歌统计设置记录 · 最近90天，最多10000次播放':view==='later'?'手动管理，播放后仍会保留':'收藏按歌曲去重，不改写音乐文件',FONT.plSub,COL.text2,lx,subY,w,20*s);
+  var subY=titleY+titleH+4*s,headY=subY+46*s,rowsTop=Math.round(headY+28*s);
+  var footerH=Math.round(42*s),cropY=Math.max(rowsTop,Math.floor(bottom-footerH)),viewH=cropY-rowsTop;
+  tL(gr,history?'由听歌统计设置记录 · 最近90天，最多10000次播放':later?'手动管理，播放后仍会保留':'收藏按歌曲去重，不改写音乐文件',FONT.plSub,COL.text2,lx,subY,w,20*s);
   tL(gr,String(p.total)+(history?' 次播放':' 首歌曲'),FONT.plSub,COL.text2,lx,subY+23*s,w,20*s);
   var bw=Math.min(82*s,Math.max(48*s,w*.23)),gap=8*s,fy=r.y+r.h-36*s;
   function pageButton(label,x,delta,enabled){

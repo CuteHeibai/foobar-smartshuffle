@@ -13,20 +13,18 @@ function drawPlaylist(gr,r){
     return;
   }
   gr.FillGradRect(r.x,r.y,r.w,M.headH,90,blend(artHue(plChoice(p.i).single,p.name),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
-  var s=ssDensity,compact=r.w<800*s, ax=r.x+M.cpad, ay=r.y+16*s, art=M.artSz;
-  drawPlCover(gr,ax,ay,art,8,p.i,p.name);
+  var s=ssDensity,list=ssLibraryTrackLayout(r,s),lx=list.x,rx=list.right,ay=r.y+16*s,art=M.artSz;
+  drawPlCover(gr,lx,ay,art,8,p.i,p.name);
   var button=Math.max(32,Math.round(38*s)),barY=ay+art+Math.round(6*s),playSpace=0;
-  if(p.count>0){HB_PLAYLIST_PLAY=drawPlaylistPlay(gr,ax,barY,button,p.i);playSpace=button+Math.round(10*s);}
-  var addW=Math.min(136*s,r.w-art-48*s),addX=r.x+r.w-M.cpad-addW,addY=r.y+10*s;
-  if(canEditPl(p.i)&&addW>82*s){
+  if(p.count>0){HB_PLAYLIST_PLAY=drawPlaylistPlay(gr,lx,barY,button,p.i);playSpace=button+Math.round(10*s);}
+  var addW=Math.min(136*s,list.w-art-48*s),addX=rx-addW,addY=r.y+10*s,showAdd=canEditPl(p.i)&&addW>82*s;
+  if(showAdd){
     ssFillContinuousRect(gr,addX,addY,addW,28*s,8,8,COL.elev);tC(gr,'＋ 添加文件夹',FONT.pl,COL.green,addX,addY,addW,28*s);
     HB_PLADD_FOLDER={x0:addX,y0:addY,x1:addX+addW,y1:addY+28*s};
   }
-  // sort pill + asc/desc button, right-aligned like the All Songs group pill; header text
-  // stops short of this column so the two can never collide on a narrow panel
-  var rx0=r.x+r.w-M.cpad, sortDirW=38, sortPillW=Math.max(1,Math.min(200,r.w-M.cpad*2-playSpace-46)), sortGap=8, sortTotalW=sortPillW+sortGap+sortDirW;
-  var sortX=ax+playSpace, sortY=barY;
-  var tx=ax+art+24*s, tw=Math.max(1,rx0-tx-(canEditPl(p.i)&&addW>82*s?addW+10*s:0));
+  var sortDirW=38,sortGap=8,sortPillW=Math.max(1,Math.min(200,list.w-playSpace-sortDirW-sortGap));
+  var sortX=lx+playSpace,sortY=barY;
+  var tx=lx+art+24*s,tw=Math.max(1,rx-tx-(showAdd?addW+10*s:0));
   var text=ssHeaderBoxes(art,false,s);
   tL(gr,'歌单',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
   tL(gr,p.name,FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
@@ -36,10 +34,10 @@ function drawPlaylist(gr,r){
   drawSortDirBtn(gr,sortX+sortPillW+sortGap,sortY,sortDirW,38);
 
   // track list
-  var lx=r.x+M.cpad, rx=r.x+r.w-M.cpad-(typeof ssPersonalGutter==='function'?ssPersonalGutter():0);
   var listTop=r.y+M.headH+Math.round(8*s);
-  var numW=ssTrackPlayWidth(s), durW=64*s, cgap=16*s, moreW=Math.round(24*s);
-  var titleX=lx+numW+cgap, titleW=Math.max(1,rx-moreW-cgap-durW-cgap-titleX);
+  var playW=list.playW,durW=list.durW,cgap=list.gap,moreW=list.moreW,moreX=list.moreX;
+  var numX=lx+playW+Math.round(4*s),numW=ssTrackNumberWidth(s,p.count);
+  var coverX=numX+numW+cgap,cs=Math.round(40*s),titleX=coverX+cs+cgap,titleW=moreX-cgap-titleX;
   var rowsTop=listTop+Math.round(34*s), rh=Math.round(M.rowH*s), cropY=r.y+r.h, viewH=cropY-rowsTop;
   var contentH=p.count*rh, maxPx=Math.max(0,contentH-viewH);   // firstRow is a PIXEL offset
   if(viewH<1)return;
@@ -55,29 +53,30 @@ function drawPlaylist(gr,r){
     var j=order[d]; var h=items[j]; if(!h){ continue; }
     var isPlaying=(loc && loc.IsValid && loc.PlaylistIndex===p.i && loc.PlaylistItemIndex===j)
                   || (shufHere && sameHandle(h,NP));   // playing from this playlist's hidden shuffle copy
-    var isHover=ssRowHover(r.x,ry,r.x+r.w,ry+rh);
+    var y0=Math.max(ry,rowsTop),y1=Math.min(ry+rh,cropY),moreY=ry+Math.round((rh-moreW)/2);
+    var isHover=ssRowHover(list.rowLeft,y0,list.personalRight,y1);
     ssDrawCachedRow(gr,'pl:'+p.i+':'+j+':'+d,r.x,ry,r.w,rh,function(gr){
-    if(isHover) ssFillContinuousRect(gr,lx-8,ry,rx-lx+16,rh,4,4,COL.rowHover);
-    var titleCol=isPlaying?COL.green:COL.text;
-    ssDrawTrackLead(gr,lx,ry,numW,rh,isPlaying);
-    var cs=40*s, cy=ry+(rh-cs)/2, alb=meta.album[j];
-    drawCover(gr,titleX,cy,cs,3,h,alb||String(j),meta.artkey[j]);
-    var ttx=titleX+cs+12, ttw=titleW-cs-12;
-    var detail=alb&&alb!==meta.title[j]?[meta.artist[j],alb].filter(Boolean).join(' '+CH_DOT+' '):meta.artist[j];
-    ssDrawTrackLabels(gr,meta.title[j],detail,titleCol,ttx,ry,ttw,rh,s);
-    var mx0=rx-durW-cgap-moreW, my0=ry+Math.round((rh-moreW)/2);
-    drawIcon(gr,'more',COL.text2,mx0,my0,moreW,moreW,Math.round(14*s));
-    tR(gr,meta.len[j],FONT.rowCell,COL.text2,rx-durW,ry,durW,rh);
+      ssDrawLibraryRowSurface(gr,list,ry,rh,isHover,d%2===1);
+      ssDrawTrackLead(gr,lx,ry,playW,rh,isPlaying);
+      tR(gr,String(d+1),FONT.rowNum,isPlaying?COL.green:COL.text2,numX,ry,numW,rh);
+      var alb=meta.album[j],key=meta.artkey[j],previous=order[d-1],artist=meta.artist[j];
+      var repeated=alb&&key&&items[previous]&&alb===meta.album[previous]&&key===meta.artkey[previous];
+      if(!repeated)drawCover(gr,coverX,ry+(rh-cs)/2,cs,3,h,alb||String(j),key);
+      var detail=alb&&alb!==meta.title[j]&&(!repeated||!artist)?[artist,alb].filter(Boolean).join(' '+CH_DOT+' '):artist;
+      ssDrawTrackLabels(gr,meta.title[j],detail,isPlaying?COL.green:COL.text,titleX,ry,titleW,rh,s);
+      drawIcon(gr,'more',isHover?COL.text:COL.text2,moreX,moreY,moreW,moreW,Math.round(17*s));
+      tR(gr,meta.len[j],FONT.rowCell,COL.text2,rx-durW,ry,durW,rh);
     });
-    HB_TR.push({x0:lx-8,y0:Math.max(ry,rowsTop),x1:rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,y1:Math.min(ry+rh,cropY),rowY:ry,rowH:rh,pl:p.i,item:j,displayIndex:d,pgx0:lx,pgx1:lx+numW,playOnHover:true,playVisible:true,playId:ssTrackID(h),more:{x0:rx-durW-cgap-moreW,y0:ry+Math.round((rh-moreW)/2),x1:rx-durW-cgap,y1:ry+Math.round((rh-moreW)/2)+moreW},favoriteX:rx+4*s});
+    HB_TR.push({x0:list.rowLeft,y0:y0,x1:list.personalRight,y1:y1,rowY:ry,rowH:rh,pl:p.i,item:j,displayIndex:d,pgx0:lx,pgx1:lx+playW,playOnHover:true,playVisible:true,playId:ssTrackID(h),more:{x0:moreX,y0:moreY,x1:moreX+moreW,y1:moreY+moreW},favoriteX:rx+Math.round(4*s)});
   }
   layer.finish();gr=parentGr;
   if(p.count===0){ drawPlEmpty(gr,r,rowsTop-rh,cropY); drawSortMenu(gr); return; }   // no column headings over a void
-  tC(gr,'#',FONT.head,COL.text2,lx,listTop,numW,20);
-  tL(gr,'歌曲',FONT.head,COL.text2,titleX,listTop,titleW,20);
-  drawIcon(gr,'clock',COL.text2,rx-16,listTop,16,20,15);
-  gr.DrawLine(lx,listTop+26,rx,listTop+26,1,COL.line);
-  drawScrollbar(gr,rx+(typeof ssPersonalGutter==='function'?ssPersonalGutter():0)+8,rowsTop,viewH,firstRow,maxPx,viewH,contentH,hv(r.x,r.y,r.x+r.w,cropY)||drag==='scroll');
+  var headH=Math.round(20*s),clockW=Math.round(16*s),ruleY=listTop+Math.round(26*s);
+  tR(gr,'#',FONT.head,COL.text2,numX,listTop,numW,headH);
+  tL(gr,'歌曲',FONT.head,COL.text2,titleX,listTop,titleW,headH);
+  drawIcon(gr,'clock',COL.text2,rx-clockW,listTop,clockW,headH,Math.round(15*s));
+  gr.DrawLine(lx,ruleY,rx,ruleY,1,COL.line);
+  drawScrollbar(gr,r.x+r.w-10,rowsTop,viewH,firstRow,maxPx,viewH,contentH,hv(r.x,r.y,r.x+r.w,cropY)||drag==='scroll');
   // the empty-state zone isn't on screen here, so outline the list itself as the target
   if(plDropHover){
     var iy=rowsTop-rh, ih=cropY-iy, ix=lx-12, iw=rx-lx+24, ir=Math.min(12,iw/2,ih/2);

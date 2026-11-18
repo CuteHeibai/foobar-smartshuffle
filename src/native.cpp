@@ -123,7 +123,7 @@ public:
     std::string themeAppearance="dark";
     std::string themeRenderedAppearance;
     uint64_t themeWindow=0;
-    bool themeUIWizard=false,themeChromeReady=false;
+    bool themeUIWizard=false,themeChromeReady=false,nativeAppearanceSynced=false;
     json themeLayout=json::object();
     native_ss::MenuBridge nativeMenus;
     native_ss::RecycleManager recycle;
@@ -136,6 +136,7 @@ public:
     std::optional<size_t> historyTarget;
     Clock::time_point historyDeadline;
     std::set<std::string> externalQueue,queuedStarts;
+    bool appendingPlaylists=false;
     std::vector<std::pair<std::string,bool>> queueSnapshot;
     bool queueFixScheduled=false;
     bool ended=false,statsCounted=false;
@@ -160,7 +161,10 @@ public:
         catch(const std::exception& e){personalReady=false;personalError=std::string("个人音乐记录无法读取，已保留原文件：")+e.what();}
 
         lyrics->set_light(themeAppearance=="light");
-        if(edition=="full")localLabels=std::make_unique<LocalLabels>(root.parent_path()/L"verdant"/L"locale"/L"zh-CN.json");
+        if(edition=="full"){
+            native_ss::set_settings_dark_mode(themeAppearance=="dark");
+            localLabels=std::make_unique<LocalLabels>(root.parent_path()/L"verdant"/L"locale"/L"zh-CN.json");
+        }
         wchar_t componentFile[32768]{};GetModuleFileNameW(core_api::get_my_instance(),componentFile,32768);
         updater=std::make_unique<native_ss::Updater>(root,SS_VERSION,edition,fs::path(componentFile).parent_path()/L"update-helper");
         native_ss::set_dialog_handlers([this](json req){dispatch(req);changed=true;publish();return response;},[this]{return dialog_state();});
@@ -333,6 +337,7 @@ public:
         inside=false;changed=true;
     }
     void queue_changed(playback_queue_callback::t_change_origin origin){
+        if(appendingPlaylists)return; // Refresh once after the SDK's per-item notifications.
         auto pm=playlist_manager::get();pfc::list_t<t_playback_queue_item> q;pm->queue_get_contents(q);
         std::vector<std::pair<std::string,bool>> next;
         bool own=false,user=false,bridgeUsed=false;
@@ -461,6 +466,13 @@ public:
             }else pm->set_playing_playlist(sourceIndex);
         }
         inside=false;pendingMode.reset();invalidate();if(smart)rebuild();
+    }
+    void apply_native_appearance(){
+        if(edition!="full"||!themeChromeReady)return;
+        // Columns UI's View > Mode commands apply the setting through its live colour callbacks.
+        constexpr GUID light{0x18f3f46b,0xb2ad,0x49b0,{0xa9,0x78,0x62,0x07,0xc0,0xd1,0x35,0x5b}};
+        constexpr GUID dark{0x39913e3f,0xab8e,0x4678,{0x86,0x16,0x59,0x99,0x73,0x6f,0xe9,0xe0}};
+        nativeAppearanceSynced=mainmenu_commands::g_execute(themeAppearance=="light"?light:dark);
     }
     void darken_frame(){
         auto panel=reinterpret_cast<HWND>(static_cast<uintptr_t>(themeWindow));DWORD process=0;
@@ -728,7 +740,7 @@ public:
         const auto op=req.value("op",std::string("state"));response={{"ok",true}};error.clear();
         if(req.value("version",0)!=1)throw std::runtime_error("不支持的接口版本");
         if(req.contains("theme_version")){themeVersion=req.at("theme_version").get<std::string>();themeWindow=req.value("theme_window",uint64_t(0));themeUIWizard=req.value("ui_wizard",false);hoverFocus.set_surface(reinterpret_cast<HWND>(static_cast<uintptr_t>(themeWindow)));darken_frame();}
-        if(req.contains("theme_chrome_ready")){themeChromeReady=req.at("theme_chrome_ready").get<bool>();darken_frame();}
+        if(req.contains("theme_chrome_ready")){themeChromeReady=req.at("theme_chrome_ready").get<bool>();if(!nativeAppearanceSynced)apply_native_appearance();darken_frame();}
         if(req.contains("theme_color")){
             auto mode=req.at("theme_color").get<std::string>();
             if(mode=="light"||mode=="dark")themeRenderedAppearance=mode;
@@ -738,7 +750,7 @@ public:
             if(edition!="full")throw std::runtime_error("外观切换仅适用于完整主题版");
             auto mode=req.at("appearance").get<std::string>();
             if(mode!="light"&&mode!="dark")throw std::runtime_error("不支持的主题外观");
-            themeAppearance=mode;lyrics->set_light(mode=="light");darken_frame();save();response["appearance"]=mode;
+            themeAppearance=mode;native_ss::set_settings_dark_mode(mode=="dark");apply_native_appearance();lyrics->set_light(mode=="light");darken_frame();save();response["appearance"]=mode;
         }
         else if(op=="open"){++uiOpen;make_preview(req,true);}
         else if(op=="metadata"){
@@ -819,6 +831,35 @@ public:
             pfc::list_t<t_playback_queue_item> old;if(play){pm->queue_get_contents(old);pm->queue_flush();}
             for(auto& h:list)pm->queue_add_item(h);
             if(play){for(auto& q:old)pm->queue_add_item(q.m_handle);playback_control::get()->next();}
+        }
+        else if(op=="queue_add_playlists"){
+            auto pm=playlist_manager::get();
+            const auto guids=req.at("playlist_guids").get<std::vector<std::string>>();
+            std::set<size_t> seen;
+            metadb_handle_list tracksToQueue;
+            for(const auto& guid:guids){
+                const auto index=edit_playlist_guid(guid);
+                if(!seen.insert(index).second)continue;
+                metadb_handle_list items;
+                pm->playlist_get_all_items(index,items);
+                tracksToQueue.add_items(items);
+            }
+            if(tracksToQueue.get_count()==0)throw std::runtime_error("所选歌单没有歌曲");
+            remove_owned_queue();
+            const auto before=pm->queue_get_count();
+            appendingPlaylists=true;
+            try{
+                for(const auto& track:tracksToQueue)pm->queue_add_item(track);
+                if(pm->queue_get_count()-before!=tracksToQueue.get_count())
+                    throw std::runtime_error("foobar2000 未接受全部歌曲，已保留原待播队列");
+            }catch(...){
+                appendingPlaylists=false;
+                pm->queue_remove_mask(pfc::bit_array_range(before,pm->queue_get_count()-before));
+                throw;
+            }
+            appendingPlaylists=false;
+            queue_changed(playback_queue_callback::changed_user_added);
+            response["count"]=tracksToQueue.get_count();
         }
         else if(op=="queue_reorder"){
             auto scope=req.at("scope").get<std::string>();auto expected=req.at("expected").get<std::vector<std::string>>();auto order=checked_order(req.at("order"),expected.size());

@@ -64,6 +64,15 @@ try:
     before=call('state');call('queue_add',tracks=[original[1]],play=True);b.wait(lambda s:s['now_id']==original[1] and (s['round']>before['round'] or original[1] not in [t['id'] for t in s['remaining']]));s=call('state')
     check(s['source']==before['source'] and (s['round']>before['round'] or original[1] not in [t['id'] for t in s['remaining']]) and len(s['queue'])==2,'Double-click insertion plays first, consumes the attempt and preserves existing queue and source')
     call('next');b.wait(lambda s:s['now_id']==ids[1]);check(not call('state')['seek_pending'],'Next cancels any lyric-seek target')
+    before=call('state')
+    queued=[t['id'] for t in before['queue']]
+    sources=[info(outside)['guid'],guid]
+    appended=items(outside)+items(pi)
+    failed=b.request('queue_add_playlists',playlist_guids=[sources[0],str(uuid.uuid4())])
+    check(not failed['response']['ok'] and [t['id'] for t in call('state')['queue']]==queued,'Invalid playlist leaves the original queue intact')
+    after=call('queue_add_playlists',playlist_guids=sources+sources[:1])
+    check([t['id'] for t in after['queue']]==queued+appended,'Playlist batch appends in order and preserves duplicate song occurrences')
+    check(after['now_id']==before['now_id'] and after['source']==before['source'] and after['remaining']==before['remaining'],'Appending playlists preserves current playback and smart round')
     fx('clear_queue');s=call('state');remaining=[t['id'] for t in s['remaining']]
     if len(remaining)>1:
         call('queue_reorder',scope='remaining',source=s['source'],expected=remaining,order=list(reversed(range(len(remaining)))));check([t['id'] for t in call('state')['remaining']]==remaining[::-1],'Smart queue drag reorders remaining songs without replacement')

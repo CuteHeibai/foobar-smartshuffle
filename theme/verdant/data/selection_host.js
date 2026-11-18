@@ -60,6 +60,7 @@ var ssQueueActionDown=null;
 function ssQueueActionAt(x,y){
   var i,row;
   for(i=0;i<HB_Q.length;i++){row=HB_Q[i];
+    if(!inRect(x,y,row))continue;
     if(row.remove&&inRect(x,y,row.remove))return {row:row,act:'remove'};
     if(row.more&&inRect(x,y,row.more))return {row:row,act:'more'};
   }
