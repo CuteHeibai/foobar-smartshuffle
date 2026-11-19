@@ -13,8 +13,23 @@
   var bitmap=gdi.CreateImage(500,240),g=bitmap.GetGraphics();
   result.font_family=FONT.rowTitle.Name;check(FONT.rowTitle.Name==='Inter','Actual theme resolves the bundled Inter font family');
   check(ssScriptFont('中文歌曲',FONT.rowTitle).Name==='Microsoft YaHei UI','Chinese resolves to an explicit sans serif family instead of a KaiTi fallback');
+  check(['settings','refresh','folderOpen','heart','bookmarkFilled','windowClose','windowRestore'].every(function(name){
+    var icon=iconImg(name,24,COL.text);return icon&&icon.Width>0&&icon.Height>0;
+  }),'The JSplitter host loads real bundled SVG assets for menu, personal and window controls');
+  var chrome=gdi.CreateImage(W,TBH),chromeG=chrome.GetGraphics();
+  mx=22*UISCALE;my=TBH/2;drawTitleBar(chromeG);chrome.ReleaseGraphics(chromeG);
+  check(HB_CAP.length===3&&HB_CAP[0].act==='close'&&HB_CAP[2].x1<HB_MENU[0].x0,
+    'Actual titlebar keeps three Mac-style controls before the original menus');
+  if(typeof chrome.Dispose==='function')chrome.Dispose();
   var aa=gdi.CreateImage(300,60),ag=aa.GetGraphics();ag.FillSolidRect(0,0,300,60,RGB(0,0,0));tL(ag,'English antialias Aa',FONT.rowTitle,RGB(255,255,255),8,8,280,40);aa.ReleaseGraphics(ag);
   check(aa.GetColourScheme(32).some(function(c){var v=c&255;return v>35&&v<220;}),'English glyph edges contain antialiasing coverage in the actual bitmap');
+  var fade=gdi.CreateImage(132,36),fg=fade.GetGraphics();
+  fg.FillSolidRect(0,0,132,36,RGB(255,255,255));
+  ssDrawPaneLabels(fg,function(g){tL(g,'████████████████████',gdi.Font('Segoe UI',18,0),RGB(0,0,0),4,2,96,32);});
+  fade.ReleaseGraphics(fg);
+  var levels=fade.Clone(85,12,13,10).GetColourScheme(16).map(function(c){return c&255;});
+  check(levels.some(function(v){return v>65&&v<240;})&&white(colour(fade,101,12,16,10)),
+    'Real GDI fades the clipped text inside its pane without painting over the next column');
   for(var n=0;n<3;n++){
    UISCALE=[1,1.5,2][n];FONT=ssCreateFonts();
    var font=ssFitFont(g,FONT.title,24),height=lineH(g,font);check(height<=24,'Actual title font fits 24px at scale '+UISCALE);result.fonts.push({scale:UISCALE,height:height});
@@ -103,11 +118,11 @@
     started=Date.now();for(var f=0;f<count;f++){ig=image.GetGraphics();repaintAll();on_paint(ig);image.ReleaseGraphics(ig);}result.full_pane_frame_ms=(Date.now()-started)/count;
     fullFrames=0;check(ssResizeBegin(R.main.x-M.gap/2,R.top.y+80),'Actual pane divider starts live reflow');
     var font=FONT.rowTitle,rowHeight=M.rowH,navStart=R.main.x-M.gap/2,navWidth=R.navW,sceneBeforeDrag=ssSceneImage;started=Date.now();
-    for(f=0;f<count;f++){ssResizing.x=navStart+f*2;ssResizeApply();ig=image.GetGraphics();on_paint(ig);image.ReleaseGraphics(ig);}
+    for(f=1;f<=count;f++){ssResizing.x=navStart+f*2;ssResizeApply();ig=image.GetGraphics();on_paint(ig);image.ReleaseGraphics(ig);}
     result.resize_reflow_frame_ms=(Date.now()-started)/count;
-    check(fullFrames===0&&ssSceneImage===sceneBeforeDrag&&R.navW>navWidth&&FONT.rowTitle===font&&M.rowH===rowHeight,
-      'Live divider updates pane geometry and reuses the existing paint while dragging');
-    ssResizeEnd(navStart+46,R.top.y+80);ig=image.GetGraphics();on_paint(ig);image.ReleaseGraphics(ig);
+    check(fullFrames===0&&ssSceneImage===sceneBeforeDrag&&R.navW>navWidth&&HB_ALLSONGS.x1-HB_ALLSONGS.x0===R.navW
+      &&FONT.rowTitle===font&&M.rowH===rowHeight,'Live divider redraws real content at its updated width without repainting the window chrome');
+    ssResizeEnd(navStart+2*count,R.top.y+80);ig=image.GetGraphics();on_paint(ig);image.ReleaseGraphics(ig);
     check(!ssResizing&&fullFrames===1,'Releasing a divider paints the final exact layout once');
     W=minimum.width;H=minimum.height;ssRightOpen=true;ssRightForced=true;layout(true);ssDropSceneImage();
     var compact=gdi.CreateImage(W,H),cg=compact.GetGraphics();
@@ -115,7 +130,7 @@
      var rightStart=R.queue.x-M.gap/2,oldQueueWidth=R.queue.w;
      check(ssResizeBegin(rightStart,R.top.y+80),'Right divider is draggable in the minimum-size frame');
      ssResizing.x=rightStart+35;ssResizeApply();on_paint(cg);
-     check(R.queue.w<oldQueueWidth&&R.main.x+R.main.w<R.queue.x&&R.main.y+R.main.h<=R.barY,'Right divider reflows bounded columns at the minimum window size');
+     check(R.queue.w<=oldQueueWidth&&R.queue.w>=240&&R.main.x+R.main.w<R.queue.x&&R.main.y+R.main.h<=R.barY,'Right divider reflows above the pane floor at the minimum window size');
      check(FONT.rowTitle===font&&M.rowH===rowHeight,'Minimum window and right divider preserve the rendered font and row height');
      ssResizeEnd(rightStart+35,R.top.y+80);
     }finally{compact.ReleaseGraphics(cg);if(typeof compact.Dispose==='function')compact.Dispose();}

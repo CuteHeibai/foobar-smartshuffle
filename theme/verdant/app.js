@@ -7,8 +7,8 @@ var W=window.Width>=400?window.Width:Number(window.GetProperty('SmartShuffle: la
 // Repaint scope flags. dirtyAll (sticky) forces a full paint; partial flags accumulate.
 // A full window.Repaint() MUST set dirtyAll (use repaintAll) so a paint serviced while a
 // partial flag is pending can't blank the rest of the window.
-var dirtyAll=true, dirtyBar=false, dirtyQueue=false, dirtySearch=false, dirtyMain=false, dirtyNav=false, dirtyTitle=false, dirtyViz=false;
-function clearDirty(){ dirtyAll=dirtyBar=dirtyQueue=dirtySearch=dirtyMain=dirtyNav=dirtyTitle=dirtyViz=false; }
+var dirtyAll=true, dirtyBar=false, dirtyQueue=false, dirtySearch=false, dirtyMain=false, dirtyNav=false, dirtyTitle=false, dirtyViz=false,dirtyPanes=false;
+function clearDirty(){ dirtyAll=dirtyBar=dirtyQueue=dirtySearch=dirtyMain=dirtyNav=dirtyTitle=dirtyViz=dirtyPanes=false; }
 /* When the oldest pending partial flag was raised. A RepaintRect is serviced within a frame or two,
    so a flag still pending long after it went up means its paint was DEFERRED -- the window was
    minimised, and a minimised window gets no WM_PAINT. The paint that finally arrives on restore is
@@ -18,7 +18,7 @@ function clearDirty(){ dirtyAll=dirtyBar=dirtyQueue=dirtySearch=dirtyMain=dirtyN
    leaving for the taskbar raises one even when paused. Every partial setter calls markDirty() FIRST,
    so the clock records the oldest flag rather than being reset by each new one. */
 var dirtySince=0, DIRTY_STALE_MS=250;
-function anyDirty(){ return dirtyBar||dirtyQueue||dirtySearch||dirtyMain||dirtyNav||dirtyTitle||dirtyViz; }
+function anyDirty(){ return dirtyBar||dirtyQueue||dirtySearch||dirtyMain||dirtyNav||dirtyTitle||dirtyViz||dirtyPanes; }
 function markDirty(){ if(!anyDirty()) dirtySince=Date.now(); }
 function repaintAll(){ if(typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();dirtyAll=true; window.Repaint(); }
 /* Main's views draw the row/card straddling their crop line at full height and mask only the
@@ -30,8 +30,15 @@ function repaintNav(){ markDirty(); dirtyNav=true; window.RepaintRect(R.navLib.x
 // drawNav paints both nav cards, so a hover crossing between them must invalidate their union
 function repaintNavAll(){ markDirty(); dirtyNav=true; window.RepaintRect(R.navTop.x,R.navTop.y,R.navTop.w,(R.navLib.y+R.navLib.h)-R.navTop.y); }
 function repaintQueue(scrollOnly){ if(!R.queue||R.queue.w<=0)return; if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyQueue=true; window.RepaintRect(R.queue.x,R.queue.y,R.queue.w,R.queue.h); }
+function repaintPanes(){
+  markDirty();dirtyPanes=true;window.RepaintRect(0,R.top.y,W,R.top.bottom-R.top.y);
+}
 // the visualizer's own band, 30 times a second -- see the fullscreen branch of on_paint
-function repaintViz(){ markDirty(); dirtyViz=true; window.RepaintRect(0,VIZ_TOP,W,Math.max(0,(H-172)-VIZ_TOP)); }
+function repaintViz(){
+  var r=ssFsVizRect(W,H);
+  if(!r.h)return;
+  markDirty();dirtyViz=true;window.RepaintRect(r.x,r.y,r.w,r.h);
+}
 function repaintTitle(){ markDirty(); dirtyTitle=true; window.RepaintRect(0,0,W,TBH); }
 /* A hover only changes one panel's appearance, so repaint that panel rather than the whole
    window. Hitbox ownership is cleanly panel-aligned (HB_PL/HB_HOME/SBN -> nav, HB_CARD/HB_TR/
@@ -62,8 +69,8 @@ function scrollTick(){
   searchScroll=step(searchScroll,searchScrollT);artScroll=step(artScroll,artScrollT);plScroll=step(plScroll,plScrollT);navScroll=step(navScroll,navScrollT,'nav');
   ssQueueScroll=step(ssQueueScroll,ssQueueScrollT,'queue');
   if(typeof ssPersonalScroll!=='undefined')ssPersonalScroll=step(ssPersonalScroll,ssPersonalScrollT);
-  if(view==='stats')ssStatsScroll=step(ssStatsScroll,ssStatsScrollT);
-  if(mm) repaintMain(true);
+  if((fsMode?fsView:view)==='stats')ssStatsScroll=step(ssStatsScroll,ssStatsScrollT);
+  if(mm){if(fsMode)repaintAll();else repaintMain(true);}
   if(nm) repaintNav();
   if(qm) repaintQueue(true);
   // one more frame after the scroll settles, so shimSettle can restart the sweep it suppressed
@@ -74,7 +81,7 @@ function stopScrollAnim(){ if(scrollTimer){ window.ClearInterval(scrollTimer); s
 
 function hv(x0,y0,x1,y1){ return mx>=x0 && mx<x1 && my>=y0 && my<y1; }
 var HB_PL=[], HB_TR=[], HB_CTRL=[], HB_TABS=[], HB_SEEK=null, HB_VOL=null, HB_Q=[];
-var HB_CARD=[],HB_PLPLAY=[],HB_PLAYLIST_PLAY=null,HB_SONGS_PLAY=null,HB_ARTIST_PLAY=null,HB_ALBUMS=null,HB_ALBUM_BACK=null,ssPlaylistPlayDown=null,ssTrackPlayDown=null,ssRowMoreDown=null, HB_HOME=null, HB_CAP=null, HB_MENU=[], SB=null;
+var HB_CARD=[],HB_PLPLAY=[],HB_PLAYLIST_PLAY=null,HB_SONGS_PLAY=null,HB_ARTIST_PLAY=null,HB_ALBUMS=null,HB_ALBUM_BACK=null,ssPlaylistPlayDown=null,ssTrackPlayDown=null,ssRowMoreDown=null, HB_HOME=null, HB_CAP=[], HB_MENU=[], SB=null;
 var navScroll=0, NAV_MAX=0, SBN=null, HB_ADDPL=null, navDropHover=false;
 // deferred "scroll this playlist into view" -- only drawNav knows the row geometry, so it consumes this
 var navRevealPl=-1;
@@ -91,7 +98,7 @@ var fsMode=false, fsView='default', HB_FS=[], vizTimer=null, vizBars=[];
 /* Search and rename need every key, because the user is typing into them. Everywhere else the
    panel still asks for character keys, which is what lets Space reach on_char and act as
    play/pause -- without it the dialog manager swallows Space before the panel ever sees it. */
-function applyKeyMode(){ try{ window.DlgCode=(ssModal||ssPopup||confirmDel||view==='search'||renameEdit||(view==='stats'&&ssStats.edit))?DLGC_WANTALLKEYS:DLGC_WANTCHARS; }catch(e){} }
+function applyKeyMode(){ try{ window.DlgCode=(ssModal||ssPopup||fsMode||confirmDel||view==='search'||renameEdit||(view==='stats'&&ssStats.edit))?DLGC_WANTALLKEYS:DLGC_WANTCHARS; }catch(e){} }
 
 var searchQuery='', searchScroll=0, searchScrollT=0, searchIdx=null, searchQ2=null, searchArts=[], searchTrks=[], HB_SEARCH=null;
 var HOME_MAXROW=0, SS_COLLECTION_SCROLL_MAX=0, SEARCH_MAXPX=0;
@@ -116,10 +123,9 @@ function layout(contentOnly){
   R.barInfoW=widths.info;R.barToolsW=widths.tools;
   R.mainX=R.navX+R.navW+g; R.mainW=R.queueX-(R.queueW>0?g:0)-R.mainX;
   var topH=R.top.bottom-R.top.y;
-  R.libraryScales=ssLibraryScales(W,H,R.navW,R.mainW,R.queueW);
-  var compact=R.mainW<800*ssDensity;
-  M.cpad=Math.round((R.mainW<650*ssDensity?16:24)*ssDensity);
-  M.artSz=Math.round(Math.max(72*ssDensity,Math.min(110*ssDensity,R.mainW*.20,topH*.25)));
+  R.libraryScales=ssLibraryScales(W,H);
+  M.cpad=Math.round(ssLibraryPadding(W)*ssDensity);
+  M.artSz=Math.round(Math.max(72*ssDensity,Math.min(110*ssDensity,topH*.25)));
   M.headH=Math.round(66*ssDensity+M.artSz);SHEAD=M.headH;
   R.navTop={x:R.navX,y:top0,w:R.navW,h:M.navTopH};
   R.navLib={x:R.navX,y:top0+M.navTopH+g*2,w:R.navW,h:topH-M.navTopH-g*2};   // wider gap to the library card
@@ -132,7 +138,14 @@ function layout(contentOnly){
   applyKeyMode();
 }
 // bitmaps are keyed by geometry; and the panel's surface is rebuilt, so the next paint must be full
-function on_size(w,h){ if(w>0&&h>0)ssClampWindowSize(w,h);if(w<400||h<200)return;if(typeof ssAbortResize==='function')ssAbortResize();if(W!==w||H!==h)ssRightForced=false;W=w; H=h; layout(); ssDropModalImage();ssDropSceneImage(); plCardCache={}; artCardCache={}; artCardN=0; skelImgs={}; dirtyAll=true;ssReportLayout(); }
+function on_size(w,h){
+  if(w>0&&h>0)ssClampWindowSize(w,h);
+  if(w<400||h<200)return;
+  if(typeof ssAbortResize==='function')ssAbortResize();
+  if(W!==w||H!==h){ssRightForced=false;ssHideLyrics();}
+  W=w;H=h;layout();ssDropModalImage();ssDropSceneImage();
+  plCardCache={};artCardCache={};artCardN=0;skelImgs={};dirtyAll=true;ssReportLayout();
+}
 
 // name/count come from the per-playlist caches, not fresh interop: this runs on every paint of the playlist view
 function activePl(){ var i=plman.ActivePlaylist; return {i:i, name:i>=0?plName(i):'', count:i>=0?plCount(i):0}; }
@@ -166,15 +179,15 @@ function ssDrawScaledLibrary(gr,draw,scale,main){
   finally{FONT=fonts;ssDensity=density;M.cpad=padding;M.artSz=art;M.headH=SHEAD=header;}
 }
 function drawLibraryNav(gr){
-  ssDrawScaledLibrary(gr,drawNav,R.libraryScales&&R.libraryScales.nav,false);
+  ssDrawScaledLibrary(gr,function(g){ssDrawPaneLabels(g,drawNav);},R.libraryScales&&R.libraryScales.nav,false);
 }
 function drawMainCounted(gr){
   shimCount=0; gateWaiting=0;
   var scales=R.libraryScales;
   var scale=scales&&['songs','playlist','artist','album','albums','stats','favorites','history','later'].indexOf(view)>=0?scales.main:1;
-  if(scales&&view==='home'&&R.main.w>=1350)scale=scales.main;
+  if(scales&&view==='home'&&W>=1600)scale=scales.main;
   if(view==='search'&&typeof ssSearchScale==='function')scale=ssSearchScale(R.main);
-  ssDrawScaledLibrary(gr,drawMain,scale,view!=='search'); roundTop(gr,R.main.x,R.main.y,R.main.w);
+  ssDrawScaledLibrary(gr,function(g){ssDrawPaneLabels(g,drawMain);},scale,view!=='search'); roundTop(gr,R.main.x,R.main.y,R.main.w);
   if(typeof ssDrawPersonalRowActions==='function')ssDrawPersonalRowActions(gr);
   roundBottom(gr,R.main.x,R.main.y,R.main.w,R.main.h);
   shimSettle();
@@ -184,14 +197,13 @@ function drawDesktopBar(gr){
 }
 function ssDrawBase(gr){
   HB_DOTS=[];gr.FillSolidRect(0,0,W,H,COL.black);
-  drawTitleBar(gr);drawMainCounted(gr);drawLibraryNav(gr);drawQueue(gr);drawDesktopBar(gr);ssDrawResizers(gr);
+  drawTitleBar(gr);drawMainCounted(gr);drawLibraryNav(gr);ssDrawPaneLabels(gr,drawQueue);drawDesktopBar(gr);ssDrawResizers(gr);
 }
 function on_paint(gr){
   ssPaintFrame(gr);
   if(!ssModal&&!ssPopup&&!fsMode&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt)ssDrawResizers(gr);
 }
 function ssPaintFrame(gr){
-  if(typeof ssPaintResizePreview==='function'&&ssPaintResizePreview(gr))return;
   if(ssSelectionDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!ssModal&&!ssPopup&&!fsMode){
     ssPaintInteractions(gr);return;
   }
@@ -199,12 +211,15 @@ function ssPaintFrame(gr){
      !renameEdit&&!confirmDel&&!dupPrompt&&!rgPrompt&&!sgMenuOpen&&!plSortMenuOpen){
     ssPaintInteractions(gr);return;
   }
-  ssSyncLyricPanel();
+  if(!fsMode||!ssPopup)ssSyncLyricPanel();
   visPlCache=null;   // one playlist scan per frame, shared by drawNav and drawHome
   gr.SetSmoothingMode(2);
   gr.SetInterpolationMode(5);   // NearestNeighbor: every DrawImage here is 1:1, so filtering is pure cost
-  if(ssPopupRestore&&!ssPopup&&!ssModal&&ssSceneImage){
-    ssPopupRestore=false;gr.DrawImage(ssSceneImage,0,0,W,H,0,0,W,H);window.SetTimeout(repaintAll,32);return;
+  if(ssPopupRestore){
+    ssPopupRestore=false;
+    if(!fsMode&&!ssPopup&&!ssModal&&ssSceneImage){
+      gr.DrawImage(ssSceneImage,0,0,W,H,0,0,W,H);window.SetTimeout(repaintAll,32);return;
+    }
   }
   if(ssModal){var modalFull=dirtyAll||anyDirty();clearDirty();ssPaintModal(gr,modalFull);return;}
   if(ssPopup){clearDirty();ssPaintPopup(gr);return;}
@@ -214,13 +229,13 @@ function ssPaintFrame(gr){
        the whole transport underneath them 30 times a second was most of the frame's cost, so a
        frame flagged ONLY by the viz repaints just that band. Any other flag (or a paint we did not
        ask for) still takes the full path, so nothing can be left stale behind the bars. */
-    var vizOnly=dirtyViz && !stale && fsView==='viz' && !vizMenuOpen && !dirtyAll && !dirtyBar && !dirtyMain
+    var vizOnly=dirtyViz && !stale && fsView==='viz' && !dirtyAll && !dirtyBar && !dirtyMain
                 && !dirtyNav && !dirtyQueue && !dirtySearch && !dirtyTitle;
     clearDirty();
     if(vizOnly){ drawVizBand(gr); return; }
     HB_DOTS=[]; drawFullscreen(gr); return;
   }
-  var anyPartial=dirtyBar||dirtyQueue||dirtySearch||dirtyMain||dirtyNav||dirtyTitle;
+  var anyPartial=dirtyBar||dirtyQueue||dirtySearch||dirtyMain||dirtyNav||dirtyTitle||dirtyPanes;
   // A partial paint skips drawOverlays, so a modal's dim backdrop would not be reapplied over the
   // region it redraws (the bar's 1 Hz repaint would flash back to full brightness). While an
   // overlay owns the screen, every paint takes the full path.
@@ -235,17 +250,24 @@ function ssPaintFrame(gr){
   // partial composite: only the regions actually flagged (each drawn over live content)
   var regions=[];
   if(dirtyTitle)regions.push({x:0,y:0,w:W,h:TBH});
-  if(dirtyMain)regions.push(R.main);
-  if(dirtyNav)regions.push({x:R.navTop.x,y:R.navTop.y,w:R.navLib.w,h:R.navLib.y+R.navLib.h-R.navTop.y});
-  if(dirtyQueue)regions.push(R.queue);
-  if(dirtySearch)regions.push(R.main);
+  if(dirtyPanes)regions.push({x:0,y:R.top.y,w:W,h:R.top.bottom-R.top.y});
+  else{
+    if(dirtyMain||dirtySearch)regions.push(R.main);
+    if(dirtyNav)regions.push({x:R.navTop.x,y:R.navTop.y,w:R.navLib.w,h:R.navLib.y+R.navLib.h-R.navTop.y});
+    if(dirtyQueue)regions.push(R.queue);
+  }
   if(dirtyBar)regions.push({x:0,y:R.barY,w:W,h:M.barH});
   var targetGraphics=gr;gr=ssBeginScene();
   if(dirtyTitle){ dirtyTitle=false; drawTitleBar(gr); }
-  if(dirtyMain||dirtyNav) HB_DOTS=[];   // these rebuild their hover targets
+  if(dirtyMain||dirtyNav||dirtyPanes) HB_DOTS=[];   // these rebuild their hover targets
+  if(dirtyPanes){
+    dirtyPanes=dirtyMain=dirtyNav=dirtyQueue=dirtySearch=false;
+    gr.SetSmoothingMode(3);gr.FillSolidRect(0,R.top.y,W,R.top.bottom-R.top.y,COL.black);gr.SetSmoothingMode(2);
+    drawMainCounted(gr);drawLibraryNav(gr);ssDrawPaneLabels(gr,drawQueue);
+  }
   if(dirtyMain){ dirtyMain=false; drawMainCounted(gr); }
   if(dirtyNav){ dirtyNav=false; drawLibraryNav(gr); }
-  if(dirtyQueue){ dirtyQueue=false; drawQueue(gr); }
+  if(dirtyQueue){ dirtyQueue=false; ssDrawPaneLabels(gr,drawQueue); }
   if(dirtySearch){
     dirtySearch=false;
     if(view==='search')ssDrawScaledLibrary(gr,function(g){drawSearchBox(g,R.main);},ssSearchScale(R.main),false);
@@ -290,8 +312,15 @@ function on_mouse_lbtn_down(x,y){
   ssLyricPlayDown=false;
   if(ssPopup)return;
   if(ssPointerDown(x,y)) return;
-  if(confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;   // overlays are modal; dismissal/actions handled on button-up
-  if(!fsMode&&view==='stats'&&ssStatsPointerDown(x,y))return;
+  if(fsMode){
+    if(fsView==='stats'&&ssStatsPointerDown(x,y))return;
+    if(HB_SEEK&&inRect(x,y,HB_SEEK)){drag='seek';dragFrac=seekFrac(x);repaintBar();}
+    else if(HB_VOL&&inRect(x,y,HB_VOL)){drag='vol';applyVol(x);}
+    else if(fsView==='stats'&&SB&&inRect(x,y,SB)){drag='scroll';setScroll(y);}
+    return;
+  }
+  if(confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||dupPrompt||rgPrompt) return;
+  if(view==='stats'&&ssStatsPointerDown(x,y))return;
   if(!fsMode&&typeof ssPersonalPointerDown==='function'&&ssPersonalPointerDown(x,y))return;
   if(!fsMode){var playTarget=ssHeaderPlayAt(x,y);if(playTarget){ssPlaylistPlayDown=playTarget;return;}}
   if(ssResizeBegin(x,y))return;
@@ -314,7 +343,7 @@ function on_mouse_lbtn_down(x,y){
 }
 function on_mouse_rbtn_up(x,y){
   if(ssPopup){ssClosePopup();return true;}
-  if(ssModal) return true;
+  if(ssModal||fsMode) return true;
   if(confirmDel||renameEdit||dupPrompt||rgPrompt) return true;   // a modal is open: swallow
   var i;
   for(i=0;i<HB_TR.length;i++)if(inRect(x,y,HB_TR[i])){
@@ -322,7 +351,7 @@ function on_mouse_rbtn_up(x,y){
     return ssBatchTrackMenu(row,x,y);
   }
   for(i=0;i<HB_CARD.length;i++)if(HB_CARD[i].kind==='artist'&&inRect(x,y,HB_CARD[i])){ssArtistMenu(HB_CARD[i].id,x,y);ssSetContextTargets([HB_CARD[i]]);return true;}
-  for(i=0;i<HB_Q.length;i++)if(inRect(x,y,HB_Q[i])&&HB_Q[i].track_id){ssOpenNativeMenu('context',{track_id:HB_Q[i].track_id},x,y);ssSetContextTargets([HB_Q[i]]);return true;}
+  for(i=0;i<HB_Q.length;i++)if(inRect(x,y,HB_Q[i])&&HB_Q[i].track_id){ssOpenQueueMenu(HB_Q[i],x,y);return true;}
   for(i=0;i<HB_PL.length;i++){ if(inRect(x,y,HB_PL[i])){ openPlaylistMenu(HB_PL[i].i,x,y); return true; } }
   for(i=0;i<HB_CARD.length;i++){ if(inRect(x,y,HB_CARD[i]) && HB_CARD[i].kind==='pl'){ openPlaylistMenu(HB_CARD[i].id,x,y); return true; } }
   return false;   // elsewhere: let JSplitter's own panel menu through (Reload / Configure / Properties)
@@ -374,11 +403,11 @@ function doCtrl(act,button){
   else if(act==='prev') ssSend('previous');
   else if(act==='playback_mode') ssShowPlaybackModes(Math.max(8,W-320),R.barY,button);
   else if(act==='preference') ssOpen();
-  else if(act==='output') ssShowOutputs(Math.max(0,W-350),R.barY);
+  else if(act==='output') ssShowOutputs(Math.max(0,W-350),R.barY,button);
   else if(act==='scan_pause') ssSend('scan_pause',{paused:!(ssState&&ssState.scan&&ssState.scan.paused)});
   else if(act==='scan_retry') ssSend('scan_retry');
   else if(act==='restart') ssSend('restart');
-  else if(act==='fullscreen'){ enterFullscreen(); return; }
+  else if(act==='fullscreen'){if(fsMode)exitFullscreen();else enterFullscreen();return;}
   repaintAll();
 }
 function on_mouse_lbtn_up(x,y){
@@ -387,11 +416,20 @@ function on_mouse_lbtn_up(x,y){
   var lyricPlay=ssLyricPlayDown;ssLyricPlayDown=false;
   ssPlaylistPlayDown=ssTrackPlayDown=ssQueueActionDown=ssRowMoreDown=null;
   if(ssRecycleClick(x,y))return;
-  if(!trackPressed&&!ssPopup&&!ssModal&&SS_ARTIST_HB&&inRect(x,y,SS_ARTIST_HB)){ssArtistMenu(viewArtist,x,y);return;}
+  if(!fsMode&&!trackPressed&&!ssPopup&&!ssModal&&SS_ARTIST_HB&&inRect(x,y,SS_ARTIST_HB)){ssArtistMenu(viewArtist,x,y);return;}
   if(ssResizeEnd(x,y))return;
   if(ssPopupClick(x,y))return;
   if(ssPointerUp(x,y)) return;
   if(typeof ssStatsPointerUp==='function'&&ssStatsPointerUp(x,y))return;
+  var t;
+  if(fsMode){
+    if(drag==='seek'){if(fb.PlaybackLength>0)fb.PlaybackTime=fb.PlaybackLength*dragFrac;drag=null;repaintAll();return;}
+    if(drag==='vol'||drag==='scroll'){drag=null;return;}
+    if(HB_VIZ&&inRect(x,y,HB_VIZ)){ssShowVizStyles(HB_VIZ);return;}
+    if((t=hit(HB_FS,x,y)))doFsAct(t.act,t.album);
+    else if((t=hit(HB_CTRL,x,y)))doCtrl(t.act,t);
+    return;
+  }
   if(typeof ssPersonalPointerUp==='function'&&ssPersonalPointerUp(x,y))return;
   if(lyricPlay){
     if(!fsMode&&!NP&&rightTab==='lyrics'&&R.queue&&R.queue.w>0&&SS_LYRIC_PLAY&&inRect(x,y,SS_LYRIC_PLAY))doCtrl('play');
@@ -412,9 +450,9 @@ function on_mouse_lbtn_up(x,y){
     return;
   }
   if(queuePressed){
-    var again=fsMode?null:ssQueueActionAt(x,y),pressedRow=queuePressed.row;
-    if(!drag&&!ssModal&&again&&again.act===queuePressed.act&&again.row.scope===pressedRow.scope&&
-       again.row.queueIndex===pressedRow.queueIndex&&again.row.track_id===pressedRow.track_id)ssQueueActionRun(again);
+    var again=fsMode?null:ssQueueActionAt(x,y);
+    if(!drag&&!ssModal&&again&&again.scope===queuePressed.scope&&
+       again.queueIndex===queuePressed.queueIndex&&again.track_id===queuePressed.track_id)ssOpenQueueMenu(again,again.more.x0,again.more.y1);
     return;
   }
   if(typeof ssSelectOwner!=='undefined'&&ssSelectOwner&&ssSelectionUp(x,y))return;
@@ -436,7 +474,6 @@ function on_mouse_lbtn_up(x,y){
     return;
   }
   if(SS_LYRIC_BTN && inRect(x,y,SS_LYRIC_BTN)){ ssNativeLyrics(); return; }
-  var t;
   // ---- modal overlays first ----
   if(dupPrompt){
     if(DUP_HB && inRect(x,y,DUP_HB.skip)) dupSkip(); else dupKeep();   // "Add anyway"/outside: leave as-is
@@ -479,23 +516,9 @@ function on_mouse_lbtn_up(x,y){
   }
   if(HB_PLSORT && inRect(x,y,HB_PLSORT)){ plSortMenuOpen=true; repaintAll(); return; }
   if(HB_PLSORTDIR && inRect(x,y,HB_PLSORTDIR)){ togglePlSortDir(); return; }
-  if(fsMode){
-    if(vizMenuOpen){                                  // the style list is modal while it is open
-      if((t=hit(VIZ_HB,x,y))){ setVizStyle(t.v); return; }
-      vizMenuOpen=false; repaintAll(); return;
-    }
-    if(HB_VIZ && fsView==='viz' && inRect(x,y,HB_VIZ)){ vizMenuOpen=true; repaintAll(); return; }
-    if((t=hit(HB_FS,x,y))){ doFsAct(t.act,t.album); return; }
-    if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act,t); return; }
-    return;
-  }
   if(y<TBH){
     if((t=hit(HB_MENU,x,y))){ openMenu(t.root,t.mx,TBH); return; }
-    if(HB_CAP){
-      if(x>=HB_CAP.closeX){ fb.Exit(); return; }
-      if(x>=HB_CAP.maxX){ if(UIWizard){ try{ UIWizard.ToggleMaximize(); }catch(e){} } repaintAll(); return; }
-      if(x>=HB_CAP.minX){ if(UIWizard){ try{ UIWizard.WindowMinimize(); }catch(e){} } return; }
-    }
+    if((t=hit(HB_CAP,x,y)))ssWindowControl(t.act);
     return;
   }
   if((t=hit(HB_TABS,x,y))){ssSetRightPane(t.tab,true);return;}
@@ -539,7 +562,7 @@ function playRow(t){
 function on_mouse_lbtn_dblclk(x,y){
   if(ssPopup||ssModal||fsMode||utils.IsKeyPressed(17)||ssRowPlayAt(x,y))return;
   var moreDbl=hit(HB_TR,x,y);if((moreDbl&&moreDbl.more&&inRect(x,y,moreDbl.more))||ssQueueActionAt(x,y))return;
-  if(confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||vizMenuOpen||dupPrompt||rgPrompt) return;
+  if(fsMode||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||dupPrompt||rgPrompt) return;
   if(typeof ssPersonalActionAt==='function'&&ssPersonalActionAt(x,y))return;
   var t=hit(HB_TR,x,y);
   if(t&&!(t.srch&&searchTrks[t.idx].reason==='歌词')) ssEnqueueRow(t);
@@ -554,9 +577,11 @@ function hoverSig(x,y){
   if(!fsMode){if(HB_ARTIST_PLAY&&inRect(x,y,HB_ARTIST_PLAY))return 'artist-play-header';if(HB_SONGS_PLAY&&inRect(x,y,HB_SONGS_PLAY))return 'library-play-header';if(HB_PLAYLIST_PLAY&&inRect(x,y,HB_PLAYLIST_PLAY))return 'playlist-play-header';var playlistPlay=hit(HB_PLPLAY,x,y);if(playlistPlay)return 'playlist-play-'+playlistPlay.pl;}
   var i;
   if(fsMode){
-    if(vizMenuOpen){ i=hitIdx(VIZ_HB,x,y); return (i<0)?'vz':('vz'+i); }
     if(HB_VIZ && inRect(x,y,HB_VIZ)) return 'vzb';
     if((i=hitIdx(HB_FS,x,y))>=0) return 'f'+i;      // fullscreen icons: hover feedback, same as anywhere
+    if((i=hitIdx(HB_CTRL,x,y))>=0)return 'ctrl'+i;
+    if(fsView==='stats'&&(i=hitIdx(HB_STATS,x,y))>=0)return 'stats'+i;
+    return '';
   }
   if(dupPrompt){ if(DUP_HB){ if(inRect(x,y,DUP_HB.skip)) return 'dps'; if(inRect(x,y,DUP_HB.keep)) return 'dpk'; } return 'dp'; }
   if(renameEdit){ if(RENAME_HB){ if(inRect(x,y,RENAME_HB.save)) return 'rns'; if(inRect(x,y,RENAME_HB.cancel)) return 'rnc'; } return 'rn'; }
@@ -567,7 +592,7 @@ function hoverSig(x,y){
   if((i=hitIdx(HB_DOTS,x,y))>=0) return 'd'+i;
   if(y<TBH){
     if((i=hitIdx(HB_MENU,x,y))>=0) return 'mnu'+i;
-    if(HB_CAP && x>=HB_CAP.minX) return 'cap'+(((x-HB_CAP.minX)/HB_CAP.bw)|0);
+    if((i=hitIdx(HB_CAP,x,y))>=0)return 'cap'+i;
     return '';
   }
   if(SBH && inRect(x,y,SBH)) return 'sbh';
@@ -598,7 +623,7 @@ function hoverSig(x,y){
   if((i=hitIdx(HB_PL,x,y))>=0) return 'p'+HB_PL[i].i;
   if((i=hitIdx(HB_Q,x,y))>=0){
     var row=HB_Q[i];
-    return 'q'+i+(row.remove&&inRect(x,y,row.remove)?'-remove':row.more&&inRect(x,y,row.more)?'-more':'');
+    return 'q'+i+(row.more&&inRect(x,y,row.more)?'-more':'');
   }
   if((i=hitIdx(HB_TR,x,y))>=0) return 'r'+i;
   return '';
@@ -614,13 +639,18 @@ function on_mouse_move(x,y,mask){
   if(drag==='scrollh'){ setScrollH(x); return; }
   if(drag==='scrolln'){ setScrollN(y); return; }
   if(drag==='scrollq'){setQueueScroll(y);return;}
+  if(fsMode){
+    var fullSig=hoverSig(x,y);
+    if(fullSig!==hoverKey){hoverKey=fullSig;repaintAll();}
+    return;
+  }
   if(ssSelectionMove(x,y,mask))return;
   var sig=hoverSig(x,y), sk=scrollSection(x,y), z=hoverZone(x,y);
   if(sig!==hoverKey || sk!==scrollKey){   // sk change reveals/hides the section scrollbar
     var rowOnly=sk===scrollKey&&z===hoverZoneKey&&/^(r\d+|q\d+|)$/.test(sig)&&/^(r\d+|q\d+|)$/.test(hoverKey);
     hoverKey=sig; scrollKey=sk;
     // an overlay owns the whole screen and on_paint forces a full paint while one is open
-    if(renameEdit||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
+    if(fsMode||renameEdit||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
     else if(rowOnly&&!fsMode&&ssSceneImage)ssRequestRowHover();
     else { repaintZone(hoverZoneKey); if(z!==hoverZoneKey) repaintZone(z); }   // clear the old highlight, then draw the new
   }
@@ -644,6 +674,7 @@ function scrollSection(x,y){
 function on_mouse_leave(){
   ssMenuLeave();
   mx=-1; my=-1;
+  if(fsMode){if(hoverKey){hoverKey='';repaintAll();}return;}
   if(hoverKey!==''||scrollKey!==''){
     var wasRow=/^[rq]\d+$/.test(hoverKey);hoverKey=''; scrollKey='';
     if(renameEdit||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
@@ -652,13 +683,24 @@ function on_mouse_leave(){
   }
   hoverZoneKey='';
 }
-function on_key_down(key){ if(ssRecycleKey(key)||ssPopupKey(key)||ssKeyDown(key)) return; if(typeof ssHomeKey==='function')ssHomeKey(key); }
+function on_key_down(key){
+  if(ssRecycleKey(key)||ssPopupKey(key)||ssKeyDown(key))return;
+  if(fsMode){
+    if(key===27){
+      if(fsView==='stats'){if(!ssStatsInput(key))doFsAct('stats-back');}
+      else exitFullscreen();
+    }
+    return;
+  }
+  if(typeof ssHomeKey==='function')ssHomeKey(key);
+}
 function on_focus(focused){if(!focused&&typeof ssHomeFocus!=='undefined'&&ssHomeFocus){ssHomeFocus='';if(view==='home')repaintMain();}}
 function on_char(code){
   if(ssPopup)return;
   if(ssModal) return;
   if(confirmDel)return;
-  if(view==='stats'&&ssStatsInput(code))return;
+  if((fsMode?fsView:view)==='stats'&&ssStatsInput(code))return;
+  if(fsMode){if(code===32)ssPlayOrPause();return;}
   if(renameEdit){
     if(code===8) renameEdit.text=renameEdit.text.slice(0,-1);
     else if(code===27){ cancelRename(); return; }              // Esc = cancel
@@ -678,7 +720,7 @@ function on_char(code){
      type, not a transport command. A modal owns the keyboard while it is open, so Space must
      not reach playback from underneath one either. */
   if(code===32 && !confirmDel && !dupPrompt && !rgPrompt &&
-     !sgMenuOpen && !plSortMenuOpen && !vizMenuOpen){
+     !sgMenuOpen && !plSortMenuOpen){
     try{ ssPlayOrPause(); }catch(e){}
   }
 }
@@ -687,9 +729,10 @@ function on_mouse_wheel(step){
   if(ssPopupWheel(step))return;
   if(ssModal) return;
   if(fsMode){
+    if(fsView==='stats'){ssStatsScrollT=clampPx(ssStatsScrollT-step*ssWheelStep(),ssStatsMax);startScrollAnim();return;}
     // lyrics with no timestamps don't roll themselves, so here the wheel scrolls them; with nothing
     // to scroll (synced, short enough to fit, or another view) it stays the volume control
-    if(fsView==='lyrics' && lyStWheel(step)){ repaintAll(); return; }
+    if(fsView==='lyrics' && !ssLyricVisible && lyStWheel(step)){ repaintAll(); return; }
     fb.Volume=pos2vol(clamp01(vol2pos(fb.Volume)+step*0.04)); repaintAll(); return;
   }
   // right pane: same deal on the Lyrics tab. Consume the wheel either way -- it belongs to this
@@ -732,7 +775,7 @@ function plDropTarget(x,y){
   return i;
 }
 function dragUpdate(action,x,y){
-  if(ssModal){ action.Effect=0; return; }
+  if(ssModal||ssPopup||fsMode){ action.Effect=0; return; }
   var ext=!action.IsInternal;                        // ignore drags started inside the skin
   var onLib=ext && overLib(x,y), onPl=!onLib && ext && plDropTarget(x,y)>=0;
   if(onLib||onPl) action.Effect=(action.Effect&1)?1:((action.Effect&4)?4:0);  // prefer copy, else link
@@ -748,7 +791,7 @@ function on_drag_enter(action,x,y,mask){ dragUpdate(action,x,y); }
 function on_drag_over(action,x,y,mask){ dragUpdate(action,x,y); }
 function on_drag_leave(){ setDropHover(false,false); }
 function on_drag_drop(action,x,y,mask){
-  if(ssModal){ action.Effect=0; return; }
+  if(ssModal||ssPopup||fsMode){ action.Effect=0; return; }
   var ext=!action.IsInternal, hit=ext&&(action.Effect&5), pi=hit?plDropTarget(x,y):-1;   // 5 = copy|link
   if(hit && overLib(x,y)){
     var np=createNewPlaylist();
@@ -764,7 +807,7 @@ function on_drag_drop(action,x,y,mask){
   navDropHover=false; plDropHover=false; repaintAll();
 }
 function on_script_unload(){
-  ssStopFooterMarquee();ssInvalidateSelections();ssDropResizePreview();
+  ssStopFooterMarquee();ssInvalidateSelections();ssAbortResize();
   ssStopCovers();ssStatsStop();
   ssHideLyrics();
   ssStop();if(typeof ssStopPersonal==='function')ssStopPersonal();if(ssSearchTimer)window.ClearTimeout(ssSearchTimer);
@@ -793,12 +836,12 @@ function on_playback_new_track(){
 }
 function npChanged(){ updateNP(); repaintAll(); }
 function on_playback_dynamic_info_track(){ npChanged(); }
-function on_playback_stop(){ npChanged(); }
+function on_playback_stop(){ ssHideLyrics();npChanged(); }
 function on_playback_pause(){ npChanged(); }
 function on_playback_time(){
   repaintBar();
-  var lyricsShown=(rightTab==='lyrics'&&R.queue&&R.queue.w>0)||(fsMode&&fsView==='lyrics');
-  if(lyricsShown && lyrics && lyrics!=='none' && lyrics.synced){ var c=currentLyricLine(); if(c!==lyCur){ lyCur=c; startLyAnim(); } }
+  var lyricsShown=fsMode?fsView==='lyrics':rightTab==='lyrics'&&R.queue&&R.queue.w>0;
+  if(lyricsShown && !ssLyricVisible && lyrics && lyrics!=='none' && lyrics.synced){ var c=currentLyricLine(); if(c!==lyCur){ lyCur=c; startLyAnim(); } }
 }
 function on_playback_seek(){ repaintAll(); }
 function on_playback_order_changed(){ syncOrderFromFb(); repaintAll(); }

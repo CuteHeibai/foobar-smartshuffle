@@ -1,6 +1,7 @@
 ﻿/* User-sized columns. Requested widths survive small-window clamping and restarts. */
 var SS_WIDTH_KEYS={nav:'SmartShuffle: library width',right:'SmartShuffle: lyrics width'};
 var ssWidths={},ssResizing=null,ssResizeTimer=0,ssSplitHot='',ssLayoutReportTimer=0;
+var ssResizeFlow=null,ssResizeFlowTimer=0,SS_RESIZE_MOVE_MS=110;
 var ssWindowClampTimer=0;
 var ssRightOpen=false,ssRightTab='lyrics',ssRightForced=false;
 try{ssRightOpen=window.GetProperty('SmartShuffle: right pane open',false)===true;ssRightTab=window.GetProperty('SmartShuffle: right pane tab','lyrics')==='queue'?'queue':'lyrics';}catch(e){}
@@ -80,29 +81,37 @@ function ssDefaultQueueWidth(w){
   var extra=Math.round(Math.max(0,Math.min(120,(w-1600)*.15)));
   return Math.min(M.queueW+extra,Math.round(w*.225),w<1280?268:w);
 }
-function ssLibraryScales(w,h,nav,main,right){
-  var navBase=ssDefaultNavWidth(w);
-  var mainBase=w-M.gap*(right>0?4:3)-navBase-(right>0?ssDefaultQueueWidth(w):0);
-  var windowScale=Math.min(w/1180,h/780);
-  function scale(ratio,max){return Math.max(.8,Math.min(max,Math.round(windowScale*ratio*40)/40));}
-  return {nav:scale(nav/navBase,1.18),main:scale(main/Math.max(1,mainBase),1.25)};
+function ssLibraryScales(w,h){
+  var scale=Math.max(1,Math.round(Math.min(w/1180,h/780)*40)/40);
+  return {nav:Math.min(scale,1.18),main:Math.min(scale,1.25)};
 }
+function ssLibraryPadding(w){return w<1050?16:24;}
 function ssDesktopBarScale(w,h){
   return Math.max(1,Math.min(1.35,Math.round(Math.min(w/1180,h/780)*40)/40));
 }
 function ssLayoutWidths(w){
-  var customNav=ssWidths.nav>0;
-  var navMin=Math.min(customNav?156:180,Math.round(w*.18)),rightMin=Math.min(220,Math.round(w*.24));
-  var standard=w<1280;
-  var navMax=standard?Math.min(240,Math.round(w*.24)):Math.min(720,Math.round(w*.28));
-  var navRequest=customNav?Math.min(ssWidths.nav,navMax):ssDefaultNavWidth(w);
-  var rightRequest=Math.min(ssWidths.right||ssDefaultQueueWidth(w),standard?268:w);
-  var available=w-M.gap*4;
-  var mainMin=Math.min(available-navMin-rightMin,Math.min(720,Math.ceil(w*.54)));
-  var panes=ssFitWidths(navRequest,rightRequest,available-mainMin,navMin,rightMin);
-  // Keep the saved request intact while a smaller window temporarily gives content priority.
+  // Divider motion changes the viewport. Only changing the window changes content scale.
   var showRight=ssRightOpen&&(ssRightForced||w>=1000*(typeof ssDensity==='number'?ssDensity:1));
-  if(!showRight){panes.right=0;panes.left=Math.round(Math.max(navMin,Math.min(navRequest,available-mainMin)));}
+  var available=w-M.gap*(showRight?4:3),scales=ssLibraryScales(w,H);
+  var navMin=Math.min(Math.round(192*scales.nav),Math.floor(available*.4));
+  var rightMin=showRight?Math.min(240,Math.floor(available*.29)):0;
+  var standard=w<1280;
+  var navMax=Math.max(navMin,standard?Math.min(240,Math.round(w*.24)):Math.min(720,Math.round(w*.28)));
+  var rightMax=showRight?(standard?268:w):0;
+  var navRequest=Math.min(ssWidths.nav||ssDefaultNavWidth(w),navMax);
+  var rightRequest=Math.min(ssWidths.right||ssDefaultQueueWidth(w),rightMax);
+  var mainMin=Math.min(available-navMin-rightMin,Math.min(720,Math.ceil(w*.54)));
+  var sides=available-mainMin,panes;
+  if(ssResizing){
+    var drag=ssResizing;
+    if(drag.key==='nav'){
+      var fixedRight=Math.max(rightMin,Math.min(rightMax,drag.other,sides-navMin));
+      panes={left:Math.max(navMin,Math.min(navMax,drag.width,sides-fixedRight)),right:fixedRight};
+    }else{
+      var fixedNav=Math.max(navMin,Math.min(navMax,drag.other,sides-rightMin));
+      panes={left:fixedNav,right:Math.max(rightMin,Math.min(rightMax,drag.width,sides-fixedNav))};
+    }
+  }else panes=ssFitWidths(navRequest,rightRequest,sides,navMin,rightMin);
   // Let the title use the left third as the window grows; reserve the middle for transport.
   var bar=ssFitWidths(w*.36,Math.min(300,w*.27),w-Math.min(310,w*.34),Math.min(180,w*.2),Math.min(260,w*.28));
   return {nav:panes.left,right:panes.right,info:bar.left,tools:bar.right};
@@ -115,10 +124,60 @@ function ssSplitAt(x,y){
   }
   return '';
 }
-function ssAbortResize(){if(ssResizeTimer)window.ClearTimeout(ssResizeTimer);ssResizeTimer=0;ssResizing=null;ssResizeCursor(false);}
+function ssAbortResize(){
+  if(ssResizeTimer)window.ClearTimeout(ssResizeTimer);
+  if(ssResizeFlowTimer)window.ClearTimeout(ssResizeFlowTimer);
+  ssResizeTimer=ssResizeFlowTimer=0;ssResizing=ssResizeFlow=null;ssResizeCursor(false);
+}
+function ssResizeAnimating(){return !!(ssResizeFlow&&ssResizeFlow.page===view);}
+function ssSeedResizePosition(key,x,y,origin){
+  ssResizeFlow.points[key]={x:x-origin,y:y,fromX:x-origin,fromY:y,at:Date.now()-SS_RESIZE_MOVE_MS};
+}
+function ssStartResizeFlow(key){
+  if(ssResizeFlowTimer)window.ClearTimeout(ssResizeFlowTimer);
+  ssResizeFlowTimer=0;
+  if(typeof view==='undefined')return;
+  ssResizeFlow={page:view,points:Object.create(null),indices:[],released:0};
+  if(view==='home'||view==='albums')for(var box of HB_CARD){
+    if(box.kind!=='album'||box.paintY===undefined)continue;
+    ssSeedResizePosition('album:'+box.id,box.paintX,box.paintY,R.main.x);
+    if(box.albumIndex!==undefined)ssResizeFlow.indices.push(box.albumIndex);
+  }
+  if(view==='home'&&typeof HB_HOME_ALBUMS!=='undefined'&&HB_HOME_ALBUMS)
+    ssSeedResizePosition('home-albums-link',HB_HOME_ALBUMS.x0,HB_HOME_ALBUMS.y0,R.main.x);
+  if(key==='nav'&&typeof HB_SEARCH!=='undefined'&&HB_SEARCH&&R.navTop)
+    ssSeedResizePosition('nav-search',HB_SEARCH.x0,HB_SEARCH.y0,R.navTop.x);
+}
+function ssRequestResizeFrame(){
+  if(ssResizeFlowTimer)return;
+  ssResizeFlowTimer=window.SetTimeout(function(){
+    ssResizeFlowTimer=0;
+    if(!ssResizeFlow)return;
+    if(ssResizeFlow.released&&Date.now()-ssResizeFlow.released>=SS_RESIZE_MOVE_MS)ssResizeFlow=null;
+    repaintPanes();
+  },16);
+}
+// The pane origin follows the divider immediately. Only positions inside it ease between layouts.
+function ssResizePosition(key,x,y,origin){
+  if(!ssResizeAnimating())return {x:x,y:y};
+  if(origin===undefined)origin=R.main.x;
+  var points=ssResizeFlow.points,local=x-origin,p=points[key],now=Date.now();
+  if(!p){ssSeedResizePosition(key,x,y,origin);return {x:x,y:y};}
+  var t=Math.min(1,Math.max(0,(now-p.at)/SS_RESIZE_MOVE_MS)),f=1-Math.pow(1-t,3);
+  var px=p.fromX+(p.x-p.fromX)*f,py=p.fromY+(p.y-p.fromY)*f;
+  if(p.x!==local||p.y!==y){
+    p.fromX=px;p.fromY=py;p.x=local;p.y=y;p.at=now;
+  }
+  var rx=Math.round(px),ry=Math.round(py);
+  if(rx!==local||ry!==y||ssResizeFlow.released)ssRequestResizeFrame();
+  return {x:rx+origin,y:ry};
+}
 function ssResizeBegin(x,y){
   var key=ssSplitAt(x,y);if(!key)return false;
-  ssResizing={key:key,x:x};ssHideLyrics();ssResizeCursor(true);return true;
+  var nav=key==='nav',width=nav?R.navW:R.queueW;
+  ssResizing={key:key,x:x,startX:x,startWidth:width,width:width,other:nav?R.queueW:R.navW};
+  ssStartResizeFlow(key);
+  ssResizeCursor(true);return true;
 }
 function ssResizeCursor(on){try{window.SetCursor(on?32644:32512);}catch(e){}}
 function ssResizeMove(x,y){
@@ -129,15 +188,10 @@ function ssResizeMove(x,y){
 }
 function ssResizeApply(preview){
   if(!ssResizing)return;
-  var key=ssResizing.key,x=ssResizing.x;
-  ssWidths[key]=Math.max(1,key==='nav'?x-M.gap*1.5:W-x-M.gap*1.5);
+  var drag=ssResizing,nav=drag.key==='nav',previous=nav?R.navW:R.queueW;
+  drag.width=Math.round(drag.startWidth+(drag.x-drag.startX)*(nav?1:-1));
   layout(true);
-  if(preview!==false)window.Repaint();
-}
-function ssPaintResizePreview(gr){
-  if(!ssResizing||!ssSceneImage||ssSceneW!==W||ssSceneH!==H)return false;
-  gr.DrawImage(ssSceneImage,0,0,W,H,0,0,W,H);
-  return true;
+  if(preview!==false&&previous!==(nav?R.navW:R.queueW))repaintPanes();
 }
 function ssResizeEnd(x,y){
   if(!ssResizing)return false;
@@ -145,7 +199,9 @@ function ssResizeEnd(x,y){
   ssResizeApply(false);var key=ssResizing.key;
   // Save the visible, constrained width rather than an out-of-window pointer position.
   ssWidths[key]=key==='nav'?R.navW:R.queueW;
-  window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);ssResizing=null;ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();return true;
+  window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);ssResizing=null;
+  if(ssResizeFlow){ssResizeFlow.released=Date.now();ssRequestResizeFrame();}
+  ssResizeCursor(false);ssSyncLyricPanel();ssReportLayout();repaintAll();return true;
 }
 function ssDrawResizers(gr){
   if(fsMode||ssModal||ssPopup||!R.main||!R.queue||!R.top)return;

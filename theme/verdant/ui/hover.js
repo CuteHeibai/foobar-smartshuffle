@@ -36,7 +36,8 @@ function ssHoverRow(){
       var panel=j?R.queue:R.main;
       var y0=Math.max(r.y0,panel.y),y1=Math.min(r.y1,panel.y+panel.h);
       if(y1>y0)return {x:Math.max(r.x0,panel.x),y:y0,w:Math.min(r.x1,panel.x+panel.w)-Math.max(r.x0,panel.x),h:y1-y0,
-        pgx0:r.pgx0,pgx1:r.pgx1,playVisible:r.playVisible,queue:j===1,rowY:r.rowY===undefined?r.y0:r.rowY,rowH:r.rowH===undefined?r.y1-r.y0:r.rowH};
+        pgx0:r.pgx0,pgx1:r.pgx1,playVisible:r.playVisible,queue:j===1,more:j===1&&r.more&&r.more.y0>=y0&&r.more.y1<=y1?r.more:null,
+        rowY:r.rowY===undefined?r.y0:r.rowY,rowH:r.rowH===undefined?r.y1-r.y0:r.rowH};
     }
   }
   return null;
@@ -60,6 +61,7 @@ function ssPaintRowHover(gr,restore){
     if(replaceNumber)gr.FillSolidRect(row.pgx0,row.y,row.pgx1-row.pgx0,row.h,COL.base);
     ssFillContinuousRect(gr,row.x,row.y,row.w,row.h,4,4,row.queue?COL.rowHover:ssInk(18));
     if(replaceNumber)drawIcon(gr,'play',COL.text,row.pgx0,row.y,row.pgx1-row.pgx0,row.h,14);
+    if(row.more&&hv(row.more.x0,row.more.y0,row.more.x1,row.more.y1))ssDrawQueueAction(gr,row.more);
   }
   ssHoverPainted=row;ssHoverDirty=false;
 }

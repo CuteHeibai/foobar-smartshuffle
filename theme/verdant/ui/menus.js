@@ -4,14 +4,16 @@ function ssMenuKeepOpen(){if(ssMenuLeaveTimer)window.ClearTimeout(ssMenuLeaveTim
 function ssMenuLeave(){
   // Menus close by click or Escape, never by pointer travel.
 }
-function ssShowPopup(items,x,y,token,nativeMenu,kind){
+function ssShowPopup(items,x,y,token,nativeMenu,kind,anchor,below){
   ssMenuKeepOpen();
   if(typeof ssDropPopupImage==='function')ssDropPopupImage();
-  ssPopupRestore=false;ssPopup={serial:++ssPopupSerial,x:x,y:y,token:token||'',nativeMenu:!!nativeMenu,context:kind==='context',clickSubmenus:kind==='playback',levels:[{items:items,scroll:0,selected:-1}]};
-  if(!nativeMenu&&typeof ssHideLyrics==='function')ssHideLyrics();applyKeyMode();repaintAll();
+  ssPopupRestore=false;ssPopup={serial:++ssPopupSerial,x:x,y:y,token:token||'',nativeMenu:!!nativeMenu,kind:kind,
+    anchor:anchor,below:!!below,context:kind==='context',clickSubmenus:kind==='playback',levels:[{items:items,scroll:0,selected:-1}]};
+  if(!nativeMenu&&!fsMode&&typeof ssHideLyrics==='function')ssHideLyrics();
+  applyKeyMode();repaintAll();
 }
 function ssStopMenuPoll(){if(ssMenuPollTimer)window.ClearInterval(ssMenuPollTimer);ssMenuPollTimer=0;}
-function ssClosePopup(){ssMenuKeepOpen();ssStopMenuPoll();ssPopup=null;SS_MENU_HB=[];ssPopupRestore=!!ssSceneImage;if(typeof ssDropPopupImage==='function')ssDropPopupImage();applyKeyMode();repaintAll();}
+function ssClosePopup(){ssMenuKeepOpen();ssStopMenuPoll();ssPopup=null;SS_MENU_HB=[];ssPopupRestore=!fsMode&&!!ssSceneImage;if(typeof ssDropPopupImage==='function')ssDropPopupImage();applyKeyMode();repaintAll();}
 function ssSetContextTargets(rows){
   if(ssPopup)ssPopup.targets={w:W,h:H,rows:rows};
 }
@@ -25,12 +27,14 @@ function ssDrawContextTargets(gr){
     if(h>8)gr.FillSolidRect(row.x0+2,row.y0+4,2,h-8,COL.green);
   }
 }
-function ssOpenNativeMenu(kind,args,x,y,extra){
+function ssOpenNativeMenu(kind,args,x,y,extra,showExtra){
   if(kind==='main'&&args.root==='view'&&typeof ssAppearanceMenuItems==='function')
     extra=[{label:'外观',children:ssAppearanceMenuItems()},{separator:true}].concat(extra||[]);
-  ssShowPopup([{label:'正在读取菜单…',disabled:true}],x,y,'',true,kind);
+  var pending=[{label:'正在读取菜单…',disabled:true}];
+  ssShowPopup(showExtra?extra.concat([{separator:true}],pending):pending,x,y,'',true,kind);
   ssPopup.root=kind==='main'?args.root:'';
   ssPopup.extra=extra||[];
+  ssPopup.showExtra=!!showExtra;
   var fields={kind:kind};for(var k in args)fields[k]=args[k];
   ssPopup.request=ssSend('menu_open',fields);
   if(!ssMenuPollTimer)ssMenuPollTimer=window.SetInterval(ssPoll,16);
@@ -49,7 +53,9 @@ function ssAcceptMenu(done,state){
     }catch(e){console.log('Smart Shuffle metadata menu: '+String(e));}
   }
   if(result&&ssPopup.context&&result.track_id)details.push({label:'将歌曲文件移到回收站…',danger:true,run:function(){ssRecyclePrepare(result.track_id);}});
-  var items=result?(ssPopup.context?ssTrackContextItems(result.items,extras,details):extras.concat(result.items)):[{label:(state.response&&state.response.message)||'菜单不可用',disabled:true}];
+  var failure=[{label:(state.response&&state.response.message)||'菜单不可用',disabled:true}];
+  var items=result?(ssPopup.context?ssTrackContextItems(result.items,extras,details):extras.concat(result.items)):
+    ssPopup.showExtra?extras.concat([{separator:true}],failure):failure;
   ssPopup.levels=[{items:items,scroll:0,selected:-1}];
 }
 function ssTrackContextItems(nativeItems,extra,details){
@@ -72,8 +78,8 @@ function ssTrackContextItems(nativeItems,extra,details){
     if(details[i].danger){if(files.length)files.push({separator:true});files.push(details[i]);}
     else info.push(details[i]);
   }
-  var more=[{label:'播放与音频',children:audio},{label:'文件与复制',children:files},
-    {label:'标签与资料',children:info},{label:'工具与扩展',children:extensions}].filter(function(group){return group.children.length;});
+  var more=[{label:'播放与音频',icon:'headphones',children:audio},{label:'文件与复制',icon:'folderOpen',children:files},
+    {label:'标签与资料',icon:'tag',children:info},{label:'工具与扩展',icon:'tools',children:extensions}].filter(function(group){return group.children.length;});
   if(items.length&&items[items.length-1].separator)items.pop();
   if(play)items.splice(items.length&&items[0].heading?1:0,0,play);
   if(items.length>1&&(properties||more.length))items.push({separator:true});
@@ -88,18 +94,44 @@ function ssPopupChoose(item){
   if(item.run)item.run();else if(item.command!==undefined)ssSend('menu_execute',{token:token,command:item.command});
 }
 function ssMenuLabel(label){var text=String(label||'').replace(/&&/g,'\u0001').replace(/&/g,'').replace(/\u0001/g,'&').split('\t')[0];return typeof ssLocalLabel==='function'?ssLocalLabel(text):text;}
-function ssPopupMenuWidth(gr,level,rh,scale,style){
-  var items=level.items,width=level.drill?Math.max(200,level.drill.w):style.minWidth;
+var SS_SUBMENU_EDGE=12,SS_SUBMENU_GAP=9;
+function ssMenuIconColumn(items,scale){
+  return items.some(function(item){return !!item.icon;})?Math.round(24*scale):0;
+}
+function ssPopupMenuWidth(gr,level,rh,scale,style,secondary){
+  var items=level.items,width=level.drill?Math.max(200,level.drill.w):secondary?style.submenuWidth:style.minWidth;
+  var leading=ssMenuIconColumn(items,scale);
   for(var i=0;i<items.length;i++)if(!items[i].separator){
     if(items[i].drill)width=Math.max(width,200);
     var item=items[i],font=item.primary||style.playback&&item.checked?style.primary:style.label;
-    width=Math.max(width,Math.ceil(ssMeasureText(gr,ssMenuLabel(item.label),font,rh))+(item.children||item.checked?46:30));
+    width=Math.max(width,Math.ceil(ssMeasureText(gr,ssMenuLabel(item.label),font,rh))+leading+(item.children||item.checked?46:30));
   }
-  return Math.max(1,Math.min(width,Math.round(308*scale),W-16));
+  return Math.max(1,Math.min(width,Math.round(308*scale),W-2*(secondary?SS_SUBMENU_EDGE:8)));
 }
-function ssDrawContextChevron(gr,x,y,direction,color){
-  gr.DrawLine(x-2*direction,y-4,x+2*direction,y,1.5,color);
-  gr.DrawLine(x+2*direction,y,x-2*direction,y+4,1.5,color);
+function ssSubmenuSide(parent,width){
+  var right=W-parent.x-parent.w,left=parent.x;
+  if(right>=width+SS_SUBMENU_EDGE+SS_SUBMENU_GAP)return 1;
+  if(left>=width+SS_SUBMENU_EDGE+SS_SUBMENU_GAP)return -1;
+  return right>=left?1:-1;
+}
+function ssDrawSubmenuSurface(gr,x,y,w,h){
+  var radius=10,density=Math.min(80,Math.round((COL.shadow>>>24)*1.2));
+  // The light falloff follows the corners and leaves the neighboring menu clear.
+  for(var spread=SS_SUBMENU_GAP-1;spread>0;spread--){
+    var alpha=Math.max(1,Math.round((SS_SUBMENU_GAP-spread)*density/44));
+    ssFillContinuousRect(gr,x-spread,y+2-spread,w+2*spread,h+2*spread,radius+spread,radius+spread,ssAlpha(COL.shadow,alpha));
+  }
+  ssFillContinuousRect(gr,x,y,w,h,radius,radius,COL.popupAlt);
+  ssStrokeContinuousRect(gr,x+.5,y+.5,w-1,h-1,radius,radius,1,COL.submenuLine);
+}
+function ssPopupItemHeight(item,rowHeight,separatorHeight){
+  return item.separator?separatorHeight:item.heading?Math.round(rowHeight*.8):rowHeight;
+}
+function ssDrawContextChevron(gr,x,y,direction,color,scale){
+  scale=scale||1;
+  var dx=2*direction*scale,dy=4*scale;
+  gr.DrawLine(x-dx,y-dy,x+dx,y,1.5,color);
+  gr.DrawLine(x+dx,y,x-dx,y+dy,1.5,color);
 }
 function ssPopupContains(rect,x,y){return rect&&x>=rect.x&&x<rect.x+rect.w&&y>=rect.y&&y<rect.y+rect.h;}
 function ssPopupFirstVisible(){var last=ssPopup.levels.length-1;return ssPopup.levels[last].drill?last:0;}
@@ -119,55 +151,73 @@ function ssDrawContextScroll(gr,x,y,width,height,depth,step){
 }
 function ssDrawPopup(gr){
   SS_MENU_HB=[];if(!ssPopup)return;
-  var previous=null,context=ssPopup.context,playback=ssPopup.clickSubmenus,scale=Math.max(1,UISCALE),pad=6;
+  var previous=null,context=ssPopup.context,playback=ssPopup.clickSubmenus,scale=Math.max(1,UISCALE);
   var menuScale=playback?Math.max(1,Math.min(1.32,W/1280,H/800)):1;
-  var style={playback:playback,minWidth:playback?Math.round(204*menuScale):156,
+  var style={playback:playback,minWidth:playback?Math.round(204*menuScale):156,submenuWidth:Math.round(156*menuScale),
     primary:menuScale>1?ssFsFont(FONT.menuPrimary,menuScale):FONT.menuPrimary,
     label:menuScale>1?ssFsFont(FONT.pl,menuScale):FONT.pl};
-  var rh=Math.max(30,Math.round(24*scale),Math.round(30*menuScale)),inset=14;
-  var widths=ssPopup.levels.map(function(level){return ssPopupMenuWidth(gr,level,rh,scale,style);});
+  var rootRow=Math.max(30,Math.round(24*scale),Math.round(30*menuScale));
+  var childRow=Math.max(28,Math.round(22*scale),Math.round(28*menuScale));
+  var widths=ssPopup.levels.map(function(level,d){return ssPopupMenuWidth(gr,level,d?childRow:rootRow,scale,style,d>0);});
   var first=ssPopupFirstVisible();
-  var limit=context&&typeof R!=='undefined'&&R.barY>TBH+80?R.barY-6:H-8;
+  var contentBottom=context&&typeof R!=='undefined'&&R.barY>TBH+80?R.barY:H;
   for(var d=first;d<ssPopup.levels.length;d++){
+    var secondary=d>0,rh=secondary?childRow:rootRow,pad=secondary?5:6,inset=secondary?12:14,separator=secondary?8:9;
+    var edge=secondary?SS_SUBMENU_EDGE:8,topBound=TBH+(secondary?SS_SUBMENU_EDGE:4);
+    var limit=contentBottom-(secondary?SS_SUBMENU_EDGE:context&&contentBottom!==H?6:8);
+    if(secondary&&playback&&ssPopup.anchor)limit=Math.min(limit,Math.floor(ssPopup.anchor.y0)-SS_SUBMENU_EDGE-8);
     var level=ssPopup.levels[d],items=level.items,total=pad*2,offsets=[],width=widths[d];
-    var header=level.drill?rh+6:0;
+    var leading=ssMenuIconColumn(items,scale),iconSize=Math.min(rh-8,Math.round((playback&&!secondary?19:16)*scale));
+    var header=level.drill?rh+5:0;
     for(var i=0;i<items.length;i++){
-      offsets.push(total-pad*2);total+=items[i].separator?9:items[i].heading?Math.round(rh*.8):rh;
+      offsets.push(total-pad*2);total+=ssPopupItemHeight(items[i],rh,separator);
     }
-    var height=Math.min(total+header,limit-TBH-12),scrollBand=context&&height<total+header?18:0;
-    var x=d&&!level.drill?previous.x+previous.w+6:ssPopup.x,y=d&&!level.drill?previous.anchor-(context?pad+scrollBand:0):ssPopup.y;
-    if(!d&&ssPopup.anchor){x=ssPopup.anchor.x1-width;y=ssPopup.anchor.y0-height-8;}
-    if(level.drill){x=Math.min(level.drill.x,W-width-8);y=level.drill.y;}
+    var height=Math.max(1,Math.min(total+header,limit-topBound-8)),scrollBand=height<total+header&&height>rh+2*pad+36?18:0;
+    var x=ssPopup.x,y=ssPopup.y;
+    if(secondary&&!level.drill){
+      x=ssSubmenuSide(previous,width)>0?previous.x+previous.w+SS_SUBMENU_GAP:previous.x-width-SS_SUBMENU_GAP;
+      y=previous.anchor-pad-scrollBand;
+    }
+    if(!d&&ssPopup.anchor){
+      x=ssPopup.anchor.x1-width;y=ssPopup.below?ssPopup.anchor.y1+8:ssPopup.anchor.y0-height-8;
+    }
+    if(level.drill){x=level.drill.x;y=level.drill.y;}
     else if(context&&!d){x+=4;y+=4;if(y+height>limit)y=ssPopup.y-height-4;}
-    if(x+width>W-8)x=d?Math.max(8,previous.x-width-6):context?Math.max(8,ssPopup.x-width-4):W-width-8;
-    x=Math.max(8,x);y=Math.max(TBH+4,Math.min(y,limit-height));
+    if(!d&&context&&x+width>W-edge)x=ssPopup.x-width-4;
+    x=Math.max(edge,Math.min(x,W-width-edge));y=Math.max(topBound,Math.min(y,limit-height));
+    if(secondary){x=Math.round(x);y=Math.round(y);}
     level.max=Math.max(0,total+header-height+scrollBand*2);level.scroll=Math.max(0,Math.min(level.scroll,level.max));level.rect={x:x,y:y,w:width,h:height};
     level.rowHeight=rh;level.offsets=offsets;level.visibleHeight=height-2*(pad+scrollBand)-header;
-    ssFillContinuousRect(gr,x+2,y+3,width,height,8,8,COL.shadow);
-    ssFillContinuousRect(gr,x,y,width,height,8,8,COL.popup);
-    ssStrokeContinuousRect(gr,x+.5,y+.5,width-1,height-1,8,8,1,COL.line);
+    if(secondary)ssDrawSubmenuSurface(gr,x,y,width,height);
+    else{
+      ssFillContinuousRect(gr,x+2,y+3,width,height,8,8,COL.shadow);
+      ssFillContinuousRect(gr,x,y,width,height,8,8,COL.popup);
+      ssStrokeContinuousRect(gr,x+.5,y+.5,width-1,height-1,8,8,1,COL.line);
+    }
     if(level.drill){
       var backY=y+pad;
       if(mx>=x&&mx<x+width&&my>=backY&&my<backY+rh)ssFillContinuousRect(gr,x+4,backY,width-8,rh,4,4,COL.rowHover);
-      ssDrawContextChevron(gr,x+inset+4,Math.round(backY+rh/2),-1,COL.text2);
-      tL(gr,level.title,FONT.menuPrimary,COL.text,x+32,backY,width-44,rh);
+      ssDrawContextChevron(gr,x+inset+4,Math.round(backY+rh/2),-1,COL.text,1.35);
+      tL(gr,level.title,style.primary,COL.text,x+inset+16,backY,width-2*inset-16,rh);
       gr.FillSolidRect(x+inset,backY+rh+2,width-inset*2,1,COL.line);
       SS_MENU_HB.push({x0:x,y0:backY,x1:x+width,y1:backY+rh,depth:d,back:true});
     }
     var top=y+pad+header+scrollBand,bottom=y+height-pad-scrollBand,rowY=top-level.scroll,anchor=y;
     for(i=0;i<items.length;i++){
-      var it=items[i],ih=it.separator?9:it.heading?Math.round(rh*.8):rh;
+      var it=items[i],ih=ssPopupItemHeight(it,rh,separator);
       if(rowY>=top&&rowY+ih<=bottom){
         if(it.separator)gr.FillSolidRect(x+inset,rowY+4,width-2*inset,1,COL.line);
         else if(it.heading)tL(gr,ssMenuLabel(it.label),FONT.plSub,COL.text2,x+inset,rowY,width-inset*2,ih);
         else{
           var current=playback&&it.checked;
           if(!it.disabled&&(current||level.selected===i||level.hover===i))
-            ssFillContinuousRect(gr,x+4,rowY,width-8,ih,4,4,current?COL.rowActive:COL.rowHover);
+            ssFillContinuousRect(gr,x+4,rowY,width-8,ih,secondary?5:4,secondary?5:4,current?COL.rowActive:COL.rowHover);
           var color=it.disabled?COL.text3:it.danger?COL.dangerHover:current?COL.green:COL.text;
-          tL(gr,ssMenuLabel(it.label),it.primary||current?style.primary:style.label,color,x+inset,rowY,width-inset-(it.children||it.checked?29:inset),ih);
+          if(it.icon)drawIcon(gr,it.icon,it.disabled?COL.text3:current?COL.green:COL.text2,x+inset,rowY,iconSize,ih,iconSize);
+          tL(gr,ssMenuLabel(it.label),it.primary||current?style.primary:style.label,color,x+inset+leading,rowY,width-inset-leading-(it.children||it.checked?29:inset),ih);
           if(it.children){
-            var left=level.selected===i&&widths[d+1]&&width+6+x+widths[d+1]>W-8;
+            var next=ssPopup.levels[d+1];
+            var left=level.selected===i&&next&&!next.drill&&ssSubmenuSide(level.rect,widths[d+1])<0;
             ssDrawContextChevron(gr,x+width-17,Math.round(rowY+ih/2),left?-1:1,it.disabled?COL.text3:COL.text2);
           }else if(it.checked)tC(gr,'✓',style.label,COL.green,x+width-27,rowY,18,ih);
           SS_MENU_HB.push({x0:x,y0:rowY,x1:x+width,y1:rowY+ih,depth:d,index:i,item:it});
@@ -188,7 +238,7 @@ function ssDrawPopup(gr){
 }
 function ssPopupMove(x,y){
   if(!ssPopup)return false;
-  if(ssPopup.root&&y<TBH&&typeof HB_MENU!=='undefined'){
+  if(!fsMode&&ssPopup.root&&y<TBH&&typeof HB_MENU!=='undefined'){
     var title=hit(HB_MENU,x,y);if(title)return true;
   }
   var inside=ssPopup.levels.slice(ssPopupFirstVisible()).some(function(level){return ssPopupContains(level.rect,x,y);});
@@ -212,7 +262,7 @@ function ssPopupExpand(h){
   if(!opened)ssPopup.levels.push(ssPopupChild(level,h.item));repaintAll();
 }
 function ssPopupClick(x,y){if(!ssPopup)return false;
-  var title=ssPopup.root&&typeof HB_MENU!=='undefined'?hit(HB_MENU,x,y):null;
+  var title=!fsMode&&ssPopup.root&&typeof HB_MENU!=='undefined'?hit(HB_MENU,x,y):null;
   if(title){if(title.root===ssPopup.root)ssClosePopup();else ssOpenNativeMenu('main',{root:title.root},title.mx,TBH);return true;}
   var h=ssPopupHit(x,y);
   if(h){if(h.back){ssPopup.levels.pop();repaintAll();}else if(h.step)ssPopupScroll(h.depth,h.step);else if(h.item.children)ssPopupExpand(h);else ssPopupChoose(h.item);}
@@ -254,17 +304,22 @@ function ssPopupKey(key){
 }
 function ssShowPlaybackModes(x,y,anchor){
   var smart=!!(ssState&&ssState.enabled),update=ssState&&ssState.update;
-  var items=[{label:'智能随机',checked:smart,run:function(){ssSend('playback_mode',{mode:'smart'});}}];
-  var orders=(ssState&&ssState.orders)||[{index:0,name:'顺序播放'},{index:1,name:'列表循环'},{index:2,name:'单曲循环'}];
-  for(var i=0;i<orders.length;i++)if(orders[i].index<3)(function(order){items.push({label:['顺序播放','列表循环','单曲循环'][order.index],checked:!!(ssState&&!smart&&ssState.native_order===order.index),run:function(){ssSend('playback_mode',{mode:'native',order:order.index});}});})(orders[i]);
+  var items=[{label:'智能随机',icon:'shuffle',checked:smart,run:function(){ssSend('playback_mode',{mode:'smart'});}}];
+  var orders=(ssState&&ssState.orders)||[{index:0},{index:1},{index:2}];
+  var labels=['顺序播放','列表循环','单曲循环'],icons=['sequence','repeat','repeat1'];
+  orders.forEach(function(order){
+    var index=order.index;
+    if(index<0||index>=labels.length)return;
+    items.push({label:labels[index],icon:icons[index],checked:!!(ssState&&!smart&&ssState.native_order===index),
+      run:function(){ssSend('playback_mode',{mode:'native',order:index});}});
+  });
   items.push({separator:true},{label:'调整随机偏好…',run:ssOpen});
   if(smart)items.push({label:'重新开始一轮',run:function(){ssSend('restart');}});
   if(typeof ssStatsOpen==='function'&&ssState&&ssState.listening_stats)items.push({label:'聆听统计…',run:ssStatsOpen});
   var hasUpdate=update&&update.available;
   items.push({separator:true},{label:hasUpdate?'插件 · 有更新':'插件',children:[
-    {label:'插件设置…',run:function(){ssSend('settings');}},
-    {label:hasUpdate?'发现更新 '+update.release.version:'检查更新…',run:function(){ssSend('update_open');}}
+    {label:'插件设置…',icon:'settings',run:function(){ssSend('settings');}},
+    {label:hasUpdate?'发现更新 '+update.release.version:'检查更新…',icon:'refresh',run:function(){ssSend('update_open');}}
   ]});
-  ssShowPopup(items,x,y,'',false,'playback');
-  if(anchor)ssPopup.anchor=anchor;
+  ssShowPopup(items,x,y,'',false,'playback',anchor);
 }

@@ -2,7 +2,9 @@
 #include <foobar2000/SDK/ui_element.h>
 #include <foobar2000/SDK/configStore.h>
 #include "lyrics_host.hpp"
+#include "eslyric_font.hpp"
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -93,12 +95,20 @@ public:
                 error_.clear();
                 return status();
             }
+            const auto font_size = request.contains("font_size") ? dimension(request, "font_size", true) : 0;
+            if (font_size > 100) throw std::runtime_error("歌词字号超出范围");
             parent_ = parent;
-            ensure_font();
+            ensure_font(font_size);
             if (instance_.is_empty()) create();
             if (!healthy()) throw std::runtime_error("ESLyric 未创建有效的歌词子窗口");
-            if (!SetWindowPos(window_, nullptr, x, y, width, height, SWP_NOACTIVATE | SWP_NOZORDER))
-                throw std::runtime_error("无法调整歌词面板大小");
+            apply_fullscreen_font(font_size);
+            const std::array next_bounds{x, y, width, height};
+            if (bounds_ != next_bounds) {
+                if (!SetWindowPos(window_, nullptr, x, y, width, height, SWP_NOACTIVATE | SWP_NOZORDER))
+                    throw std::runtime_error("无法调整歌词面板大小");
+                bounds_ = next_bounds;
+            }
+            apply_window_region(request, x, y, width, height);
             set_visible(true);
             error_.clear();
         } catch (const std::exception& e) {
@@ -121,7 +131,10 @@ public:
         const bool ready = healthy();
         bool segoe=false,simsun=false,inter=false,yahei=false;
         if(ready)try{auto cfg=instance_->get_configuration();std::string data(static_cast<const char*>(cfg->get_data()),cfg->get_data_size());yahei=data.find("Microsoft YaHei UI")!=std::string::npos;inter=data.find("Inter")!=std::string::npos;segoe=data.find("Segoe UI")!=std::string::npos;simsun=data.find("SimSun")!=std::string::npos;}catch(...){}
-        return {{"ready", ready}, {"visible", ready && visible_ && IsWindowVisible(window_) != FALSE}, {"error", error_},{"appearance",light_?"light":"dark"},{"configuration_yahei_ui",yahei},{"configuration_inter",inter},{"configuration_segoe_ui",segoe},{"configuration_simsun",simsun}};
+        return {{"ready", ready}, {"visible", ready && visible_ && IsWindowVisible(window_) != FALSE},
+            {"region_clip", true}, {"clipped", clipped_}, {"font_size", font_size_},
+            {"fullscreen_font_configured", !original_font_.empty()},
+            {"error", error_},{"appearance",light_?"light":"dark"},{"configuration_yahei_ui",yahei},{"configuration_inter",inter},{"configuration_segoe_ui",segoe},{"configuration_simsun",simsun}};
     }
 
     bool query_color(const GUID& which, t_ui_color& result) override {
@@ -148,10 +161,14 @@ private:
     HWND parent_ = nullptr, window_ = nullptr;
     HFONT font_ = nullptr;
     UINT dpi_ = 0;
+    int font_size_ = 0, configured_size_ = 0;
+    bool clipped_ = false;
+    std::array<int, 4> bounds_{};
     bool visible_ = false;
     bool light_ = false;
     std::string error_;
     std::string lastConfiguration_;
+    std::string original_font_;
     ui_element::ptr element_;
     ui_element_instance::ptr instance_;
 
@@ -159,20 +176,77 @@ private:
         return instance_.is_valid() && in_this_process(parent_) && in_this_process(window_)
             && GetParent(window_) == parent_ && (GetWindowLongPtrW(window_, GWL_STYLE) & WS_CHILD) != 0;
     }
-    void ensure_font() {
+    void ensure_font(int fullscreen_size) {
         const UINT effective = window_dpi(parent_);
-        if (font_ && dpi_ == effective) return;
-        const auto replacement = CreateFontW(-MulDiv(15, static_cast<int>(effective), 96), 0, 0, 0,
+        if (font_ && dpi_ == effective && font_size_ == fullscreen_size) return;
+        const int height = fullscreen_size ? fullscreen_size : MulDiv(15, static_cast<int>(effective), 96);
+        const auto replacement = CreateFontW(-height, 0, 0, 0,
             FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-            CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei UI");
+            CLIP_DEFAULT_PRECIS, fullscreen_size ? ANTIALIASED_QUALITY : CLEARTYPE_QUALITY,
+            DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei UI");
         if (!replacement) throw std::runtime_error("无法创建歌词面板字体");
         const auto old = font_;
         font_ = replacement;
         dpi_ = effective;
+        font_size_ = fullscreen_size;
         // Both old and new font handles remain valid throughout notification.
         try { if (instance_.is_valid()) instance_->notify(ui_element_notify_font_changed, 0, nullptr, 0); }
         catch (...) { if (old) DeleteObject(old); throw; }
         if (old) DeleteObject(old);
+    }
+    void apply_fullscreen_font(int size) {
+        if (size == configured_size_) return;
+        const auto config = instance_->get_configuration();
+        const std::string_view data(static_cast<const char*>(config->get_data()), config->get_data_size());
+        const auto field = eslyric_find_font(data);
+        if (!field) return;
+        auto restore = original_font_;
+        std::string replacement;
+        if (size) {
+            if (restore.empty()) restore = data.substr(field->start, field->end - field->start);
+            const auto enlarged = eslyric_fullscreen_font(*field, static_cast<unsigned>((size * 5 + 1) / 2));
+            if (!enlarged) return;
+            replacement = *enlarged;
+        } else if (!restore.empty()) {
+            replacement = restore;
+        } else {
+            return;
+        }
+        const auto updated = eslyric_replace_font(data, *field, replacement);
+        instance_->set_configuration(ui_element_config::g_create(element_->get_guid(), updated.data(), updated.size()));
+        original_font_ = size ? std::move(restore) : std::string{};
+        configured_size_ = size;
+        if (const auto child = instance_->get_wnd(); child != window_) {
+            window_ = child;
+            bounds_ = {};
+            clipped_ = false;
+        }
+        if (!healthy()) throw std::runtime_error("ESLyric 字体更新后未返回有效窗口");
+    }
+    void apply_window_region(const nlohmann::json& request, int x, int y, int width, int height) {
+        std::unique_ptr<std::remove_pointer_t<HRGN>, decltype(&DeleteObject)> region(nullptr, DeleteObject);
+        if (const auto exclusions = request.find("exclude"); exclusions != request.end()) {
+            if (!exclusions->is_array() || exclusions->size() > 8) throw std::runtime_error("歌词遮挡区域无效");
+            for (const auto& exclude : *exclusions) {
+                const int64_t left = int64_t(dimension(exclude, "x", false)) - x;
+                const int64_t top = int64_t(dimension(exclude, "y", false)) - y;
+                const int64_t right = left + dimension(exclude, "w", true);
+                const int64_t bottom = top + dimension(exclude, "h", true);
+                const int l = static_cast<int>(std::clamp<int64_t>(left, 0, width));
+                const int t = static_cast<int>(std::clamp<int64_t>(top, 0, height));
+                const int r = static_cast<int>(std::clamp<int64_t>(right, 0, width));
+                const int b = static_cast<int>(std::clamp<int64_t>(bottom, 0, height));
+                if (l >= r || t >= b) continue;
+                if (!region) region.reset(CreateRectRgn(0, 0, width, height));
+                decltype(region) cut(CreateRectRgn(l, t, r, b), DeleteObject);
+                if (!region || !cut || CombineRgn(region.get(), region.get(), cut.get(), RGN_DIFF) == ERROR)
+                    throw std::runtime_error("无法计算歌词窗口可见区域");
+            }
+        }
+        if (!region && !clipped_) return;
+        if (!SetWindowRgn(window_, region.get(), TRUE)) throw std::runtime_error("无法更新歌词窗口可见区域");
+        clipped_ = bool(region);
+        region.release(); // SetWindowRgn takes ownership.
     }
     void create() {
         service_enum_t<ui_element> entries;
@@ -209,12 +283,18 @@ private:
         if (!healthy()) return;
         if(!visible)persist_configuration();
         if (changed) instance_->notify(ui_element_notify_visibility_changed, visible ? 1 : 0, nullptr, 0);
-        ShowWindow(window_, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
+        if (((GetWindowLongPtrW(window_, GWL_STYLE) & WS_VISIBLE) != 0) != visible)
+            ShowWindow(window_, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
     }
     void persist_configuration() noexcept {
         if(instance_.is_empty())return;
         try{
             auto cfg=instance_->get_configuration();std::string data(static_cast<const char*>(cfg->get_data()),cfg->get_data_size());
+            if (!original_font_.empty()) {
+                const auto field = eslyric_find_font(data);
+                if (!field) return;
+                data = eslyric_replace_font(data, *field, original_font_);
+            }
             if(data!=lastConfiguration_){fb2k::configStore::get()->setConfigBlob("smartshuffle.lyrics.panel.config",data.data(),data.size());lastConfiguration_=std::move(data);}
         }catch(...){}
     }
@@ -232,6 +312,10 @@ private:
         if (font_) DeleteObject(font_);
         font_ = nullptr;
         dpi_ = 0;
+        font_size_ = configured_size_ = 0;
+        original_font_.clear();
+        bounds_ = {};
+        clipped_ = false;
         parent_ = nullptr;
     }
 };

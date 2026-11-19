@@ -123,7 +123,7 @@ function ssCommitDraft(){
 }
 function ssReady(){
   var p=ssState&&ssState.preview;
-  return !!(ssModal&&!ssApplyId&&!ssDraftTimer&&!ssFlight&&!ssOut.length&&p&&p.token&&!ssState.preview_pending&&ssPointSame(p.point,ssDraft));
+  return !!(ssModal&&!ssDragging&&!ssApplyId&&!ssDraftTimer&&!ssFlight&&!ssOut.length&&p&&p.token&&!ssState.preview_pending&&ssPointSame(p.point,ssDraft));
 }
 function ssApply(){
   if(!ssReady()) return false;

@@ -3,10 +3,21 @@
 var ssViewports={};
 function ssBeginViewport(key,parent,x,y,w,h){
   w=Math.max(1,Math.ceil(w));h=Math.max(1,Math.ceil(h));var entry=ssViewports[key];
-  if(!entry||entry.w!==w||entry.h!==h){entry={w:w,h:h,image:gdi.CreateImage(w,h)};ssViewports[key]=entry;}
+  var resizing=typeof ssResizeAnimating==='function'&&ssResizeAnimating();
+  if(!entry||entry.h!==h||entry.w<w||(!resizing&&entry.w!==w)){
+    if(entry&&typeof entry.image.Dispose==='function')entry.image.Dispose();
+    var capacity=resizing?Math.ceil(w/96)*96:w;
+    entry={w:capacity,h:h,image:gdi.CreateImage(capacity,h)};ssViewports[key]=entry;
+  }
   var target=entry.image.GetGraphics();target.SetSmoothingMode(2);target.SetInterpolationMode(5);target.FillSolidRect(0,0,w,h,COL.base);
   var proxy=ssTranslatedGraphics(target,x,y);
   return {gr:proxy,finish:function(){entry.image.ReleaseGraphics(target);parent.DrawImage(entry.image,x,y,w,h,0,0,w,h);}};
+}
+function ssResizeEdgeFade(gr,x,y,w,h,left,right){
+  var fade=Math.min(Math.round(26*UISCALE),Math.floor(w/3)),clear=ssAlpha(COL.base,0);
+  if(fade<1||h<1)return;
+  if(left)gr.FillGradRect(x,y,fade,h,0,COL.base,clear);
+  if(right)gr.FillGradRect(x+w-fade,y,fade,h,0,clear,COL.base);
 }
 
 function ssTranslatedGraphics(target,x,y){
@@ -32,7 +43,7 @@ var ssRowRasters=Object.create(null),ssRowRasterCount=0;
 function ssDisposeRowRaster(entry){if(entry&&entry.image&&typeof entry.image.Dispose==='function')entry.image.Dispose();}
 function ssInvalidateRowRasters(){for(var key in ssRowRasters)ssDisposeRowRaster(ssRowRasters[key]);ssRowRasters=Object.create(null);ssRowRasterCount=0;}
 function ssDrawCachedRow(parent,key,x,y,w,h,draw,enabled){
-  if(enabled===false||!ssQuietRows){draw(parent);return;}
+  if(enabled===false||!ssQuietRows||(typeof ssResizing!=='undefined'&&ssResizing)){draw(parent);return;}
   w=Math.max(1,Math.round(w));h=Math.max(1,Math.round(h));key=key+'|'+w+'|'+h;
   var entry=ssRowRasters[key];
   if(!entry){

@@ -65,8 +65,10 @@ function ssDrawTransport(gr,by,height,s,layout,trackBg,timeFont){
   tR(gr,fmtTime(drag==='seek'?len*dragFrac:fb.PlaybackTime),timeFont,timeColor,x-Math.round(54*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
   tL(gr,fmtTime(len),timeFont,timeColor,x+w+Math.round(10*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
 }
+function ssFooterToolEnd(s){return W-Math.round(28*s);}
+function ssFooterToolY(by,height){return by+Math.round(height*.46);}
 function ssFooterToolLayout(s,fullscreen){
-  var end=W-Math.round(28*s),gap=Math.max(44,Math.round(46*s)),queue=end-gap,lyrics=queue-gap;
+  var end=ssFooterToolEnd(s),gap=Math.max(44,Math.round(46*s)),queue=end-gap,lyrics=queue-gap;
   var volW=Math.min(Math.round(76*s),Math.max(48,R.barToolsW-236)),volX=lyrics-Math.round(30*s)-volW;
   var output=volX-Math.round(30*s),modeWidth=Math.round((W>=1080?(fullscreen?120:104):38)*s);
   var modeLeft=output-Math.round(24*s)-modeWidth;
@@ -77,16 +79,16 @@ function ssPlaybackModeIndicator(){
   var order=ssState&&typeof ssState.native_order==='number'?ssState.native_order:(typeof pbRepeat==='number'?pbRepeat:0);
   if(order===1)return {icon:'repeat',title:'列表循环',active:true};
   if(order===2)return {icon:'repeat1',title:'单曲循环',active:true};
-  if(order===0)return {icon:'order',title:'顺序播放',active:false};
+  if(order===0)return {icon:'sequence',title:'顺序播放',active:false};
   return {icon:'order',title:'播放模式',active:false};
 }
 function ssDrawFooterTools(gr,by,height,s,tools,fullscreen){
-  var y=by+Math.round(height*.46),mode=ssPlaybackModeIndicator();
+  var y=ssFooterToolY(by,height),mode=ssPlaybackModeIndicator();
   var lyricsOn=fullscreen?fsView==='lyrics':typeof ssRightOpen!=='undefined'&&ssRightOpen&&R.queue&&R.queue.w>0&&rightTab==='lyrics';
   var modeH=Math.round(36*s),modeBox={x0:tools.modeLeft,y0:y-modeH/2,x1:tools.modeLeft+tools.modeWidth,y1:y+modeH/2,act:'playback_mode'};
   var modeHot=hv(modeBox.x0,modeBox.y0,modeBox.x1,modeBox.y1),iconW=Math.round(34*s);
   if(modeHot)ssFillContinuousRect(gr,modeBox.x0,modeBox.y0,tools.modeWidth,modeH,6,6,COL.rowHover);
-  drawIcon(gr,mode.icon,mode.active?COL.green:COL.text2,modeBox.x0,modeBox.y0,iconW,modeH,Math.round(19*s));
+  drawIcon(gr,mode.icon,mode.active?COL.green:COL.text2,modeBox.x0,modeBox.y0,iconW,modeH,Math.round(21*s));
   if(tools.modeWidth>iconW+16)tL(gr,mode.title,tools.modeFont||FONT.plSub,COL.text2,modeBox.x0+iconW,modeBox.y0,tools.modeWidth-iconW-4,modeH);
   HB_CTRL.push(modeBox);
   var hint=ssDrawFooterTool(gr,tools.output,y,s,'output','volume',false,'音频输出');
@@ -96,9 +98,14 @@ function ssDrawFooterTools(gr,by,height,s,tools,fullscreen){
   }else{
     var queueOn=typeof ssRightOpen!=='undefined'&&ssRightOpen&&R.queue&&R.queue.w>0&&rightTab==='queue';
     hint=ssDrawFooterTool(gr,tools.queue,y,s,'queue','queue',queueOn,'播放队列')||hint;
-    hint=ssDrawFooterTool(gr,tools.end,y,s,'fullscreen','expand',false,'全屏')||hint;
   }
+  // Keep this toggle at the desktop footer position when the fullscreen rail grows.
+  var toggleScale=fullscreen?R.barScale:s,toggleY=fullscreen?ssFooterToolY(R.barY,M.barH):y;
+  var toggleHint=ssDrawFooterTool(gr,ssFooterToolEnd(toggleScale),toggleY,toggleScale,'fullscreen',
+    fullscreen?'compress':'expand',false,fullscreen?'退出全屏':'全屏');
+  hint=toggleHint||hint;
   var labelY=by+Math.round(4*s),labelH=Math.round(19*s);
+  if(fullscreen&&toggleHint)labelY=Math.floor(HB_CTRL[HB_CTRL.length-1].y0-labelH-5*toggleScale);
   if(hint||modeHot)tR(gr,hint||'播放模式 · '+mode.title,FONT.plSub,COL.text2,tools.modeLeft,labelY,
     tools.end-tools.modeLeft+Math.round(18*s),labelH);
   HB_VOL=drawTrackBar(gr,tools.volX,y-Math.round(2*s),tools.volW,4*s,COL.seekbg,clamp01(vol2pos(fb.Volume)),
@@ -115,7 +122,7 @@ function ssFooterMarqueeAllowed(){
     !(typeof renameEdit!=='undefined'&&renameEdit)&&
     !(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof dupPrompt!=='undefined'&&dupPrompt)&&
     !(typeof rgPrompt!=='undefined'&&rgPrompt)&&!(typeof sgMenuOpen!=='undefined'&&sgMenuOpen)&&
-    !(typeof plSortMenuOpen!=='undefined'&&plSortMenuOpen)&&!(typeof vizMenuOpen!=='undefined'&&vizMenuOpen);
+    !(typeof plSortMenuOpen!=='undefined'&&plSortMenuOpen);
 }
 function ssFooterTrackKey(){return String(NP.RawPath||NP.Path||'')+'|'+String(NP.SubSong||0);}
 function ssStopFooterMarquee(){
@@ -168,7 +175,7 @@ function ssDrawFooterTool(gr,x,y,s,act,icon,active,label,labelFont){
   var hot=hv(box.x0,box.y0,box.x1,box.y1);
   if(hot||(panel&&active))ssFillContinuousRect(gr,box.x0,box.y0,size,size,7,7,panel&&active?COL.rowActive:COL.rowHover);
   var color=active?COL.green:hot?COL.text:COL.text2,iconW=labelFont?Math.round(18*s):size;
-  drawIcon(gr,icon,color,box.x0,box.y0,iconW,size,Math.round((labelFont?15:19)*s));
+  drawIcon(gr,icon,color,box.x0,box.y0,iconW,size,Math.round((act==='fullscreen'?24:labelFont?15:19)*s));
   if(labelFont)tL(gr,label,labelFont,color,box.x0+iconW+Math.round(2*s),box.y0,size-iconW-Math.round(3*s),size);
   HB_CTRL.push(box);
   return hot&&!labelFont?label:'';
@@ -189,7 +196,7 @@ function drawBar(gr){
     var summary=ssState&&ssState.personal||{},fx=R.barInfoW-54*s,fy=by+(M.barH-28*s)/2;
     ssDrawPersonalHeart(gr,fx,fy,28*s,!!summary.now_favorite);
     HB_CTRL.push({x0:fx,y0:fy,x1:fx+28*s,y1:fy+28*s,act:'favorite'});
-    drawIcon(gr,'clock',summary.now_later?COL.green:COL.text2,fx+28*s,fy,28*s,28*s,18*s);
+    drawIcon(gr,summary.now_later?'bookmarkFilled':'bookmark',summary.now_later?COL.green:COL.text2,fx+28*s,fy,28*s,28*s,18*s);
     HB_CTRL.push({x0:fx+28*s,y0:fy,x1:fx+56*s,y1:fy+28*s,act:'later'});
   }
   var tools=ssFooterToolLayout(s),transport=ssTransportLayout(W,R.barInfoW,tools.modeLeft-Math.round(8*s),s);

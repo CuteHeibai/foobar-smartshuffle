@@ -2,11 +2,11 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 function harness(){
  const paints=[],layers=[],texts=[],c={ssDensity:1,M:{cpad:24,cardTextH:58,pad:8},FONT:{},COL:{},HB_CARD:[],HB_PLPLAY:[],homeScroll:0,homeScrollT:0,plScroll:0,plScrollT:0,drag:'',NP:null,npTitleStr:'',npArtistStr:'',fb:{IsPlaying:false},shelfHandles:[],warmed:{},artistList:[],
  visiblePlaylists:()=>[],getAlbumCatalog:()=>({albums:Array.from({length:44},(_,i)=>({id:'album-'+i,album:'Album '+i,artist:'Artist '+i,year:i===7?'2025':'',handle:{i}}))}),ensureBuilt:()=>true,gateReady:()=>true,clampPx:(n,m)=>Math.max(0,Math.min(n,m)),hv:()=>false,ssArtistName:String,ssFontLineHeight:()=>0,ssTextClusters:Array.from,
- ssMeasureText:(gr,text,font)=>gr.CalcTextWidth(text,font),ssDrawFixedLabel:(gr,s,f,col,x,y,w,h)=>texts.push(s),
+ ssMeasureText:(gr,text,font)=>gr.CalcTextWidth(text,font),ssDrawFixedLabel:(gr,s,f,col,x,y,w,h)=>texts.push(s),ssAlpha:()=>0,
  ssDrawIdleRecord(){},drawIcon(){},drawRounded:(gr,x,y,w)=>paints.push({gr,x,y,w}),tL:(gr,text)=>texts.push(text),tC(){},tR(){},drawScrollbar(){},drawScrollbarH(){},drawPlaylistCard(){},startWarmHome(){},
  ssBeginViewport:(key,gr,x,y,w,h)=>{const layer={key,x,y,w,h,gr:{FillRoundRect(){},FillSolidRect(){},CalcTextWidth:s=>s.length*8},done:false};layers.push(layer);return {gr:layer.gr,finish(){layer.done=true;}};}};
  vm.createContext(c);for(const file of ['../core/corners','cards','home'])vm.runInContext(fs.readFileSync('theme/verdant/views/'+file+'.js','utf8'),c);
- return {c,paints,layers,texts,gr:{FillSolidRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},FillEllipse(){},SetSmoothingMode(){},DrawLine(){},CalcTextWidth:s=>s.length*8}};
+ return {c,paints,layers,texts,gr:{FillSolidRect(){},FillGradRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},FillEllipse(){},SetSmoothingMode(){},DrawLine(){},CalcTextWidth:s=>s.length*8}};
 }
 test('home shows real album navigation when verified artist list is empty inside a clipped viewport',()=>{
  const {c,paints,layers,texts,gr}=harness(),r={x:240,y:40,w:900,h:470};c.drawHome(gr,r);
@@ -60,6 +60,12 @@ test('desktop-width home fills the shelf with four larger cards per row',()=>{
  assert.equal(cards.filter(card=>card.y0===cards[0].y0).length,4);
  assert.ok(cards[0].x1-cards[0].x0>157);
  assert.ok(c.HB_HOME_ALBUMS.x1>1800);
+});
+test('homepage covers stay the same size as a divider takes away columns',()=>{
+ const {c,paints,gr}=harness();
+ Object.assign(c,{W:2560,ssDefaultNavWidth:()=>376});c.M.gap=10;
+ function draw(w){paints.length=0;c.drawHome(gr,{x:300,y:40,w,h:1100});return [paints[0].w,paints[1].w];}
+ assert.deepEqual(draw(1950),draw(1320));
 });
 
 test('a short window keeps the primary action inside the main panel and clears old scroll targets',()=>{

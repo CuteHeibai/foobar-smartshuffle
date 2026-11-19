@@ -51,7 +51,7 @@ function ssDisplayAlbumYear(year){return /^[1-9]\d{3}$/.test(year)?year:'';}
 function drawArtist(gr,r){
   HB_TR=[];HB_ARTIST_PLAY=null;
   var albumOnly=view==='album',album=albumOnly?artistAlbums[0]:null,s=ssDensity;
-  var content=ssLibraryTrackLayout(r,s),x=content.x,w=content.w,right=content.right;
+  var content=ssLibraryTrackLayout(r,s,undefined,Math.round(1440*s)),x=content.x,w=content.w,right=content.right;
   var art=Math.round(Math.min(r.w<600?96:112,Math.max(64,r.h*.24))*s),ay=r.y+Math.round(24*s);
   var name=albumOnly?(album?album.album:'专辑已移除'):ssArtistName(viewArtist);
   var top=ay+art+Math.round(60*s),songs=0;
@@ -61,8 +61,7 @@ function drawArtist(gr,r){
   gr.FillGradRect(r.x,r.y,r.w,Math.min(r.h,top-r.y),90,COL.base,COL.base,1.0);
   if(album){drawRounded(gr,x,ay,art,7,album.handle,album.album);}
   else if(!albumOnly)ssDrawArtistAvatar(gr,x,ay,art,viewArtist);
-  var headRight=albumOnly?ssLibraryTrackLayout(r,s,undefined,true).right:right;
-  var tx=x+art+Math.round(18*s),tw=Math.max(1,headRight-tx),text=ssHeaderBoxes(art,true,s);
+  var tx=x+art+Math.round(18*s),tw=Math.max(1,right-tx),text=ssHeaderBoxes(art,true,s);
   tL(gr,albumOnly?'专辑':'歌手',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
   tL(gr,name,FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
   var caption=albumOnly?(album?ssArtistName(album.artist)+CH_DOT:''):artistAlbums.length+' 张专辑 '+CH_DOT+' ';
@@ -141,17 +140,24 @@ function drawAlbums(gr,r){
   var layer=ssCollectionViewport(gr,r,top,contentH);
   if(!layer)return;
   try{
-    var first=Math.floor(layer.offset/rowStep)*cols;
-    for(var i=first;i<albums.length;i++){
+    var first=Math.floor(layer.offset/rowStep)*cols,last=Math.min(albums.length,Math.ceil((layer.bottom-top+layer.offset)/rowStep)*cols);
+    var moving=typeof ssResizeAnimating==='function'&&ssResizeAnimating(),indices=[];
+    for(var index=first;index<last;index++)indices.push(index);
+    if(moving)for(var old of ssResizeFlow.indices)if(old<albums.length&&(old<first||old>=last))indices.push(old);
+    var edge=r.x+r.w,leftFade=false,rightFade=false;
+    for(var i of indices){
       var a=albums[i],row=Math.floor(i/cols),col=i%cols;
       var ty=top+row*rowStep-layer.offset,tx=x+col*(tileW+gap);
-      if(ty>=layer.bottom)break;
-      if(ty+tileH<=top)continue;
-      var box={x0:tx,y0:Math.max(top,ty),x1:tx+tileW,y1:Math.min(layer.bottom,ty+tileH),kind:'album',id:a.id};
+      if(moving){var p=ssResizePosition('album:'+a.id,tx,ty);tx=p.x;ty=p.y;}
+      if(ty>=layer.bottom||ty+tileH<=top||tx>=edge||tx+tileW<=r.x)continue;
+      leftFade=leftFade||tx<r.x;rightFade=rightFade||tx+tileW>edge;
+      var box={x0:Math.max(r.x,tx),y0:Math.max(top,ty),x1:Math.min(edge,tx+tileW),y1:Math.min(layer.bottom,ty+tileH),
+        kind:'album',id:a.id,paintX:tx,paintY:ty,albumIndex:i};
       if(hv(box.x0,box.y0,box.x1,box.y1))ssFillContinuousRect(layer.gr,tx-6,ty,tileW+12,tileH+10,8,8,COL.rowHover);
       drawRounded(layer.gr,tx,ty,tileW,6,a.handle,a.album);
       ssDrawAlbumLabels(layer.gr,a.album,ssArtistName(a.artist),tx,ty+tileW,tileW,s);
       HB_CARD.push(box);
     }
+    if(moving&&(leftFade||rightFade))ssResizeEdgeFade(layer.gr,r.x,top,r.w,layer.bottom-top,leftFade,rightFade);
   }finally{layer.finish();}
 }

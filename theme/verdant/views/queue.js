@@ -49,13 +49,11 @@ function ssDrawQueueTrackLabels(gr,title,artist,x,y,w,h,metrics,next){
   }
   if(artist)ssDrawFixedLabel(gr,artist,FONT.rowArtist,COL.text2,x+inset,top,w-inset,metrics.detail);
 }
-function ssDrawQueueAction(gr,box,icon,label){
+function ssDrawQueueAction(gr,box){
   var w=box.x1-box.x0,h=box.y1-box.y0;
   var hot=!ssQuietRows&&hv(box.x0,box.y0,box.x1,box.y1);
-  var color=hot?(icon==='close'?COL.dangerHover:COL.text):COL.text2;
-  ssFillContinuousRect(gr,box.x0+1,box.y0+1,w-2,h-2,6,6,hot?COL.buttonHover:COL.button);
-  if(label)tC(gr,label,FONT.pl,color,box.x0,box.y0,w,h);
-  else drawIcon(gr,icon,color,box.x0,box.y0,w,h,Math.round(h*.64));
+  if(hot)ssFillContinuousRect(gr,box.x0+1,box.y0+1,w-2,h-2,6,6,COL.buttonHover);
+  drawIcon(gr,'more',hot?COL.text:COL.text2,box.x0,box.y0,w,h,Math.round(h*.64));
 }
 // hover cue + click target for one queue row; rows are rh apart so the boxes tile exactly
 function qRow(gr,r,x,qy,rh){

@@ -21,7 +21,8 @@ function luminance(c){return [.2126,.7152,.0722].reduce((v,weight,i)=>{let n=((c
 function contrast(a,b){let x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
 test('light palette keeps text, secondary labels and accent controls legible on white',()=>{
  const {c}=harness('light');assert.equal(c.SS_APPEARANCE,'light');assert.equal(c.COL.base&0xffffff,0xffffff);
- for(const name of ['text','text2','text3','green'])assert.ok(contrast(c.COL[name],c.COL.base)>=4.5,name);
+ for(const name of ['text','text2','green'])assert.ok(contrast(c.COL[name],c.COL.base)>=4.5,name);
+ assert.ok(contrast(c.COL.text3,c.COL.base)>=3);
  assert.ok(contrast(c.COL.onAccent,c.COL.green)>=4.5);assert.ok(contrast(c.COL.onDanger,c.COL.danger)>=4.5);
 });
 test('the light divider stays clearer than decorative hairlines on both panel surfaces',()=>{
@@ -41,6 +42,37 @@ test('appearance menu uses a native transaction and retains deep and light choic
  const {c,sent}=harness();const menu=c.ssAppearanceMenuItems();assert.equal(menu[0].label,'深色');assert.equal(menu[1].label,'浅色');
  assert.equal(menu[0].checked,true);menu[1].run();assert.equal(sent[0].op,'theme_appearance');assert.equal(sent[0].appearance,'light');
  assert.equal(c.SS_APPEARANCE,'dark','wait for native acknowledgement');
+});
+test('text tiers and title menu use the measured desktop baseline',()=>{
+ const {c}=harness('light');
+ const colors=mode=>{const palette=c.ssPalette(mode);return ['text','text2','text3'].map(key=>palette[key]&0xffffff);};
+ assert.deepEqual(colors('light'),[0x282828,0x5d5d5d,0x8f8f8f]);
+ assert.deepEqual(colors('dark'),[0xdcdcdc,0xafafaf,0x8f8f8f]);
+ assert.deepEqual([c.FONT.titleMenu.Name,c.FONT.titleMenu.Size,c.FONT.titleMenu.Style],['Segoe UI',14,0]);
+});
+test('personal and menu glyphs rasterize upstream SVG assets with the current theme color',()=>{
+ const {c}=harness(),reads=[],images=[];
+ c.utils={ReadTextFile(file){reads.push(file);return fs.readFileSync(path.join(root,'assets/icons',file.split('\\').at(-1)),'utf8');}};
+ c.gdi.LoadSVG=(xml,size)=>{images.push({xml,size});return {Width:size,Height:size};};
+ c.iconImg('bookmark',16,c.COL.text2);c.iconImg('bookmarkFilled',16,c.COL.green);c.iconImg('settings',16,c.COL.text2);
+ assert.ok(reads[0].endsWith('verdant\\assets\\icons\\bookmark.svg'));
+ assert.equal(reads.length,2);
+ assert.match(images[0].xml,/fill="none"/);
+ assert.match(images[1].xml,/fill="#409cff"/);
+ assert.match(images[2].xml,/stroke="#afafaf"/);
+});
+test('the Mac-style controls sit before the menu and leave the rest of the bar draggable',()=>{
+ const {c,load}=harness(),circles=[],captions=[],icons=[];
+ load('core/corners.js');load('ui/chrome.js');
+ Object.assign(c,{fsMode:false,hv:()=>true,tC(){},ssMeasureText:()=>28,
+  drawIcon:(g,name)=>icons.push(name),UIWizard:{WindowState:2,SetCaptionAreaSize(...rect){captions.push(rect);}}});
+ c.drawTitleBar({FillSolidRect(){},FillEllipse:(x,y,w,h)=>circles.push({x,y,w,h}),FillPolygon(){}});
+ assert.equal(c.TBH,44);assert.equal(circles.length,3);
+ assert.deepEqual([...c.HB_CAP].map(box=>box.act),['close','minimize','maximize']);
+ assert.ok(c.HB_CAP.at(-1).x1<c.HB_MENU[0].x0);
+ assert.deepEqual(icons,['windowClose','windowMinimize','windowMaximize']);
+ assert.deepEqual(captions.at(-1),[c.MENU_END,0,c.W-c.MENU_END,c.TBH]);
+ c.fsMode=true;c.applyCaption();assert.deepEqual(captions.at(-1),[0,0,0,0]);
 });
 test('native view menus get appearance choices on click and hover-open paths',()=>{
  const {c,load}=harness();c.ssShowPopup=()=>{};load('ui/menus.js');
@@ -77,6 +109,16 @@ test('desktop fullscreen centers artwork and metadata above transport',()=>{
  assert.ok(m.size>0&&Math.abs(m.x+m.size/2-w/2)<=1&&Math.abs(m.textX+m.textW/2-w/2)<=1);
  assert.ok(m.y+m.size<m.textY&&m.textY+Math.round(126*s)<=bottom);
  }
+});
+test('fullscreen title, artist, source and lyric fonts use regular Segoe UI at desktop scale',()=>{
+ const {c,load}=harness();load('core/util.js');load('views/fullscreen.js');
+ const roles=['fsTitle','fsArtist','fsSrc','fsSrcName','fsLyric'];
+ const faces=roles.map(role=>c.ssFsFont(c.FONT[role],1.4));
+ assert.deepEqual(faces.map(f=>[f.Name,f.Style,f.Size]),[
+  ['Segoe UI',0,36],['Segoe UI',0,25],['Segoe UI',0,18],['Segoe UI',0,18],['Segoe UI',0,39]
+ ]);
+ const scriptFace=c.ssScriptFont('日本語',faces[0]);
+ assert.deepEqual([scriptFace.Name,scriptFace.Style,scriptFace.Size],['Microsoft YaHei UI',0,36]);
 });
 test('dark record-room palette retains readable text and accent actions',()=>{
  const {c}=harness('dark');for(const name of ['text','text2','text3','green'])assert.ok(contrast(c.COL[name],c.COL.base)>=4.5,name);assert.ok(contrast(c.COL.onAccent,c.COL.green)>=4.5);

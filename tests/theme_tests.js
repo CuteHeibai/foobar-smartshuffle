@@ -46,6 +46,8 @@ test('apply waits for final matching preview token and exact draft', () => {
   const h = harness(); h.c.ssOpen(); h.ack({ ui_open: 1, preview_pending: true, preview: { token: '', point: { x: 0, y: 0 } } });
   assert.equal(h.c.ssApply(), false);
   h.ack({ ui_open: 1, preview_pending: false, preview: { token: 'exact-8', point: { x: 0, y: 0 } } });
+  h.c.ssDragging=true;assert.equal(h.c.ssApply(),false,'a preview arriving during a drag must wait for release');
+  h.c.ssDragging=false;
   assert.equal(h.c.ssApply(), true); assert.equal(h.writes.at(-1).op, 'apply'); assert.equal(h.writes.at(-1).token, 'exact-8');
   assert.equal(h.c.ssModal, true); h.ack({ ui_open: 1 }); assert.equal(h.c.ssModal, false);
 });
@@ -95,9 +97,11 @@ test('output device parse rejects malformed rows and never changes selected devi
 });
 test('named ESLyric child follows lyrics tab bounds and hides for preference modal', () => {
   const c = harness().c, shows = [], moves = [];
-  c.window.GetPanel = name => { assert.equal(name, 'ESLyric'); return { Show: b => shows.push(b), Move: (...a) => moves.push(a) }; };
+  let lookups=0;
+  c.window.GetPanel = name => { lookups++; assert.equal(name, 'ESLyric'); return { Show: b => shows.push(b), Move: (...a) => moves.push(a) }; };
   c.R = { queue: { x: 650, y: 50, w: 250, h: 450 } }; c.rightTab = 'lyrics';
   vm.runInContext(fs.readFileSync(path.join(root, 'views/preference.js'), 'utf8'), c);
+  c.ssHideLyrics();assert.equal(lookups,0,'early resize should wait for the first paint to look up the child');
   assert.equal(typeof c.ssSyncLyricPanel, 'function'); c.ssSyncLyricPanel();
   assert.equal(shows.at(-1), true); assert.deepEqual(moves.at(-1).slice(0, 4), [660,108,230,382]);
   c.ssModal = true; c.ssSyncLyricPanel(); assert.equal(shows.at(-1), false);
@@ -159,12 +163,14 @@ test('local lyrics resolve artist-title in profile lyrics and retain time parsin
 test('modal geometry fits 900 by 600 at 125 and 150 percent with eight visible rows', () => {
   const c = harness().c;
   vm.runInContext(fs.readFileSync(path.join(root, 'views/preference.js'), 'utf8'), c);
+  c.ssState={preview:{tracks:Array.from({length:8},()=>({title:'Song'}))}};
   for(const scale of [1.25,1.5]) {
     c.UISCALE = scale; const m = c.ssGeometry(900,600);
     assert.ok(m.x>=0&&m.y>=0&&m.x+m.w<=900&&m.y+m.h<=600);
     assert.ok(m.grid.x>=m.rightX+m.labelW);
     assert.ok(m.grid.y+m.grid.size+26<m.y+m.h-118);
     assert.ok(Math.floor((m.areaH-30)/8)>=30);
+    assert.ok(m.withPreview);
   }
 });
 test('startup sends one theme readiness handshake with native panel window', () => {
@@ -188,5 +194,78 @@ test('native lyrics rect/show updates coalesce while a previous operation awaits
   c.ssSend('state'); c.ssSyncLyricPanel(); c.ssModal=true; c.ssSyncLyricPanel();
   assert.equal(h.writes.length,1); h.ack(); assert.equal(h.writes.length,2);
   assert.equal(h.writes[1].op,'lyrics_panel'); assert.equal(h.writes[1].visible,false);
+});
+function fullscreenLyricsHarness() {
+  const h = harness(), c = h.c, text = [], local = [];
+  Object.assign(c, {
+    W:800, H:520, fsMode:true, fsView:'lyrics', rightTab:'queue',
+    R:{queue:{x:800,y:40,w:0,h:500}}, NP:{Path:'T:\\fixture.wav'},
+    TF:{title:{EvalWithMetadb:()=> 'fixture'},artist:{EvalWithMetadb:()=> 'artist'}},
+    gdi:{Font:(Name,Size,Style)=>({Name,Size,Style})},
+  });
+  for(const file of ['core/tokens.js','core/util.js','data/lyrics.js','views/fullscreen.js','views/preference.js'])
+    vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),c);
+  c.fsMiniNP=()=>{};
+  c.tC=(gr,value)=>text.push(value);
+  c.drawRollingLyrics=()=>local.push(c.lyrics.lines[0].text);
+  return { ...h, text, local, draw:()=>c.drawFsLyrics({},c.ssFsStageBottom(c.W,c.H)) };
+}
+test('fullscreen mounts and repositions the named ESLyric child without an open lyrics drawer', () => {
+  const {c,draw,text} = fullscreenLyricsHarness();
+  const shows = [], moves = [];
+  c.window.GetPanel=()=>({Show:visible=>shows.push(visible),Move:(...bounds)=>moves.push(bounds)});
+  c.ssSyncLyricPanel(); draw(); c.ssSyncLyricPanel();
+  assert.deepEqual(shows,[true]);
+  assert.equal(moves.length,1);
+  const [x,y,w,h]=moves[0];
+  assert.ok(x>0&&x+w<c.W&&y>142&&y+h<=391,'the child must clear the mini cover and transport');
+  assert.deepEqual(text,[]);
+  c.W=1920; c.H=1080; c.ssSyncLyricPanel();
+  assert.equal(moves.length,2);
+  assert.ok(moves[1][2]>w&&moves[1][3]>h);
+  assert.deepEqual(shows,[true]);
+});
+test('fullscreen hides the named ESLyric child for blocking overlays, other views and stopped playback', () => {
+  const {c} = fullscreenLyricsHarness();
+  const shows = [];
+  c.window.GetPanel=()=>({Show:visible=>shows.push(visible),Move(){}});
+  c.ssSyncLyricPanel();
+  for(const [flag,blocked] of [['confirmDel',{}],['fsView','viz'],['NP',null]]){
+    const previous=c[flag];
+    c[flag]=blocked; c.ssSyncLyricPanel(); assert.equal(shows.at(-1),false,flag);
+    c[flag]=previous; c.ssSyncLyricPanel(); assert.equal(shows.at(-1),true,flag);
+  }
+  c.fsMode=false;
+  c.ssSyncLyricPanel(); assert.equal(shows.at(-1),false);
+});
+test('fullscreen keeps the same sized live native lyrics under the playback menu with an exclusion', () => {
+  const {c,writes,ack,draw,text} = fullscreenLyricsHarness();
+  c.window.ID=555;
+  c.ssSyncLyricPanel();
+  assert.equal(writes[0].op,'lyrics_panel'); assert.equal(writes[0].visible,true);
+  assert.ok(writes[0].w>500&&writes[0].y>142&&writes[0].y+writes[0].h<=391);
+  assert.ok(writes[0].font_size>=24);
+  draw(); assert.deepEqual(text,[]);
+  ack({lyrics_panel:{ready:true,visible:true,region_clip:true,error:''}});
+  c.ssSyncLyricPanel(); draw(); assert.deepEqual(text,[]);
+  c.ssPopup={clickSubmenus:true,levels:[{rect:{x:510,y:235,w:220,h:155}}]}; c.ssSyncLyricPanel(); draw();
+  const popup=writes.at(-1);assert.equal(popup.visible,true);assert.deepEqual(text,[]);
+  assert.deepEqual([popup.x,popup.y,popup.w,popup.h,popup.font_size],
+    [writes[0].x,writes[0].y,writes[0].w,writes[0].h,writes[0].font_size]);
+  assert.ok(popup.exclude.some(r=>r.x<=510&&r.y<=235&&r.x+r.w>=730&&r.y+r.h>=390));
+  ack({lyrics_panel:{ready:true,visible:true,region_clip:true,error:''}});
+  c.ssPopup=null; c.ssSyncLyricPanel(); draw();
+  assert.equal(writes.at(-1).visible,true);assert.deepEqual(writes.at(-1).exclude,[]);assert.deepEqual(text,[]);
+});
+test('fullscreen still draws local timed lyrics if ESLyric is unavailable', () => {
+  const {c,ack,draw,text,local} = fullscreenLyricsHarness();
+  c.window.ID=555; c.ssSyncLyricPanel();
+  ack({lyrics_panel:{ready:false,visible:false,error:'ESLyric is unavailable'}});
+  c.ssSyncLyricPanel();
+  c.utils.ReadUTF8=filename=>filename==='T:\\fixture.lrc'?'[00:02.00]Fixture lyric':'';
+  draw(); assert.deepEqual(local,['Fixture lyric']); assert.deepEqual(text,[]);
+  c.NP={Path:'T:\\without-lyrics.wav'};
+  draw(); assert.deepEqual(text,['未找到歌词']);
+  c.NP=null; draw(); assert.deepEqual(text,['未找到歌词']);
 });
 console.log(`${passed} theme contract tests passed`);

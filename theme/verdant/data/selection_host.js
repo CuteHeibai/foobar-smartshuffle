@@ -58,18 +58,14 @@ function ssQueueRowSelected(row){
 }
 var ssQueueActionDown=null;
 function ssQueueActionAt(x,y){
-  var i,row;
-  for(i=0;i<HB_Q.length;i++){row=HB_Q[i];
-    if(!inRect(x,y,row))continue;
-    if(row.remove&&inRect(x,y,row.remove))return {row:row,act:'remove'};
-    if(row.more&&inRect(x,y,row.more))return {row:row,act:'more'};
-  }
-  return null;
+  return HB_Q.find(function(row){return row.more&&inRect(x,y,row)&&inRect(x,y,row.more);})||null;
 }
-function ssQueueActionRun(hit){
-  if(hit.act==='remove'){if(ssRemoveQueueRow(hit.row))repaintQueue();return;}
-  ssOpenNativeMenu('context',{track_id:hit.row.track_id},hit.row.more.x0,hit.row.more.y1);
-  ssSetContextTargets([hit.row]);
+function ssOpenQueueMenu(row,x,y){
+  var manual=row.scope==='priority',extra=[];
+  if(manual)extra.push({label:'从待播队列移除',run:function(){if(ssRemoveQueueRow(row))repaintQueue();}});
+  if(row.track_id)ssOpenNativeMenu('context',{track_id:row.track_id},x,y,extra,manual);
+  else if(manual)ssShowPopup(extra,x,y,'',false,'context');
+  ssSetContextTargets([row]);
 }
 function ssQueueSelectionContext(row){
   var scope=row.scope||'native',rows=[],items=[],geo=[],i,list;

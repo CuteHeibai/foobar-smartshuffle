@@ -12,9 +12,9 @@ function drawSongs(gr,r){
   }
   var cov=libChoice(), g=songsGroup;
   // header: gradient wash + mosaic cover + title/meta, mirroring the playlist header
-  gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,blend(artHue(cov.single,'__lib__'),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
+  gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,ssLibraryHeaderColor(artHue(cov.single,'__lib__')),COL.base,1.0);
   var s=ssDensity,compact=r.w<940*s,flat=g==='none',showAlbum=flat&&!compact,showArtist=g==='album';
-  var list=ssLibraryTrackLayout(r,s,undefined,showAlbum||showArtist),rx=list.right,lx=list.x,ay=r.y+16*s,art=Math.min(M.artSz,Math.round(168*s));
+  var list=ssLibraryTrackLayout(r,s),rx=list.right,lx=list.x,ay=r.y+16*s,art=Math.min(M.artSz,Math.round(168*s));
   drawLibCover(gr,lx,ay,art,8);
   var button=Math.max(32,Math.round(38*s)),barY=ay+art+Math.round(6*s),playSpace=0;
   if(songsTracks.length){
@@ -29,7 +29,7 @@ function drawSongs(gr,r){
   var text=ssHeaderBoxes(art,false,s);
   tL(gr,'音乐库',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
   tL(gr,'全部歌曲',FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
-  tL(gr,fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):''),FONT.meta,COL.text2,tx,ay+text.metaY,tw,text.metaH);
+  tL(gr,fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):''),FONT.meta,SS_APPEARANCE==='dark'?COL.text:COL.text2,tx,ay+text.metaY,tw,text.metaH);
   HB_RGNORM=drawNormalizePill(gr,clX,barY,nzW,button);
   HB_SG=drawDropPill(gr,gpX,barY,gpW,button,'分组：'+labelOf(SONGS_GROUPS,songsGroup,'不分组'),sgMenuOpen);
 

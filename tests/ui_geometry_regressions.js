@@ -4,11 +4,11 @@ const root=path.join(__dirname,'../theme/verdant');let count=0,failed=0;
 function test(name,fn){try{fn();console.log('PASS '+name);count++;}catch(e){failed++;console.error('FAIL '+name+': '+e.message);}}
 function context(){
  const timers=new Map();let serial=0,now=0;
- const c={console,Math,JSON,Number,isFinite,Date:{now:()=>now},UISCALE:2,SS_BASE_UI_SCALE:2,ssDensity:1,TBH:32,window:{Width:1180,Height:780,GetProperty:(k,d)=>d,SetProperty(){},SetTimeout(fn){timers.set(++serial,fn);return serial;},ClearTimeout(id){timers.delete(id);},SetInterval:()=>++serial,ClearInterval(){},Repaint(){},RepaintRect(){}},
+ const c={console,Math,JSON,Number,isFinite,Date:{now:()=>now},UISCALE:2,SS_BASE_UI_SCALE:2,ssDensity:1,H:780,TBH:32,window:{Width:1180,Height:780,GetProperty:(k,d)=>d,SetProperty(){},SetTimeout(fn){timers.set(++serial,fn);return serial;},ClearTimeout(id){timers.delete(id);},SetInterval:()=>++serial,ClearInterval(){},Repaint(){},RepaintRect(){}},
  fb:{ProfilePath:'P:\\',IsPlaying:false,IsPaused:false,PlaybackLength:0,PlaybackTime:0,Volume:-10},plman:{ActivePlaylist:0},utils:{},
  gdi:{Font:(Name,Size,Style)=>({Name,Size,Style}),CreateImage:(Width,Height)=>({Width,Height,GetGraphics:()=>graphics(),ReleaseGraphics(){}})},
  repaintAll(){},applyKeyMode(){},repaintBar(){},repaintMain(){},repaintQueue(){},repaintNav(){},drawIcon(){},drawCover(){},
- DLGC_WANTCHARS:128,ssModal:false,ssPopup:null,ssResizeMove:()=>false,ssPopupMove:()=>false,ssPointerMove:()=>false,ssPopupWheel:()=>false,
+ DLGC_WANTCHARS:128,fsMode:false,ssModal:false,ssPopup:null,ssResizeMove:()=>false,ssPopupMove:()=>false,ssPointerMove:()=>false,ssPopupWheel:()=>false,
  ssSend(){},ssOutputError:'',ssError:'',vol2pos:()=>.5,ssPlaylistInfo:()=>null};vm.createContext(c);
  function load(file){vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),c);}
  load('core/tokens.js');load('core/util.js');load('core/corners.js');load('ui/motion.js');load('ui/hover.js');load('ui/viewport.js');load('ui/selection.js');load('data/selection_host.js');
@@ -16,6 +16,21 @@ function context(){
  return {c,load,app,advance(ms){now+=ms;},tick(ms){now+=ms;c.scrollTick();},flush(){let jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
 }
 function graphics(){return {SetTextRenderingHint(){},SetSmoothingMode(){},SetInterpolationMode(){},CalcTextHeight:(s,f)=>f.Size*1.3,CalcTextWidth:(s,f)=>Array.from(String(s)).length*f.Size*.9,MeasureString(s,f){return {Width:this.CalcTextWidth(s,f)};},DrawString(){},DrawImage(){},FillSolidRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},FillEllipse(){},DrawEllipse(){},DrawLine(){},DrawRect(){}};}
+test('a cramped module label keeps a readable font and fades its original text at the edge',()=>{
+ const {c}=context(),called=[],raster=graphics(),g=graphics(),text='A long title 全部歌曲 that exceeds the pane';
+ c.UISCALE=1;c.FONT=c.ssCreateFonts();
+ assert.ok(c.FONT.plSub.Size>=12&&c.FONT.qArtist.Size>=12);
+ assert.equal(c.ssFitFont(g,c.FONT.rowTitle,8).Size,12);
+ c.ssPaneTextFade=true;
+ raster.DrawString=(label,font,col,x,y,w,h,flags)=>called.push({label,font,flags});
+ c.gdi.CreateImage=(w,h)=>({GetGraphics:()=>raster,ReleaseGraphics(){}});
+ const copies=[];g.DrawImage=(...a)=>copies.push(a);
+ c.tL(g,text,c.FONT.rowTitle,c.COL.text,15,20,118,21);
+ assert.ok(called.length>0);
+ assert.ok(called.every(entry=>!entry.label.includes('…')&&(entry.flags>>>20&15)===0&&entry.font.Size>=12));
+ assert.ok(copies.length>3&&copies.at(-1)[10]<copies.at(-2)[10]);
+ assert.ok(copies.every(a=>a[3]===a[7]&&a[4]===a[8]&&a[1]+a[3]<=133),'every piece is a 1:1 source copy inside the label');
+});
 test('large fonts stay inside each supplied text box at 200 percent scale',()=>{
  const {c}=context(),draws=[],g=graphics();g.DrawString=(s,f,col,x,y,w,h)=>draws.push({s,f,x,y,w,h});
  c.tL(g,'大标题',c.FONT.title,1,10,10,180,26);c.tL(g,'副标题',c.FONT.meta,1,10,40,180,18);
@@ -49,28 +64,41 @@ test('queue keeps partial rows at both viewport edges during fractional scrollin
 test('queue actions outside a clipped row ignore the pointer',()=>{
  const {c}=context();
  const hidden={x0:170,y0:204,x1:195,y1:224};
- c.HB_Q=[{x0:18,y0:224,x1:220,y1:249,remove:hidden}];
+ c.HB_Q=[{x0:18,y0:224,x1:220,y1:249,more:hidden}];
  assert.equal(c.ssQueueActionAt(180,215),null);
 });
-test('queue rows show visible manage actions and labels stop before them',()=>{
+test('queue rows share one visible action column and give manual titles the same width',()=>{
  const {c,load}=context();load('views/queue.js');load('views/preference.js');c.R={};c.UISCALE=1;c.pbShuffle=true;
  c.ssState={remaining:[{id:'a',title:'A'},{id:'b',title:'B'}],queue:[{id:'m',title:'Manual'}],remaining_count:2};c.ssQueueScroll=c.ssQueueScrollT=0;c.HB_Q=[];
  c.drawSBV=()=>null;c.SB_QUEUE={};c.hv=()=>false;c.drag=null;c.NP={};const words=[],icons=[],marks=[];
  c.tL=c.tR=c.tC=(g,s)=>words.push(s);c.drawIcon=(g,name,col,x,y,w,h)=>icons.push({name,x,y,w,h});c.ssDrawQueueTrackLabels=(g,title,artist,x,y,w,h,metrics,next)=>marks.push({title,x,w,next});c.ssDrawCachedRow=(g,k,x,y,w,h,draw)=>draw(g);
  c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:600},18,150,580);
  assert.equal(c.HB_Q.length,3);
- assert.ok(c.HB_Q[0].remove.x1-c.HB_Q[0].remove.x0>=34&&c.HB_Q[0].more.x1-c.HB_Q[0].more.x0>=34);
+ assert.ok(c.HB_Q[0].more.x1-c.HB_Q[0].more.x0>=34);
  for(const row of c.HB_Q){assert.ok(row.more,'every queue row exposes a more button');assert.ok(icons.some(i=>i.name==='more'&&i.x>=row.more.x0&&i.x+i.w<=row.more.x1+1&&i.y>=row.more.y0-1));}
- assert.ok(c.HB_Q[0].remove,'manually queued rows can be removed');assert.ok(icons.some(i=>i.name==='close'));
- assert.ok(!c.HB_Q[1].remove&&!c.HB_Q[2].remove,'the shuffle round has no removal API, so no fake button');
- for(const m of marks){const row=c.HB_Q.find(r=>m.title.endsWith(r.track_id==='m'?'Manual':r.track_id.toUpperCase()));const left=row.remove?row.remove.x0:row.more.x0;assert.ok(m.x+m.w<=left,'labels end before the action buttons');}
+ assert.ok(c.HB_Q.every(row=>!row.remove));
+ assert.ok(icons.every(icon=>icon.name!=='close'));
+ for(const m of marks){const row=c.HB_Q.find(r=>m.title.endsWith(r.track_id==='m'?'Manual':r.track_id.toUpperCase()));assert.ok(m.x+m.w<=row.more.x0,'labels end before the action button');}
  assert.ok(words.includes('长按拖动排序'),'the header explains how to start a reorder');
  assert.ok(words.includes('手动待播')&&words.includes('智能随机 · 本轮剩余'),'each source has a visible section heading');
  assert.ok(words.includes('1 首')&&words.includes('2 首')&&words.includes('3 首'),'section counts are distinct from the total');
- assert.equal(marks[0].x,marks[1].x);assert.equal(marks[0].next,true);
+ assert.equal(marks[0].x,marks[1].x);assert.equal(marks[0].w,marks[1].w);assert.equal(marks[0].next,true);
  c.HB_Q=[];words.length=0;c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:420,h:600},18,150,580);
- assert.ok(words.includes('移除'),'large drawers label the remove action');
- assert.ok(c.HB_Q[0].remove.x1<=c.HB_Q[0].more.x0);
+ assert.ok(!words.includes('移除'),'wide drawers also use one button per row');
+});
+test('the queue row menu offers safe removal only for the matching manual item',()=>{
+ const {c,load}=context();load('ui/menus.js');
+ c.W=1180;c.ssPoll=()=>{};c.ssSend=()=> 'request';
+ const removed=[];c.ssRemoveQueueRow=row=>{removed.push(row.track_id);return true;};c.repaintQueue=()=>{};
+ const manual={scope:'priority',track_id:'manual',queueIndex:1};
+ c.ssOpenQueueMenu(manual,22,80);
+ const remove=c.ssPopup.levels[0].items.find(item=>item.label==='从待播队列移除');
+ assert.ok(remove,'removal is available immediately from the only row button');
+ c.ssAcceptMenu({id:'request'}, {response:{ok:false,message:'无法读取曲目菜单'}});
+ c.ssPopupChoose(c.ssPopup.levels[0].items.find(item=>item.label===remove.label));
+ assert.deepEqual(removed,['manual']);
+ c.ssOpenQueueMenu({...manual,scope:'remaining'},22,80);
+ assert.ok(!c.ssPopup.levels[0].items.some(item=>item.label===remove.label));
 });
 test('queue remove button drops the matching manual queue entry',()=>{
  const {c,load}=context();load('views/queue.js');load('data/playback.js');const removed=[];
@@ -135,16 +163,21 @@ test('idle lyrics has an easy to find play action only when a source is ready',(
  c.ssHasTransportSource=()=>false;c.ssDrawQueueContent(graphics());
  assert.equal(c.SS_LYRIC_PLAY,null);
 });
-test('random preferences replace blank preview rows with guidance and three presets',()=>{
+test('random preferences center the controls in the compact state and expand for real tracks',()=>{
  const {c,load}=context();load('views/preference.js');c.W=1440;c.H=900;c.ssModal=true;c.ssDraft={x:0,y:0};
- c.ssApplyId=c.ssMessage='';c.ssState={source:'',preview:null};c.ssReady=()=>false;c.hv=()=>false;c.strokeRound=()=>{};c.ssGradientGrid=()=>({});
+ c.ssDragging=false;c.ssApplyId=c.ssMessage='';c.ssState={source:'',preview:null};c.ssReady=()=>false;c.hv=()=>false;c.strokeRound=()=>{};c.ssGradientGrid=()=>({});
  const labels=[];c.tL=c.tC=(g,label)=>labels.push(label);
  c.drawPreference(graphics(),true);
+ const compact=c.ssGeometry(c.W,c.H);
+ assert.ok(compact.w<=560&&Math.abs(compact.grid.x+compact.grid.size/2-c.W/2)<=1);
  assert.ok(labels.includes('播放歌单后即可生成预览'));
  assert.ok(!labels.includes('—')&&!labels.includes('正在等待预览…'));
  assert.deepEqual(Array.from(c.SS_HB,b=>b.act),['balanced','familiar','explore','cancel','apply']);
  assert.equal(c.SS_HB.find(b=>b.act==='apply').enabled,false);
- labels.length=0;c.ssState.preview={tracks:[{title:'one'},{title:'two'}]};c.drawPreference(graphics(),true);
+ labels.length=0;c.ssState.preview={tracks:[{title:'one'},{title:'two'}]};
+ c.ssDragging=true;assert.equal(c.ssGeometry(c.W,c.H).w,compact.w,'incoming results must not move the grid under the pointer');
+ c.ssDragging=false;c.drawPreference(graphics(),true);
+ assert.ok(c.ssGeometry(c.W,c.H).w>compact.w);
  assert.ok(labels.includes('播放顺序预览 · 前 2 首')&&labels.includes('two'));
  assert.ok(!labels.includes('—'));
 });
@@ -154,6 +187,10 @@ test('all-songs header cover is never erased by a row crop mask and has no scan 
  c.songsTracks=Array.from({length:214},()=>({}));c.songsRows=[{k:'t',y:0,h:70,n:1,ti:0,t:{title:'Title',artist:'Artist',album:'Album',len:'1:00'}}];c.rgStat={scanned:1,total:214,missing:[1]};c.rgScanFailed=false;c.rgModeOn=()=>false;
  c.drawNormalizePill=c.drawDropPill=()=>null;c.SONGS_GROUPS=[['不分组','none']];c.drawScrollbar=c.drawGroupMenu=()=>{};c.sgMenuOpen=false;c.hv=()=>false;c.drag=null;
  const g=graphics(),fills=[],words=[],labels=[];g.FillGradRect=()=>{};g.FillSolidRect=(x,y,w,h)=>fills.push({x,y,w,h});c.tL=c.tR=c.tC=(g,s,f,col,x,y,w,h)=>{words.push(s);labels.push({s,x,y,w,h});};let cover;c.drawLibCover=(g,x,y,size)=>cover={x,y,size};
+ c.SS_APPEARANCE='dark';c.COL=c.ssPalette('dark');c.artHue=()=>c.RGB(255,255,255);
+ let header;g.FillGradRect=(x,y,w,h,angle,colour)=>{if(header===undefined)header=colour;};
+ const draw=c.drawSongs;
+ c.drawSongs=(gr,r)=>{draw(gr,r);assert.ok((header&255)<62,'even white artwork leaves a dark header');};
  c.drawSongs(g,{x:200,y:40,w:1200,h:800});assert.ok(cover);assert.ok(!words.some(s=>/of 214|tracks scanned/.test(s)));
  assert.ok(!fills.some(r=>r.x<=cover.x&&r.y<cover.y+cover.size&&r.y+r.h>cover.y),'row masking must not paint over the header cover');
  labels.length=0;c.M.artSz=72;c.SHEAD=236;c.drawSongs(g,{x:200,y:40,w:600,h:800});
@@ -205,19 +242,24 @@ test('Ctrl left-click toggles songs; right-click keeps its menu and holding left
  c.on_mouse_rbtn_up(20,20);assert.equal(menus,1);
  c.utils.IsKeyPressed=k=>k===1;c.ssSelectionDown(20,20);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'pending');h.advance(170);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'reorder');assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0]);
 });
-test('Chinese, kana and Latin share one weight and ClearType, with Inter kept for Latin runs',()=>{
- const {c}=context(),g=graphics(),draws=[],hints=[];g.SetTextRenderingHint=v=>hints.push(v);g.DrawString=(s,f)=>draws.push({s,f});
- c.tL(g,'歌曲列表',c.FONT.title,1,0,0,400,40);c.tL(g,'夜に駆ける',c.FONT.title,1,0,50,400,40);
- c.tL(g,'English song',c.FONT.rowTitle,1,0,100,400,32);
- assert.equal(draws[0].f.Name,'Microsoft YaHei UI');assert.equal(draws[0].f.Style,1,'bold headings keep a bold CJK face');
- assert.equal(draws[1].f.Name,draws[0].f.Name);assert.equal(draws[1].f.Style,draws[0].f.Style);assert.equal(draws[1].f.Size,draws[0].f.Size);
- assert.equal(draws[2].f.Name,'Inter');
+test('Chinese, kana and Latin titles draw with regular faces and retain the heading size',()=>{
+ const {c}=context(),g=graphics(),draws=[];g.DrawString=(s,f)=>draws.push({s,f});
+ c.tL(g,'歌曲列表',c.FONT.title,1,0,0,400,80);c.tL(g,'夜に駆ける',c.FONT.title,1,0,100,400,80);
+ c.tL(g,'Library',c.FONT.title,1,0,200,400,80);c.tL(g,'English song',c.FONT.rowTitle,1,0,300,400,40);
+ assert.deepEqual(draws.map(({f})=>[f.Name,f.Style,f.Size]),[
+  ['Microsoft YaHei UI',0,56],['Microsoft YaHei UI',0,56],['Inter',0,56],['Inter',0,28]
+ ]);
  const mixed=c.ssTextRuns('夜に駆ける / Racing into the Night',c.FONT.rowTitle);
  assert.equal(mixed.length,2);
  assert.ok(/^夜/.test(mixed[0].text)&&mixed[0].text.endsWith(' '),'kana and the separator stay with the CJK face');
  assert.equal(mixed[1].text,'Racing into the Night');
  assert.deepEqual([...mixed.map(r=>r.font.Name)],['Microsoft YaHei UI','Inter']);assert.deepEqual([...mixed.map(r=>r.font.Style)],[0,0]);
- assert.deepEqual(hints,[5,5,5]);
+});
+test('navigation, menu and section labels use regular Inter faces',()=>{
+ const {c}=context(),g=graphics(),draws=[];g.DrawString=(s,f)=>draws.push([s,f.Name,f.Style]);
+ const labels={lib:'Library',pl:'Playlist',menuPrimary:'Play',head:'Track',tab:'Queue',sect:'Up Next',sect2:'Albums',card:'Album title',lyric:'Lyrics'};
+ for(const [role,label] of Object.entries(labels))c.tL(g,label,c.FONT[role],1,0,0,400,40);
+ assert.deepEqual(draws,Object.values(labels).map(label=>[label,'Inter',0]));
 });
 test('scene restore copies align source and destination to whole pixels',()=>{
  const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[{x0:10.2,y0:49.3,x1:480.8,y1:99.3}];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=40;c.my=70;let copies=[];const g=graphics();g.DrawImage=(im,...args)=>copies.push(args);c.ssPaintInteractions(g);assert.ok(copies.length);assert.ok(copies.every(args=>args.every(Number.isInteger)));
@@ -315,6 +357,38 @@ test('context submenus flip at desktop edges and keep keyboard selection visible
  c.ssPopupKey(38);c.ssDrawPopup(g);
  assert.equal(child.selected,34);assert.ok(c.SS_MENU_HB.some(h=>h.depth===1&&h.index===34));
  c.ssPopupKey(37);assert.equal(c.ssPopup.levels.length,1);c.ssPopupKey(27);assert.equal(c.ssPopup,null);
+});
+test('submenus align to the invoking row with compact spacing and a soft shadow protected at the edges',()=>{
+ const {c,load}=context();load('ui/menus.js');
+ Object.assign(c,{W:1360,H:720,UISCALE:1,mx:-1,my:-1});const g=graphics();
+ let paints=[],strokes=[];c.ssFillContinuousRect=(gr,x,y,w,h,rx,ry,colour)=>paints.push({x,y,w,h,rx,colour,alpha:colour>>>24});
+ c.ssStrokeContinuousRect=(gr,x,y,w,h,rx,ry,line,colour)=>strokes.push({x,colour});
+ for(const appearance of ['light','dark'])for(const x of [18,1348]){
+  c.COL=c.ssPalette(appearance);c.ssShowPopup([{label:'选项',children:[{label:'设置'},{label:'检查更新'}]}],x,180);
+  c.ssDrawPopup(g);const entry=c.SS_MENU_HB[0];
+  c.ssPopupClick(entry.x0+12,entry.y0+10);paints=[];c.ssDrawPopup(g);
+  const [parent,child]=c.ssPopup.levels,rect=child.rect;
+  assert.ok(paints.some(mark=>mark.x===rect.x&&mark.y===rect.y&&mark.colour===c.COL.popupAlt));
+  assert.ok(c.COL.submenuLine!==c.COL.line&&strokes.some(mark=>mark.x===rect.x+.5&&mark.colour===c.COL.submenuLine));
+  assert.equal(c.SS_MENU_HB.find(box=>box.depth===1).y0,entry.y0);
+  assert.ok(child.rowHeight<parent.rowHeight);
+  assert.ok(x>1000?rect.x+rect.w+8<=parent.rect.x:rect.x-8>=parent.rect.x+parent.rect.w);
+  const shadow=paints.filter(mark=>mark.x<rect.x&&mark.x+mark.w>rect.x+rect.w&&mark.alpha<255);
+  assert.ok(shadow.length>=6);
+  assert.ok(shadow.every(mark=>mark.x>=0&&mark.y>=c.TBH&&mark.x+mark.w<=c.W&&mark.y+mark.h<=c.H));
+  assert.ok(shadow[0].alpha<shadow.at(-1).alpha&&shadow.at(-1).alpha<30);
+  c.ssClosePopup();
+ }
+});
+test('the playback submenu shadow stays above the active footer controls',()=>{
+ const {c,load}=context();load('ui/menus.js');load('views/fullscreen.js');
+ Object.assign(c,{W:2560,H:1440,UISCALE:1,mx:-1,my:-1,ssState:{enabled:true},ssOpen(){}});
+ const g=graphics(),anchor={x0:1850,x1:2060,y0:1295,y1:1355};
+ c.ssShowPlaybackModes(anchor.x0,anchor.y0,anchor);c.ssDrawPopup(g);
+ const plugins=c.SS_MENU_HB.find(box=>box.item.label==='插件');
+ c.ssPopupClick(plugins.x0+12,plugins.y0+10);c.ssDrawPopup(g);
+ const child=c.ssPopup.levels[1].rect;
+ assert.ok(child.y+child.h+10<=anchor.y0-8);
 });
 test('preference movement caches static controls instead of redrawing their text every frame',()=>{
  const {c}=context();c.W=1180;c.H=780;c.ssModal=true;c.ssDraft={x:0,y:0};c.ssState={preview:null};c.ssApplyId=c.ssMessage=c.ssError='';c.ssReady=()=>false;c.ssPreferenceLabel=()=> '均衡';c.ssGeometry=()=>({x:100,y:80,w:940,h:600,grid:{x:600,y:200,size:240}});c.ssDrawBase=()=>{};c.ssDrawGlassBall=()=>{};let controls=0;c.drawPreference=()=>controls++;const g=graphics();for(let i=0;i<40;i++)c.ssPaintModal(g);assert.equal(controls,1);

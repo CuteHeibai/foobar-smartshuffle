@@ -13,12 +13,29 @@ function ssEndScene(gr,g,regions){
   for(var i=0;i<regions.length;i++){var r=regions[i];if(r&&r.w>0&&r.h>0)gr.DrawImage(ssSceneImage,r.x,r.y,r.w,r.h,r.x,r.y,r.w,r.h);}
 }
 function ssDropPopupImage(){if(ssPopupImage&&ssPopupImageOwned){try{ssPopupImage.Dispose();}catch(e){}}ssPopupImage=null;ssPopupImageOwned=false;}
+function ssHasDesktopBackdrop(){return !fsMode&&ssSceneImage&&ssSceneW===W&&ssSceneH===H;}
+function ssDrawOverlayBackdrop(gr){
+  if(ssHasDesktopBackdrop()){gr.DrawImage(ssSceneImage,0,0,W,H,0,0,W,H);return;}
+  gr.SetSmoothingMode(2);gr.SetInterpolationMode(5);
+  if(fsMode)drawFullscreen(gr);else ssDrawBase(gr);
+}
 function ssPaintPopup(gr){
-  if(!ssPopupImage){
-    if(ssSceneImage&&ssSceneW===W&&ssSceneH===H){ssPopupImage=ssSceneImage;ssPopupImageOwned=false;}
-    else{ssPopupImage=gdi.CreateImage(Math.max(1,W),Math.max(1,H));ssPopupImageOwned=true;var background=ssPopupImage.GetGraphics();ssDrawBase(background);ssPopupImage.ReleaseGraphics(background);}
+  if(fsMode){
+    ssDrawOverlayBackdrop(gr);
+    ssDrawPopup(gr);
+    if(fsView==='lyrics')ssSyncLyricPanel();
+    return;
   }
-  gr.DrawImage(ssPopupImage,0,0,W,H,0,0,W,H);drawTitleBar(gr);ssDrawContextTargets(gr);ssDrawPopup(gr);
+  if(!ssPopupImage){
+    if(ssHasDesktopBackdrop()){ssPopupImage=ssSceneImage;ssPopupImageOwned=false;}
+    else{
+      ssPopupImage=gdi.CreateImage(Math.max(1,W),Math.max(1,H));ssPopupImageOwned=true;
+      var background=ssPopupImage.GetGraphics();ssDrawOverlayBackdrop(background);ssPopupImage.ReleaseGraphics(background);
+    }
+  }
+  gr.DrawImage(ssPopupImage,0,0,W,H,0,0,W,H);
+  drawTitleBar(gr);ssDrawContextTargets(gr);
+  ssDrawPopup(gr);
 }
 function ssDropModalImage(){if(ssModalImage){try{ssModalImage.Dispose();}catch(e){}}ssModalImage=null;if(ssPreferenceImage)try{ssPreferenceImage.Dispose();}catch(e){}ssPreferenceImage=null;ssPreferenceKey='';ssTrail=[];if(ssPreferenceFrame)window.ClearTimeout(ssPreferenceFrame);ssPreferenceFrame=0;ssPreferencePartial=false;}
 function ssRepaintPreference(){
@@ -26,7 +43,9 @@ function ssRepaintPreference(){
   ssPreferenceFrame=window.SetTimeout(function(){
     ssPreferenceFrame=0;ssPreferenceFrameAt=Date.now();ssPreferencePartial=true;
     if(ssModal&&typeof ssGeometry==='function'){
-      var r=ssGeometry(W,H);window.RepaintRect(r.x-2,r.y-2,r.w+4,r.h+4);
+      var r=ssGeometry(W,H);
+      if(typeof SS_GRID!=='undefined'&&SS_GRID&&SS_GRID.withPreview!==r.withPreview){repaintAll();return;}
+      window.RepaintRect(r.x-2,r.y-2,r.w+4,r.h+4);
     }else repaintAll();
   },Math.max(0,16-(Date.now()-ssPreferenceFrameAt)));
 }
@@ -50,13 +69,14 @@ function ssTrailSamples(now){
 function ssPreferenceCacheKey(){
   var hot=-1;if(typeof SS_HB!=='undefined')for(var i=0;i<SS_HB.length;i++){var b=SS_HB[i];if(mx>=b.x0&&mx<=b.x1&&my>=b.y0&&my<=b.y1){hot=i;break;}}
   var state=ssState||{};
-  return JSON.stringify([W,H,typeof SS_APPEARANCE==='undefined'?'dark':SS_APPEARANCE,ssPreferenceLabel(),ssApplyId,ssError,ssMessage,state.error,state.source,state.preview_pending,ssReady(),state.preview&&state.preview.tracks,hot]);
+  var withPreview=typeof ssGeometry==='function'&&ssGeometry(W,H).withPreview;
+  return JSON.stringify([W,H,withPreview,typeof SS_APPEARANCE==='undefined'?'dark':SS_APPEARANCE,ssPreferenceLabel(),ssApplyId,ssError,ssMessage,state.error,state.source,state.preview_pending,ssReady(),state.preview&&state.preview.tracks,hot]);
 }
 function ssPaintModal(gr,forceFull){
-  if(!ssModalImage||ssModalImageW!==W||ssModalImageH!==H){
+  if(!fsMode&&(!ssModalImage||ssModalImageW!==W||ssModalImageH!==H)){
     ssDropModalImage();ssModalImage=gdi.CreateImage(Math.max(1,W),Math.max(1,H));ssModalImageW=W;ssModalImageH=H;
     var background=ssModalImage.GetGraphics();
-    if(ssSceneImage&&ssSceneW===W&&ssSceneH===H)background.DrawImage(ssSceneImage,0,0,W,H,0,0,W,H);else ssDrawBase(background);
+    ssDrawOverlayBackdrop(background);
     background.FillSolidRect(0,0,W,H,COL.modalScrim);ssModalImage.ReleaseGraphics(background);
   }
   // Static typography and controls do not participate in the pointer render loop.
@@ -64,7 +84,12 @@ function ssPaintModal(gr,forceFull){
   if(fresh||key!==ssPreferenceKey){
     if(ssPreferenceImage)try{ssPreferenceImage.Dispose();}catch(e){}
     ssPreferenceImage=gdi.CreateImage(Math.max(1,W),Math.max(1,H));var fg=ssPreferenceImage.GetGraphics();fg.SetSmoothingMode(2);fg.SetInterpolationMode(5);
-    fg.DrawImage(ssModalImage,0,0,W,H,0,0,W,H);drawPreference(fg,true);ssPreferenceImage.ReleaseGraphics(fg);ssPreferenceKey=key;
+    if(!fsMode)fg.DrawImage(ssModalImage,0,0,W,H,0,0,W,H);
+    drawPreference(fg,true);ssPreferenceImage.ReleaseGraphics(fg);ssPreferenceKey=key;
+  }
+  if(fsMode){
+    ssDrawOverlayBackdrop(gr);
+    if(fsView!=='lyrics'||!ssLyricVisible)gr.FillSolidRect(0,0,W,H,COL.modalScrim);
   }
   if(!fresh&&!forceFull&&ssPreferencePartial&&Date.now()-ssPreferenceFrameAt<80&&typeof ssGeometry==='function'){
     var r=ssGeometry(W,H),x=Math.max(0,r.x-2),y=Math.max(0,r.y-2),w=Math.min(W-x,r.w+4),h=Math.min(H-y,r.h+4);gr.DrawImage(ssPreferenceImage,x,y,w,h,x,y,w,h);

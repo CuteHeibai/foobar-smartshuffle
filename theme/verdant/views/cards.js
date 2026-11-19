@@ -102,12 +102,15 @@ function drawArtistCard(gr,x,y,w,a,clipTop,clipBot){
 // Drawer width changes the column count, while cover size follows window density.
 function ssAlbumGrid(width,scale,coverSize,maxCols){
   if(coverSize===undefined)coverSize=157;
-  var gap=Math.round(24*scale),size=Math.max(1,Math.min(width,Math.round(coverSize*scale)));
-  var cols=Math.max(1,Math.floor((width+gap)/(size+gap)));
-  if(maxCols&&cols>maxCols){
-    cols=maxCols;
-    size=Math.floor((width-gap*(cols-1))/cols);
+  var gap=Math.round(24*scale),natural=Math.round(coverSize*scale);
+  if(maxCols){
+    var padding=Math.round(ssLibraryPadding(W)*scale);
+    var windowContent=W-ssDefaultNavWidth(W)-3*M.gap-2*padding;
+    natural=Math.max(natural,Math.floor((windowContent-gap*(maxCols-1))/maxCols));
   }
+  var size=Math.max(1,Math.min(width,natural));
+  var cols=Math.max(1,Math.floor((width+gap)/(size+gap)));
+  if(maxCols)cols=Math.min(cols,maxCols);
   return {gap:gap,size:size,cols:cols};
 }
 function ssLibraryReadingRect(r,padding){
@@ -115,12 +118,14 @@ function ssLibraryReadingRect(r,padding){
   return {x:r.x+inset,w:Math.max(1,r.w-2*inset)};
 }
 function ssTrackNumberWidth(s,count){return Math.round(Math.max(26,String(count).length*8+6)*s);}
-function ssLibraryTrackLayout(r,s,padding,secondaryColumn){
+function ssLibraryHeaderColor(art){
+  return blend(art,COL.base,SS_APPEARANCE==='light' ? .92 : .90);
+}
+function ssLibraryTrackLayout(r,s,padding,limit){
   var pane=ssLibraryReadingRect(r,padding),x=pane.x,end=r.x+r.w;
   // The caret queries this layout outside the scaled paint scope.
   var gutter=typeof ssPersonalGutter==='function'?Math.round(ssPersonalGutter()*s/ssDensity):0;
-  var measure=secondaryColumn?1300:1100;
-  var w=Math.max(1,Math.min(pane.w-gutter,Math.round(measure*s))),right=x+w;
+  var w=Math.max(1,Math.min(pane.w-gutter,limit||Infinity)),right=x+w;
   var gap=Math.round(12*s),durW=Math.round(64*s),moreW=Math.round(24*s);
   return {x:x,w:w,right:right,gap:gap,durW:durW,moreW:moreW,moreX:right-durW-gap-moreW,playW:ssTrackPlayWidth(s),
     rowLeft:Math.max(r.x,x-8),rowRight:Math.min(end,right+8),personalRight:Math.min(end,right+gutter+8)};
@@ -140,6 +145,14 @@ function ssDrawLabeledAction(gr,x,y,w,h,label,icon,act,font,primary){
   drawIcon(gr,icon,glyph,x,cy,size,size,Math.round(size*.50));
   tL(gr,label,font,COL.text,x+size+gap,y,width-size-gap,h);
   return {x0:x,y0:y,x1:x+width,y1:y+h,act:act};
+}
+function ssDrawSettingsButton(gr,x,y,maxWidth,h){
+  var s=ssDensity,w=Math.min(maxWidth,Math.round(168*s)),pad=Math.round(12*s),icon=Math.round(18*s);
+  var tx=x+pad+icon+Math.round(8*s);
+  ssFillContinuousRect(gr,x,y,w,h,7,7,hv(x,y,x+w,y+h)?COL.greenHover:COL.green);
+  drawIcon(gr,'settings',COL.onAccent,x+pad,y,icon,h,icon);
+  tL(gr,'打开插件设置',FONT.pl,COL.onAccent,tx,y,x+w-pad-tx,h);
+  return {x0:x,y0:y,x1:x+w,y1:y+h,settings:true};
 }
 function ssDrawAlbumPlayAction(gr,x,y,w,h,label,font,primary){
   return ssDrawLabeledAction(gr,x,y,w,h,label||'播放专辑','play','featured',font,primary);
@@ -166,8 +179,8 @@ function ssAlbumTitleLines(gr,title,w){
     if(first.length<stem.length&&space>first.length*.64)first=first.slice(0,space).trimEnd();
     var remainder=title.slice(first.length).trim();
     if(keepSuffix&&ssMeasureText(gr,remainder,FONT.card)>w){
-      var end='… '+suffix,endW=ssMeasureText(gr,end,FONT.card);
-      remainder=endW<=w?ssTitlePrefix(gr,stem.slice(first.length).trim(),w-endW,FONT.card)+end:suffix;
+      first=stem;
+      remainder=suffix;
     }
     if(first&&remainder)lines=[first,remainder];
   }
@@ -186,11 +199,12 @@ function ssDrawAlbumLabels(gr,title,detail,x,y,w,s,titleLines){
   for(var i=0;i<lines.length;i++)ssDrawFixedLabel(gr,lines[i],FONT.card,COL.text,x,top+i*text.title,w,text.title);
   ssDrawFixedLabel(gr,detail,FONT.plSub,COL.text2,x,top+(titleLines||2)*text.title+text.gap,w,text.detail);
 }
-function drawLibraryAlbumCard(gr,x,y,w,album,clipTop,clipBot){
+function drawLibraryAlbumCard(gr,x,y,w,album,clipTop,clipBot,clipLeft,clipRight){
   var h=w+ssAlbumLabelHeight(ssDensity,1),top=Math.max(y,clipTop),bottom=Math.min(y+h,clipBot);
-  if(bottom<=top)return;
-  if(hv(x,top,x+w,bottom))ssFillContinuousRect(gr,x,y,w,h,5,5,COL.cardHover);
+  var left=Math.max(x,clipLeft),right=Math.min(x+w,clipRight);
+  if(bottom<=top||right<=left)return;
+  if(hv(left,top,right,bottom))ssFillContinuousRect(gr,x,y,w,h,5,5,COL.cardHover);
   drawRounded(gr,x,y,w,4,album.handle,album.album);
   ssDrawAlbumLabels(gr,album.album,ssArtistName(album.artist),x,y+w,w,ssDensity,1);
-  HB_CARD.push({x0:x,y0:top,x1:x+w,y1:bottom,kind:'album',id:album.id});
+  HB_CARD.push({x0:left,y0:top,x1:right,y1:bottom,paintX:x,paintY:y,kind:'album',id:album.id});
 }

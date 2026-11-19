@@ -26,7 +26,7 @@ function drawSearchBox(gr,r,layout){
   var empty=!searchQuery.length,caretH=Math.round(20*s),caretY=boxY+(boxH-caretH)/2,caretX;
   if(empty){
     var pad=Math.round(12*s);caretX=txtX;
-    tL(gr,'歌曲、拼音、罗马音或歌词',FONT.searchTxt,COL.text3,txtX+pad,boxY,txtW-pad,boxH);
+    tL(gr,'歌曲、拼音、罗马音或歌词',FONT.searchTxt,COL.text2,txtX+pad,boxY,txtW-pad,boxH);
   } else {
     tL(gr,searchQuery,FONT.searchTxt,COL.text,txtX,boxY,txtW,boxH);
     caretX=txtX+Math.min(txtW,ssMeasureText(gr,searchQuery,FONT.searchTxt,boxH))+2;
@@ -42,7 +42,7 @@ function drawSearch(gr,r){
   var layout=ssSearchLayout(r),list=layout.list,s=layout.s,x0=list.x,w=list.w,boxH=layout.box.h,boxY=layout.box.y,i;
   if(!searchQuery.length){
     drawSearchBox(gr,r,layout);
-    tL(gr,'支持拼音 / 首字母、日语罗马音、近似拼写及本地歌词。',FONT.qArtist,COL.text3,x0+2,boxY+boxH+18,w,18);
+    tL(gr,'支持拼音 / 首字母、日语罗马音、近似拼写及本地歌词。',FONT.qArtist,COL.text2,x0+2,boxY+boxH+18,w,18);
     return;
   }
   if(!searchArts.length && !searchTrks.length){

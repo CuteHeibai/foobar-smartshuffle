@@ -15,6 +15,6 @@ function ssApplyAppearance(mode){
   ssNativeLyricKey='';ssSyncLyricPanel();ssSceneKey='';ssFadeStart=0;repaintAll();return true;
 }
 function ssAppearanceMenuItems(){
-  return [{label:'深色',checked:SS_APPEARANCE==='dark',run:function(){ssSend('theme_appearance',{appearance:'dark'});}},
-    {label:'浅色',checked:SS_APPEARANCE==='light',run:function(){ssSend('theme_appearance',{appearance:'light'});}}];
+  return [{label:'深色',icon:'moon',checked:SS_APPEARANCE==='dark',run:function(){ssSend('theme_appearance',{appearance:'dark'});}},
+    {label:'浅色',icon:'sun',checked:SS_APPEARANCE==='light',run:function(){ssSend('theme_appearance',{appearance:'light'});}}];
 }

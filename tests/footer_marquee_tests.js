@@ -20,7 +20,7 @@ test('long footer title starts a bounded animation and caches antialiased untrim
   const h=harness();h.draw();assert.equal(h.timers.size,1,'an overlong now-playing title needs an animation timer');
   const copy=h.titleCopy();assert.ok(copy,'the title must be composited through its own bitmap crop');
   assert.equal(copy.x,94);assert.equal(copy.y,706);assert.equal(copy.w,194);assert.equal(copy.h,20);assert.equal(copy.sw,copy.w);assert.equal(copy.sh,copy.h);
-  const text=h.words.find(w=>w.s===h.c.npTitleStr);assert.equal(text.hint,5,'use the release rendering mode on the title bitmap');assert.equal((text.flags>>>20)&15,0,'long title bitmap must contain the whole title without ellipsis');
+  const text=h.words.find(w=>w.s===h.c.npTitleStr);assert.equal(text.hint,4,'use grayscale antialiasing on the title bitmap');assert.equal((text.flags>>>20)&15,0,'long title bitmap must contain the whole title without ellipsis');
   h.advance(1500);h.draw();assert.equal(h.images.length,1,'moving frames should reuse the rendered title');assert.ok(h.titleCopy().sx>0);
 });
 test('fitting title and absent track create no animation or title bitmap',()=>{
@@ -36,12 +36,12 @@ test('title movement depends on elapsed time and pauses at both ends',()=>{
   h.advance(1500);h.draw();assert.ok(h.titleCopy().sx<end,'the title returns toward its start');
 });
 test('viewport, font, title and track changes restart the reading pause and dispose old images',()=>{
-  for(const mutate of [c=>{c.R.barInfoW=340;},c=>{c.FONT.npTitle={Name:'Inter',Size:15,Style:1};},c=>{c.npTitleStr+=' updated';},c=>{c.NP={RawPath:'file://other.flac',SubSong:0};},c=>{c.NP={RawPath:'file://song.flac',SubSong:1};}]){
+  for(const mutate of [c=>{c.R.barInfoW=340;},c=>{c.FONT.npTitle={Name:'Inter',Size:16,Style:0};},c=>{c.npTitleStr+=' updated';},c=>{c.NP={RawPath:'file://other.flac',SubSong:0};},c=>{c.NP={RawPath:'file://song.flac',SubSong:1};}]){
     const h=harness();h.draw();h.advance(1800);h.draw();assert.ok(h.titleCopy().sx>0);const old=h.images[0];mutate(h.c);h.draw();assert.equal(h.titleCopy().sx,0);assert.equal(old.disposed,true);assert.equal(h.timers.size,1);
   }
 });
 test('fullscreen and modal overlays stop the timer before any footer repaint',()=>{
-  for(const key of ['fsMode','ssPopup','ssModal','renameEdit','confirmDel','dupPrompt','rgPrompt','sgMenuOpen','plSortMenuOpen','vizMenuOpen']){
+  for(const key of ['fsMode','ssPopup','ssModal','renameEdit','confirmDel','dupPrompt','rgPrompt','sgMenuOpen','plSortMenuOpen']){
     const h=harness();h.draw();h.c[key]=true;h.advance(2000);assert.equal(h.timers.size,0,key+' must suspend marquee');assert.equal(h.repaints,0,key+' must not trigger a full overlay paint');
   }
   const h=harness();h.draw();h.c.NP=null;h.advance(2000);assert.equal(h.timers.size,0);h.draw();assert.equal(h.images[0].disposed,true);

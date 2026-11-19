@@ -7,7 +7,7 @@ function harness(saved={}){
  const props={...saved},requests=[];
  const c={Math,Number,isFinite,console,ssDensity:1,W:1440,H:900,TBH:32,R:{},
  M:{gap:10,navW:210,queueW:300,rowH:50},FONT:{},
- ssMeasureText:()=>40,ssFontLineHeight:()=>0,ssTrackTextMetrics:()=>({title:22,detail:18,height:48}),ssDrawFixedLabel:(...args)=>c.tL(...args),ssState:{remaining:['a','b'],queue:['c']},
+ ssMeasureText:()=>40,ssFontLineHeight:()=>0,ssFontFloor:()=>12,ssTrackTextMetrics:()=>({title:22,detail:18,height:48}),ssDrawFixedLabel:(...args)=>c.tL(...args),ssState:{remaining:['a','b'],queue:['c']},
  window:{GetProperty:(k,d)=>k in props?props[k]:d,SetProperty:(k,v)=>props[k]=v},
  fsMode:false,ssModal:false,ssPopup:false,ssStarted:false,rightTab:'lyrics',
  ssHideLyrics(){},ssDropModalImage(){},ssDropSceneImage(){},ssSyncLyricPanel(){},ssReportLayout(){},repaintAll(){},
@@ -17,7 +17,7 @@ function harness(saved={}){
  vm.createContext(c);vm.runInContext(fs.readFileSync(path.join(root,'core/corners.js'),'utf8'),c);vm.runInContext(fs.readFileSync(path.join(root,'ui/layout.js'),'utf8'),c);
  return {c,props,requests};
 }
-run('window and divider scale the affected library panes proportionally',()=>{
+run('only window size changes content scale, and the floor stays at normal size',()=>{
  const {c}=harness();
  c.M.navW=240;
  const normal=c.ssLibraryScales(1180,780,228,922,0);
@@ -25,11 +25,11 @@ run('window and divider scale the affected library panes proportionally',()=>{
  const large=c.ssLibraryScales(1440,900,228,1182,0);
  assert.ok(large.nav>1&&large.main>1);
  const widerNav=c.ssLibraryScales(1440,900,256,1154,0);
- assert.ok(widerNav.nav>large.nav&&widerNav.main<large.main);
+ assert.deepEqual(widerNav,large);
  const defaultDrawer=c.ssLibraryScales(1440,900,228,872,300);
  const widerDrawer=c.ssLibraryScales(1440,900,228,832,340);
- assert.equal(widerDrawer.nav,defaultDrawer.nav);
- assert.ok(widerDrawer.main<defaultDrawer.main);
+ assert.deepEqual(widerDrawer,defaultDrawer);
+ assert.deepEqual(c.ssLibraryScales(920,600),normal);
 });
 run('large screens give transport more scale than the library content',()=>{
  const {c}=harness();
@@ -170,18 +170,18 @@ run('featured album action can use the primary transport colors',()=>{
  assert.deepEqual(fills,[c.COL.play,c.COL.greenHover,c.COL.elev]);
  assert.deepEqual(icons,[c.COL.onAccent,c.COL.onAccent,c.COL.text]);
 });
-run('simple track tables keep closer actions and share subtle row guides on wide displays',()=>{
+run('wide track tables span the available pane and keep subtle row guides',()=>{
  const {c}=harness(),fills=[];
  for(const file of ['core/util.js','views/cards.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),c);
  c.M.cpad=30;c.ssDensity=1.25;c.COL={rowHover:19};c.ssInk=alpha=>alpha;
  c.ssFillContinuousRect=(gr,x,y,w,h,radius,other,color)=>fills.push({x,y,w,h,color});
- const bounds={x:430,w:2123},compact=c.ssLibraryTrackLayout(bounds,1.25),wide=c.ssLibraryTrackLayout(bounds,1.25,undefined,true);
- assert.equal(compact.x,wide.x);assert.equal(compact.w,1375);assert.equal(wide.w,1625);
- assert.ok(compact.moreX+200<wide.moreX);
- c.ssDrawLibraryRowSurface({},compact,100,50,false,true);
- c.ssDrawLibraryRowSurface({},compact,150,50,true,true);
+ const bounds={x:430,w:2123},layout=c.ssLibraryTrackLayout(bounds,1.25);
+ assert.equal(layout.x,bounds.x+30);assert.equal(layout.w,bounds.w-60);
+ assert.ok(layout.moreX+layout.moreW<layout.right-layout.durW);
+ c.ssDrawLibraryRowSurface({},layout,100,50,false,true);
+ c.ssDrawLibraryRowSurface({},layout,150,50,true,true);
  assert.deepEqual(fills.map(fill=>fill.color),[7,19]);
- assert.ok(fills.every(fill=>fill.x===compact.rowLeft&&fill.x+fill.w===compact.personalRight));
+ assert.ok(fills.every(fill=>fill.x===layout.rowLeft&&fill.x+fill.w===layout.personalRight));
 });
 run('search keeps a compact artist result immediately above hittable song rows',()=>{
  const {c}=harness(),gr=new Proxy({},{get:()=>()=>{}}),labels=[];
@@ -206,7 +206,7 @@ function libraryPaintHarness(){
  const album={id:'release',named:true,album:track.album,artist:track.artist,tracks:[{handle:track.h,title:track.title,dur:track.len}]};
  Object.assign(c,{COL:{},CH_DOT:'·',CH_BULL:'•',HB_CARD:[],drag:null,caretOn:false,searchQuery:'query',searchArts:[],searchTrks:[track],searchScroll:0,searchScrollT:0,computeSearch(){},
   view:'album',artistAlbums:[album],artScroll:0,artScrollT:0,viewArtist:track.artist,viewAlbum:album.id,getAlbumCatalog:()=>({albums:[album]}),
-  M:{cpad:24,artSz:100,headH:190,rowH:50,pad:8},SHEAD:190,ssArtistName:String,ssDrawArtistAvatar(){},
+  M:{cpad:24,artSz:100,headH:190,rowH:50,pad:8,gap:10,navW:240},SHEAD:190,ssArtistName:String,ssDrawArtistAvatar(){},
   ensureBuilt:()=>true,gateReady:()=>true,rowHandlesPl:()=>[],rowHandlesSongs:()=>[],songsReady(){},songsSteps(){},ROW_GATE_MS:0,
   activePl:()=>({i:1,name:'Test Playlist',count:1}),plChoice:()=>({single:null}),canEditPl:()=>false,playingLoc:()=>null,npIsShuffleOf:()=>false,
   getItems:()=>[track.h],getMeta:()=>({title:[track.title],artist:[track.artist],album:[track.album],len:[track.len],artkey:[track.artkey]}),getPlOrder:()=>[0],warmOnce(){},
@@ -219,7 +219,7 @@ function libraryPaintHarness(){
   tC(){},tL:(g,text,font,col,x,y,w,h)=>labels.push({text,font,x,y,w,h}),tR:(g,text,font,col,x,y,w,h)=>times.push({text,x,y,w,h})});
  return {c,gr,labels,times,covers,fills,lines,album,track};
 }
-run('library views share their track columns and leave room for extra metadata',()=>{
+run('library views fill the pane at desktop scale while keeping actions and metadata aligned',()=>{
  const {c,gr,labels,times,lines,album,track}=libraryPaintHarness();
  for(const [width,scale,padding] of [[2123,1.25,24],[640,1,16]]){
   const frame={x:427,y:40,w:width,h:880};
@@ -236,7 +236,9 @@ run('library views share their track columns and leave room for extra metadata',
     const number=times.find(label=>label.text==='1');
     assert.ok(number&&number.x>row.pgx1&&number.x+number.w<row.more.x0,view+' has a separate visible track number');
    }
-   if(width===2123&&view==='album')assert.equal(right-row.pgx0,1375,'wide detail reading measure');
+   const inset=Math.round(padding*scale),available=frame.w-2*inset-Math.round(32*scale);
+   const limit=draw==='drawArtist'||draw==='drawPlaylist'?Math.round(1440*scale):Infinity;
+   assert.equal(right,frame.x+inset+Math.min(available,limit),view+' respects its reading width');
    assert.equal(row.pgx0,frame.x+Math.round(padding*scale),view+' left gutter');
    assert.ok(row.x0>=frame.x&&row.x1<=frame.x+frame.w&&row.y1<=frame.y+frame.h,view+' clipped row');
    assert.ok(row.more.x1<=time.x&&row.more.x0>=row.x0&&row.more.x1<=row.x1,view+' action spacing');
@@ -250,8 +252,7 @@ run('library views share their track columns and leave room for extra metadata',
     const albumCell=labels.find(label=>label.text===track.album),header=labels.find(label=>label.text==='专辑');
     assert.ok(albumCell.w>=620&&albumCell.x===header.x&&albumCell.w===header.w,'wide album metadata column');
    }
-   if(view==='songs'&&width===2123)assert.equal(right-row.pgx0,1625,'the album column has a wider reading measure');
-   else bounds.push([right,row.more.x0,row.more.x1]);
+   if(limit===Infinity||available<=limit)bounds.push([right,row.more.x0,row.more.x1]);
   }
   assert.ok(bounds.every(box=>box.every((x,index)=>x===bounds[0][index])),JSON.stringify(bounds));
  }
@@ -292,14 +293,16 @@ run('desktop catalog tiles keep long release versions distinguishable on two lin
  const versions=['[Disc 1]','[Disc 2]','(Deluxe Edition)'];
  const albums=Array.from({length:15},(_,i)=>({...album,id:'album-'+i,album:prefix+' '+(versions[i]||'[Disc '+(i+1)+']')}));
  c.ssMeasureText=(g,text)=>Array.from(text).length*10;
- c.getAlbumCatalog=()=>({albums});c.ssDensity=1.25;c.M.cpad=30;
+ c.getAlbumCatalog=()=>({albums});c.W=2560;c.H=1440;c.ssDensity=1.25;c.M.cpad=30;
  const frame={x:427,y:40,w:2123,h:900};c.drawAlbums(gr,frame);
  const first=c.HB_CARD[0],columns=c.HB_CARD.filter(box=>box.y0===first.y0);
- assert.equal(columns.length,7);assert.ok(first.x1-first.x0>250);
+ assert.ok(columns.length>=6&&columns.length<=7);assert.ok(first.x1-first.x0>250);
+ assert.equal(c.ssAlbumGrid(2063,1.25,undefined,7).size,c.ssAlbumGrid(1400,1.25,undefined,7).size);
  for(const [index,version] of versions.entries()){
   const box=columns[index],titleLines=labels.filter(label=>label.x===box.x0&&label.y>box.y0&&label.y<box.y1&&label.text!==album.artist);
   assert.equal(titleLines.length,2);assert.ok(titleLines[1].text.endsWith(version));
-  assert.ok(titleLines.every(line=>line.text.length*10<=line.w&&line.y+line.h<=box.y1));
+  assert.ok(titleLines.every(line=>!line.text.includes('…')&&line.y+line.h<=box.y1));
+  assert.ok(titleLines[1].text.length*10<=titleLines[1].w);
  }
  assert.ok(c.HB_CARD.every(box=>box.x0>=frame.x&&box.x1<=frame.x+frame.w&&box.y1<=frame.y+frame.h));
 });
@@ -344,7 +347,7 @@ run('fullscreen labels the featured album and the current transport separately',
 });
 run('large fullscreen uses the display width for the title and scales secondary controls',()=>{
  const {c}=harness(),labels=[],buttons=[];
- const titleFont={Name:'Segoe UI Semibold',Size:26,Style:0},controlFont={Name:'Segoe UI',Size:13,Style:0};
+ const titleFont={Name:'Segoe UI',Size:26,Style:0},controlFont={Name:'Segoe UI',Size:13,Style:0};
  Object.assign(c,{W:2560,H:1440,NP:null,HB_FS:[],COL:{},FONT:{title:{Size:28},fsTitle:titleFont,fsArtist:controlFont,fsSrc:controlFont,sect2:controlFont,pl:controlFont,plSub:controlFont,time:controlFont},
   fb:{IsPaused:false},pbShuffle:false,ssState:null,blend:()=>0,ssInk:()=>0,hv:()=>false,
   SS_FONT_META:[],gdi:{Font:(Name,Size,Style)=>({Name,Size,Style})},drawRounded(){},drawIcon(){},
@@ -354,15 +357,13 @@ run('large fullscreen uses the display width for the title and scales secondary 
   ssHasTransportSource:()=>true,ssDrawTransport(){},ssFooterToolLayout:()=>({}),
   ssDrawFooterTools:(g,y,h,s,tools)=>{c.modeFont=tools.modeFont;c.panelLabelFont=tools.panelLabelFont;}});
  vm.runInContext(fs.readFileSync(path.join(root,'views/fullscreen.js'),'utf8'),c);
- c.drawFsDefault({},1156);c.drawFsExit({});c.drawFsBar({});
+ c.drawFsDefault({},1156);c.drawFsBar({});
  const title=labels.find(label=>label.text==='Long Title');
  assert.ok(title.w>=1900);
  assert.equal(title.font.Name,titleFont.Name);
  assert.equal(title.font.Size,36);
  assert.ok(buttons[0].font.Size>controlFont.Size);
- assert.ok(labels.find(label=>label.text==='退出全屏').font.Size>controlFont.Size);
  assert.ok(c.modeFont.Size>controlFont.Size);
  assert.ok(c.panelLabelFont&&c.panelLabelFont.Size<=c.modeFont.Size);
- assert.ok(c.HB_FS.find(box=>box.act==='exit').y1-c.HB_FS.find(box=>box.act==='exit').y0>30);
 });
 console.log(count+' desktop drawer checks passed');

@@ -28,39 +28,111 @@ function ssDrawGlassBall(gr,gx,gy,size){
   gr.FillEllipse(bx-10,by-11,12,7,RGBA(255,255,255,130));
   if(ssTrail.length)ssRepaintPreference();
 }
-function ssRequestNativeLyrics(visible){
-  var parent=Number(window.ID)||0, r=R.queue;
-  if(!parent||!r) return;
-  var p={parent:parent,x:r.x+10,y:r.y+58,w:Math.max(1,r.w-20),h:Math.max(1,r.h-68),visible:!!visible,appearance:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'};
-  var key=[parent,p.x,p.y,p.w,p.h,p.visible,p.appearance].join(',');
-  if(key!==ssNativeLyricKey){ ssNativeLyricKey=key; ssSend('lyrics_panel',p); }
+function ssDrawerLyricsRect(){
+  var r=R.queue;
+  if(!r||r.w<=80||r.h<=80) return null;
+  return {x:r.x+10,y:r.y+58,w:r.w-20,h:r.h-68};
 }
-function ssSyncLyricPanel(){
+function ssRequestNativeLyrics(visible,r,fontSize,exclude){
+  var parent=Number(window.ID)||0;
+  if(!parent) return false;
+  var p={parent:parent,visible:!!visible,appearance:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'};
+  if(visible){
+    r=r||ssDrawerLyricsRect();
+    if(!r) return false;
+    p.x=r.x; p.y=r.y; p.w=r.w; p.h=r.h;
+    if(fontSize){p.font_size=fontSize;p.exclude=exclude||[];}
+  }
+  var key=JSON.stringify(p);
+  if(key!==ssNativeLyricKey){ ssNativeLyricKey=key; ssSend('lyrics_panel',p); }
+  return true;
+}
+function ssPlaceLyrics(r,nativeMenu,fontSize,exclude){
   if(!ssLyricTried){
     ssLyricTried=true;
     try{ ssLyricChild=window.GetPanel('ESLyric'); }catch(e){ ssLyricChild=null; }
   }
-  var visible=(typeof NP==='undefined'||!!NP)&&rightTab==='lyrics'&&!fsMode&&!ssModal&&!ssPopup&&!(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof ssResizing!=='undefined'&&ssResizing)&&R.queue&&R.queue.w>80&&R.queue.h>80;
-  if(ssPopup&&ssPopup.nativeMenu&&!ssLyricChild){ssNativeLyricKey='';ssLyricVisible=false;return;}
-  if(!ssLyricChild){
-    ssRequestNativeLyrics(visible);
-    var state=ssState&&ssState.lyrics_panel;
-    ssLyricVisible=!!(visible&&state&&state.ready&&state.visible);
-    return;
-  }
-  try{
-    var key=visible?[R.queue.x,R.queue.y,R.queue.w,R.queue.h].join(','):'';
-    if(visible&&key!==ssLyricBounds){
-      ssLyricChild.Move(R.queue.x+10,R.queue.y+58,R.queue.w-20,R.queue.h-68,true); ssLyricBounds=key;
+  var state=ssState&&ssState.lyrics_panel;
+  var nativeClip=state&&state.region_clip===true&&!ssLyricChild;
+  if(r&&exclude&&exclude.length&&!nativeClip)r=ssLyricsClearOfMenu(r,exclude);
+  var visible=!!r;
+  if(ssLyricChild){
+    try{
+      if(visible){
+        var key=[r.x,r.y,r.w,r.h].join(',');
+        if(key!==ssLyricBounds){ ssLyricChild.Move(r.x,r.y,r.w,r.h,true); ssLyricBounds=key; }
+      }
+      if(ssLyricShown!==visible){ ssLyricChild.Show(visible); ssLyricShown=visible; }
+      ssLyricVisible=visible;
+      return;
+    }catch(e){
+      try{ ssLyricChild.Show(false); }catch(ignored){}
+      ssLyricChild=null; ssLyricShown=null; ssLyricBounds='';
     }
-    if(ssLyricShown!==!!visible){ ssLyricChild.Show(!!visible); ssLyricShown=!!visible; }
-    ssLyricVisible=!!visible;
-  }catch(e){ ssLyricVisible=false; }
+  }
+  ssLyricVisible=false;
+  if(nativeMenu){ ssNativeLyricKey=''; return; } // menu_open hides the native child before building the menu
+  if(visible){
+    ssLyricVisible=!!(ssRequestNativeLyrics(true,r,fontSize,nativeClip?exclude:[])&&state&&state.ready&&state.visible&&!state.error);
+  }else if(ssNativeLyricKey||(state&&state.ready)) ssRequestNativeLyrics(false);
+}
+function ssLyricsMenuExclusions(){
+  var levels=ssPopup.levels,out=[];
+  for(var i=ssPopupFirstVisible();i<levels.length;i++){
+    var r=levels[i].rect;
+    if(r){
+      var x=Math.floor(r.x)-SS_SUBMENU_EDGE,y=Math.floor(r.y)-SS_SUBMENU_EDGE;
+      out.push({x:x,y:y,w:Math.ceil(r.x+r.w)+SS_SUBMENU_EDGE-x,h:Math.ceil(r.y+r.h)+SS_SUBMENU_EDGE-y});
+    }
+  }
+  return out;
+}
+// Older components and named JSplitter children cannot apply window regions.
+function ssLyricsClearOfMenu(r,exclude){
+  for(var i=0;i<exclude.length;i++){
+    var cut=exclude[i],right=r.x+r.w,bottom=r.y+r.h;
+    if(cut.x>=right||cut.x+cut.w<=r.x||cut.y>=bottom||cut.y+cut.h<=r.y)continue;
+    var choices=[
+      {x:r.x,y:r.y,w:cut.x-r.x,h:r.h},
+      {x:cut.x+cut.w,y:r.y,w:right-cut.x-cut.w,h:r.h},
+      {x:r.x,y:r.y,w:r.w,h:cut.y-r.y},
+      {x:r.x,y:cut.y+cut.h,w:r.w,h:bottom-cut.y-cut.h}
+    ];
+    r=choices.filter(function(p){return p.w>0&&p.h>0;}).sort(function(a,b){return b.w*b.h-a.w*a.h;})[0];
+    if(!r)return null;
+  }
+  return r;
+}
+function ssSyncLyricPanel(){
+  var r=null,fontSize=0,exclude=[];
+  var liveLyrics=fsMode&&fsView==='lyrics';
+  if((typeof NP==='undefined'||NP)&&(liveLyrics||(!ssModal&&!ssPopup))&&
+     !(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof renameEdit!=='undefined'&&renameEdit)&&
+     !(typeof dupPrompt!=='undefined'&&dupPrompt)&&!(typeof rgPrompt!=='undefined'&&rgPrompt)){
+    if(fsMode){
+      if(fsView==='lyrics'){
+        r=ssFsLyricsRect(W,H,ssFsStageBottom(W,H));
+        fontSize=Math.max(26,Math.round(28*ssFsScale(W,H)));
+        if(ssPopup)exclude=ssLyricsMenuExclusions();
+        if(ssModal){
+          var panel=ssGeometry(W,H);
+          exclude.push({x:panel.x-4,y:panel.y-4,w:panel.w+8,h:panel.h+8});
+        }
+      }
+    }else if(rightTab==='lyrics') r=ssDrawerLyricsRect();
+  }
+  ssPlaceLyrics(r,ssPopup&&ssPopup.nativeMenu,fontSize,exclude);
+}
+function ssLyricPanelAvailable(){
+  if(ssLyricChild) return true;
+  if(!Number(window.ID)) return false;
+  var state=ssState&&ssState.lyrics_panel;
+  if(state&&state.ready&&!state.error) return true;
+  function showsLyrics(request){ return request&&request.op==='lyrics_panel'&&request.visible; }
+  return !!(showsLyrics(ssFlight)||ssOut.some(showsLyrics));
 }
 function ssHideLyrics(){
-  if(ssLyricChild){ try{ ssLyricChild.Show(false);ssLyricShown=false; }catch(e){} }
-  else if(ssNativeLyricKey||(ssState&&ssState.lyrics_panel&&ssState.lyrics_panel.ready)) ssRequestNativeLyrics(false);
-  ssLyricVisible=false;
+  if(ssLyricTried)ssPlaceLyrics(null);else ssLyricVisible=false;
 }
 function ssButton(gr,x,y,w,h,label,act,enabled,primary){
   var hot=enabled&&hv(x,y,x+w,y+h),color=primary?(enabled?(hot?COL.greenHover:COL.green):COL.seekbg):(hot?COL.hover:COL.elev),radius=Math.min(6,h/2);
@@ -74,11 +146,15 @@ function ssPreferenceLabel(){
   return (x<-.2?'少听探索':x>.2?'常听优先':'均衡聆听')+' · '+(y>.2?'风格跳跃':y<-.2?'风格相似':'风格均衡');
 }
 function ssGeometry(w,h){
-  var mw=Math.min(940,w-32), mh=Math.min(600,h-32), x=Math.round((w-mw)/2), y=Math.round((h-mh)/2);
-  var left=Math.round(mw*.49), top=y+104, areaH=mh-236;
-  var rightX=x+left+28, rightW=mw-left-52, labelW=Math.ceil(46*UISCALE), size=Math.max(80,Math.min(300,areaH-46,rightW-labelW*2-12));
-  return {x:x,y:y,w:mw,h:mh,left:left,top:top,areaH:areaH,rightX:rightX,rightW:rightW,labelW:labelW,
-    grid:{x:Math.round(rightX+(rightW-size)/2),y:Math.round(top+32),size:Math.round(size)}};
+  var tracks=ssState&&ssState.preview&&ssState.preview.tracks;
+  var withPreview=SS_GRID&&ssDragging?SS_GRID.withPreview:!!(tracks&&tracks.length);
+  var mw=Math.min(withPreview?940:540,w-32),mh=Math.min(600,h-32),x=Math.round((w-mw)/2),y=Math.round((h-mh)/2);
+  var left=withPreview?Math.round(mw*.49):0,top=y+(withPreview?104:126),areaH=mh-236;
+  var rightX=x+(withPreview?left+28:24),rightW=x+mw-24-rightX,labelW=Math.ceil(46*UISCALE);
+  var presetY=y+mh-118,gridY=top+32;
+  var size=Math.max(1,Math.min(300,presetY-gridY-36,rightW-labelW*2-12));
+  return {x:x,y:y,w:mw,h:mh,left:left,top:top,areaH:areaH,rightX:rightX,rightW:rightW,labelW:labelW,withPreview:withPreview,presetY:presetY,
+    grid:{x:Math.round(rightX+(rightW-size)/2),y:gridY,size:size,withPreview:withPreview}};
 }
 function drawPreference(gr,staticOnly){
   if(!ssModal) return;
@@ -90,14 +166,15 @@ function drawPreference(gr,staticOnly){
   tL(gr,'随机偏好',FONT.sect2,COL.text,x+24,y+18,w-48,34);
   tL(gr,ssPreferenceLabel()+'  ·  拖动圆点或按方向键微调',FONT.meta,COL.text2,x+24,y+60,w-48,28);
   var px=x+24,pw=m.left-12, rowH=Math.floor((m.areaH-30)/8), tracks=(ssState&&ssState.preview&&ssState.preview.tracks)||[];
-  var count=Math.min(tracks.length,8),hasSource=!!(ssState&&ssState.source);
+  var count=m.withPreview?Math.min(tracks.length,8):0,hasSource=!!(ssState&&ssState.source);
   var pending=!!(ssState&&ssState.preview_pending);
-  tL(gr,count?'播放顺序预览 · 前 '+count+' 首':'播放顺序预览',FONT.sect,COL.text,px,m.top,pw,28);
-  if(!count){
+  var notice=pending?'正在生成预览…':hasSource?'暂无可预览的歌曲':'播放歌单后即可生成预览';
+  if(m.withPreview)tL(gr,count?'播放顺序预览 · 前 '+count+' 首':'播放顺序预览',FONT.sect,COL.text,px,m.top,pw,28);
+  else tL(gr,notice,FONT.pl,COL.text,px,y+88,w-48,28);
+  if(m.withPreview&&!count){
     var emptyY=m.top+Math.round(m.areaH*.33);
     drawIcon(gr,'queue',COL.text2,px,emptyY,pw,36,24);
-    tC(gr,pending?'正在生成预览…':hasSource?'暂无可预览的歌曲':'播放歌单后即可生成预览',
-      FONT.pl,COL.text2,px+12,emptyY+44,pw-24,30);
+    tC(gr,notice,FONT.pl,COL.text2,px+12,emptyY+44,pw-24,30);
   }
   for(var i=0;i<count;i++){
     var ry=m.top+34+i*rowH, tr=tracks[i];
@@ -115,11 +192,11 @@ function drawPreference(gr,staticOnly){
     gr.DrawLine(gx,gy+p+.5,gx+size,gy+p+.5,j===2?1.5:1,line);
   }
   strokeRound(gr,gx,gy,size,size,5,1,COL.line);
-  tC(gr,'极少听',FONT.pl,COL.text2,m.rightX,gy+size/2-18,m.labelW,36);
+  tC(gr,'极少听',FONT.pl,COL.text2,gx-m.labelW-4,gy+size/2-18,m.labelW,36);
   tC(gr,'最常听',FONT.pl,COL.text2,gx+size+4,gy+size/2-18,m.labelW,36);
   tC(gr,'风格相似',FONT.pl,COL.text2,m.rightX,gy+size+5,m.rightW,26);
   if(!staticOnly)ssDrawGlassBall(gr,gx,gy,size);
-  var fy=y+h-118, gap=8, btnW=Math.floor((m.rightW-gap*2)/3), bh=36;
+  var fy=m.presetY,gap=8,btnW=Math.floor((m.rightW-gap*2)/3),bh=36;
   ssButton(gr,m.rightX,fy,btnW,bh,'均衡','balanced',!ssApplyId,false);
   ssButton(gr,m.rightX+btnW+gap,fy,btnW,bh,'常听优先','familiar',!ssApplyId,false);
   ssButton(gr,m.rightX+(btnW+gap)*2,fy,btnW,bh,'少听探索','explore',!ssApplyId,false);
@@ -155,8 +232,7 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
   var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], count=priority.length+list.length;
   var metrics=ssTrackTextMetrics(ssDensity,true);
   var rh=Math.max(56,metrics.height+metrics.title+4);
-  var headerH=Math.round(30*ssDensity),act=Math.max(34,Math.round(32*ssDensity)),actGap=Math.round(5*ssDensity),width=r.w-36;
-  var labelRemove=r.w>=380,removeW=labelRemove?Math.max(act,Math.round(50*ssDensity)):act;
+  var headerH=Math.round(30*ssDensity),act=Math.max(34,Math.round(32*ssDensity)),width=r.w-36;
   var source=ssState.source_name,showSource=source&&!isHiddenPl(source);
   var autoLabel=pbShuffle?'智能随机 · 本轮剩余':showSource?'歌单 · '+source:'歌单后续';
   var sections=[];
@@ -201,13 +277,10 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
         if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}
         var right=r.x+r.w-18,actionY=rowY+Math.round((rh-act)/2);
         hb.more={x0:right-act,y0:actionY,x1:right,y1:actionY+act};
-        if(section.scope==='priority')hb.remove={x0:hb.more.x0-actGap-removeW,y0:actionY,x1:hb.more.x0-actGap,y1:actionY+act};
         HB_Q.push(hb);
-        var actionLeft=(hb.remove||hb.more).x0;
         ssDrawCachedRow(gr,'queue:'+section.scope+':'+i+':'+tr.id+':'+meta.t+':'+meta.a+(next?':next':''),r.x,rowY,r.w,rh,function(gr){
-          ssDrawQueueTrackLabels(gr,meta.t,meta.a,x,rowY,actionLeft-x-Math.round(10*ssDensity),rh,metrics,next);
-          ssDrawQueueAction(gr,hb.more,'more','');
-          if(hb.remove)ssDrawQueueAction(gr,hb.remove,'close',labelRemove?'移除':'');
+          ssDrawQueueTrackLabels(gr,meta.t,meta.a,x,rowY,hb.more.x0-x-Math.round(6*ssDensity),rh,metrics,next);
+          ssDrawQueueAction(gr,hb.more);
         });
       }
       sectionY=rowTop+section.items.length*rh;

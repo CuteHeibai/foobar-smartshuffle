@@ -66,6 +66,10 @@ links to the artwork they already host:
 No account or API key is involved with any of them, results are cached on disk so an album is
 asked about once, and artwork remains the property of its respective rights holders.
 
+## Menu and library icons
+
+Selected [Lucide 0.468.0](https://github.com/lucide-icons/lucide/tree/0.468.0) icons are distributed as SVG files with the [upstream ISC license and attribution](assets/icons/LICENSE).
+
 ## Fonts
 
 None are bundled or installed. Verdant uses **Segoe UI** and **Segoe MDL2 Assets**, which ship with

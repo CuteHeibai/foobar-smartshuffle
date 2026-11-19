@@ -35,26 +35,24 @@ function drawPersonal(gr,r){
   tL(gr,ssPersonalTitle(view),enabled?FONT.sect2:FONT.title,COL.text,lx,titleY,w,titleH);
   if(!enabled||!p.loading&&!p.error&&!p.items.length&&!p.total){
     SS_PERSONAL_MAX=ssPersonalScroll=ssPersonalScrollT=0;
-    var status='功能未启用',detail=history?'查找最近播放过的歌曲。':later?'把想听的歌曲留到以后播放。':'保存喜欢的歌曲，随时再听。';
+    var status=history?'播放历史已关闭':later?'稍后听已关闭':'收藏已关闭',detail=history?'查找最近播放过的歌曲。':later?'把想听的歌曲留到以后播放。':'保存喜欢的歌曲，随时再听。';
     var paused=enabled&&history&&ssState.personal.history_enabled===false;
     if(enabled){
       status=history?'还没有播放记录':later?'暂时没有稍后听的歌曲':'还没有收藏的歌曲';
       detail=history?(paused?'在插件设置中开启「记录听歌统计」。':'播放歌曲后，记录会显示在这里。'):
         later?'右键点击歌曲并选择「添加到稍后听」。':'点击歌曲旁的爱心即可收藏。';
     }
-    var y=titleY+titleH+Math.round(26*s),iconBox=Math.round(28*s),offset=iconBox+Math.round(8*s);
-    drawIcon(gr,history?'order':later?'clock':'heart',COL.text2,lx,y,iconBox,iconBox,Math.round(22*s));
-    tL(gr,status,FONT.sect2,COL.text,lx+offset,y,w-offset,iconBox);
-    tL(gr,detail,FONT.meta,COL.text2,lx,y+Math.round(34*s),w,Math.round(24*s));
-    if(!enabled)tL(gr,'勾选「启用播放历史、收藏和稍后听」。',FONT.meta,COL.text2,lx,y+Math.round(58*s),w,Math.round(24*s));
-    if(!enabled||paused){
-      var bw=Math.min(w,Math.round(142*s)),by=y+Math.round((enabled?65:89)*s),bh=Math.round(34*s);
-      if(by+bh<=bottom){
-        ssFillContinuousRect(gr,lx,by,bw,bh,6,6,hv(lx,by,lx+bw,by+bh)?COL.buttonHover:COL.button);
-        tC(gr,'打开插件设置',FONT.pl,COL.text,lx,by,bw,bh);
-        HB_PERSONAL_ACTIONS.push({x0:lx,y0:by,x1:lx+bw,y1:by+bh,settings:true});
-      }
-    }
+    var pad=Math.round(20*s),boxY=titleY+titleH+Math.round(20*s),boxW=Math.min(w,Math.round(460*s)),showSettings=!enabled||paused;
+    var px=lx+pad,pw=boxW-2*pad,y=boxY+pad,iconBox=Math.round(28*s),offset=iconBox+Math.round(9*s);
+    var by=y+Math.round((enabled?66:90)*s),bh=Math.round(38*s),end=showSettings?by+bh:y+Math.round(60*s);
+    var boxH=Math.min(bottom-boxY,end+pad-boxY);
+    if(boxH<=0)return;
+    ssFillContinuousRect(gr,lx,boxY,boxW,boxH,9,9,COL.elev);
+    drawIcon(gr,history?'order':later?'bookmark':'heart',COL.text2,px,y,iconBox,iconBox,Math.round(22*s));
+    tL(gr,status,FONT.sect2,COL.text,px+offset,y,pw-offset,iconBox);
+    tL(gr,detail,FONT.meta,COL.text2,px,y+Math.round(34*s),pw,Math.round(24*s));
+    if(!enabled)tL(gr,'勾选「启用播放历史、收藏和稍后听」。',FONT.meta,COL.text2,px,y+Math.round(58*s),pw,Math.round(24*s));
+    if(showSettings&&by+bh<=bottom)HB_PERSONAL_ACTIONS.push(ssDrawSettingsButton(gr,px,by,pw,bh));
     return;
   }
   var subY=titleY+titleH+4*s,headY=subY+46*s,rowsTop=Math.round(headY+28*s);
@@ -100,7 +98,7 @@ function drawPersonal(gr,r){
       else if(!wide)tL(gr,date,FONT.plSub,COL.text3,titleX,y+48*s,Math.max(20,durationX-titleX-8*s),16*s);
       if(wide)tL(gr,date,FONT.rowCell,COL.text2,timeX,y,timeW,rh);
       tR(gr,fmtTime(Number(row.duration)||0),FONT.rowCell,COL.text2,durationX,y,48*s,rh);
-      drawIcon(gr,'clock',flag.later?COL.green:COL.text2,laterX,y+(rh-26*s)/2,26*s,26*s,17*s);
+      drawIcon(gr,flag.later?'bookmarkFilled':'bookmark',flag.later?COL.green:COL.text2,laterX,y+(rh-26*s)/2,26*s,26*s,17*s);
     });
     var hb={x0:lx-6*s,y0:y0,x1:rx+6*s,y1:y1,rowY:y,rowH:rh,personal:true,idx:i,track_id:row.id,pgx0:lx,pgx1:lx+28*s,favoriteX:heartX};HB_TR.push(hb);
     var by=y+(rh-28*s)/2;if(by>=y0&&by+28*s<=y1)HB_PERSONAL_ACTIONS.push({x0:laterX,y0:by,x1:laterX+28*s,y1:by+28*s,kind:'later',track_id:row.id});

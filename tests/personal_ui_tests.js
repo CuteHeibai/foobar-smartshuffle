@@ -32,8 +32,10 @@ test('disabled personal pages open without requesting data or reserving track ac
 
 test('disabled personal pages explain their own purpose and link to the shared setting',()=>{
  const h=harness(false),{c,sent}=h,labels=[],icons=[];
- h.load('views/personal.js');
- Object.assign(c,{COL:{},FONT:{},ssModal:false,ssPopup:false,hv:()=>false,tL:(g,t)=>labels.push(t),tC:(g,t)=>labels.push(t),drawIcon:(g,name)=>icons.push(name)});
+ h.load('views/cards.js');h.load('views/personal.js');
+ const accent=0xff0a6ef0,ink=0xffffffff,labelsWithColor=[];
+ const label=(g,t,f,color)=>{labels.push(t);labelsWithColor.push({t,color});};
+ Object.assign(c,{COL:{green:accent,onAccent:ink},FONT:{},ssModal:false,ssPopup:false,hv:()=>false,tL:label,tC:label,drawIcon:(g,name)=>icons.push(name)});
  c.inRect=(x,y,box)=>x>=box.x0&&x<box.x1&&y>=box.y0&&y<box.y1;
  const gr=new Proxy({},{get:()=>()=>{}});
  for(const [kind,title,purpose] of [
@@ -45,10 +47,11 @@ test('disabled personal pages explain their own purpose and link to the shared s
   assert.equal(labels[0],title);assert.ok(labels.includes(purpose));
   assert.ok(labels.some(t=>t.includes('「启用播放历史、收藏和稍后听」')));
   assert.equal(c.HB_PERSONAL_ACTIONS.length,1);
-  const {x0,y0,settings}=c.HB_PERSONAL_ACTIONS[0];assert.equal(settings,true);
+  const {x0,y0,y1,settings}=c.HB_PERSONAL_ACTIONS[0];assert.equal(settings,true);
+  assert.ok(y1-y0>=38&&labelsWithColor.some(item=>item.t==='打开插件设置'&&item.color===ink));
   assert.ok(c.ssPersonalPointerDown(x0+1,y0+1));assert.ok(c.ssPersonalPointerUp(x0+1,y0+1));
  }
- assert.equal(new Set(icons).size,3);
+ assert.deepEqual(new Set(icons),new Set(['order','heart','bookmark','settings']));
  assert.deepEqual(sent.map(request=>request.op),['settings','settings','settings']);
  assert.equal(c.ssPersonalEnabled(),false);
 });
@@ -65,13 +68,13 @@ test('an empty personal collection gives the real add action without pagination'
 
 function statsHarness(){
  const h=harness(),c=h.c,labels=[];
- Object.assign(c,{COL:{},FONT:{},ssModal:false,ssPopup:null,hv:()=>false,applyKeyMode(){},drawIcon(){},drawScrollbar(){},
+ Object.assign(c,{COL:{},FONT:{},fsMode:false,ssModal:false,ssPopup:null,hv:()=>false,applyKeyMode(){},drawIcon(){},drawScrollbar(){},
    tL:(g,t,f,color,x,y)=>labels.push({t,x,y}),tC:(g,t,f,color,x,y)=>labels.push({t,x,y}),
    inRect:(x,y,box)=>x>=box.x0&&x<box.x1&&y>=box.y0&&y<box.y1,
    hit:(boxes,x,y)=>boxes.find(box=>c.inRect(x,y,box)),
    ssBeginViewport:(key,g)=>({gr:g,finish(){}})});
  c.window.SetInterval=()=>1;
- h.load('data/stats.js');h.load('views/stats.js');
+ h.load('data/stats.js');h.load('views/cards.js');h.load('views/stats.js');
  const gr=new Proxy({},{get:()=>()=>{}});c.ssStatsOpen();
  return {...h,labels,draw(){labels.length=0;c.drawStats(gr,c.R.main);},
   acceptStats(request,result={}){

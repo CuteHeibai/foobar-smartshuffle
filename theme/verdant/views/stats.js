@@ -3,6 +3,15 @@ function ssStatsTime(seconds){
   var n=Math.max(0,Math.round(Number(seconds)||0)),m=Math.floor(n/60);
   return n>=3600?Math.floor(n/3600)+' 小时 '+m%60+' 分':m?m+' 分 '+n%60+' 秒':n+' 秒';
 }
+function drawFsStats(gr,bottom){
+  var s=ssFsScale(W,H),w=Math.min(W-Math.round(100*s),Math.round(960*s)),x=Math.round((W-w)/2);
+  var y=Math.round(28*s),h=Math.round(32*s),bw=Math.round(176*s);
+  if(hv(x,y,x+bw,y+h))ssFillContinuousRect(gr,x,y,bw,h,6,6,COL.rowHover);
+  tC(gr,'‹  返回全屏播放',FONT.pl,COL.text2,x,y,bw,h);
+  HB_FS.push({x0:x,y0:y,x1:x+bw,y1:y+h,act:'stats-back'});
+  var top=y+h+Math.round(8*s);
+  drawStats(gr,{x:x,y:top,w:w,h:Math.max(0,bottom-top)});
+}
 function drawStats(gr,r){
   HB_STATS=[];ssStatsMax=0;
   var p=ssStats,s=ssDensity,x=r.x+Math.round(16*s),right=r.x+r.w-Math.round(16*s),w=right-x;
@@ -53,12 +62,8 @@ function drawStats(gr,r){
     var detail=pausedEmpty?'在插件设置中开启「记录听歌统计」，保存之后的收听记录。':samples?'试试其他排序方式或日期范围。':'试试其他日期范围。';
     if(emptyY+buttonH<=end)tL(gr,title,FONT.sect2,COL.text,x,emptyY,w,buttonH);
     if(detailY+buttonH<=end)tL(gr,detail,FONT.meta,COL.text2,x,detailY,w,buttonH);
-    if(!data.recording&&by+buttonH<=end){
-      var bw=Math.min(w,Math.round(142*s));
-      ssFillContinuousRect(gr,x,by,bw,buttonH,6,6,hv(x,by,x+bw,by+buttonH)?COL.buttonHover:COL.button);
-      tC(gr,'打开插件设置',FONT.pl,COL.text,x,by,bw,buttonH);
-      HB_STATS.push({x0:x,y0:by,x1:x+bw,y1:by+buttonH,settings:true});
-    }
+    var actionH=Math.round(38*s);
+    if(!data.recording&&by+actionH<=end)HB_STATS.push(ssDrawSettingsButton(gr,x,by,w,actionH));
     return;
   }
   if(rank){

@@ -12,8 +12,8 @@ function drawPlaylist(gr,r){
     if(metaOk || skelVisible('meta'+p.i)) drawViewSkeleton(gr,r);
     return;
   }
-  gr.FillGradRect(r.x,r.y,r.w,M.headH,90,blend(artHue(plChoice(p.i).single,p.name),COL.base,SS_APPEARANCE==='light'?0.89:0.42),COL.base,1.0);
-  var s=ssDensity,list=ssLibraryTrackLayout(r,s),lx=list.x,rx=list.right,ay=r.y+16*s,art=M.artSz;
+  gr.FillGradRect(r.x,r.y,r.w,M.headH,90,ssLibraryHeaderColor(artHue(plChoice(p.i).single,p.name)),COL.base,1.0);
+  var s=ssDensity,list=ssLibraryTrackLayout(r,s,undefined,Math.round(1440*s)),lx=list.x,rx=list.right,ay=r.y+16*s,art=M.artSz;
   drawPlCover(gr,lx,ay,art,8,p.i,p.name);
   var button=Math.max(32,Math.round(38*s)),barY=ay+art+Math.round(6*s),playSpace=0;
   if(p.count>0){HB_PLAYLIST_PLAY=drawPlaylistPlay(gr,lx,barY,button,p.i);playSpace=button+Math.round(10*s);}
@@ -29,7 +29,7 @@ function drawPlaylist(gr,r){
   tL(gr,'歌单',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
   tL(gr,p.name,FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
   var meta0=getMeta(p.i);
-  tL(gr,p.count+' 首歌曲'+(meta0.totalSec>0?(' '+CH_DOT+' '+fmtDur(meta0.totalSec)):''),FONT.meta,COL.text2,tx,ay+text.metaY,tw,text.metaH);
+  tL(gr,p.count+' 首歌曲'+(meta0.totalSec>0?(' '+CH_DOT+' '+fmtDur(meta0.totalSec)):''),FONT.meta,SS_APPEARANCE==='dark'?COL.text:COL.text2,tx,ay+text.metaY,tw,text.metaH);
   HB_PLSORT=drawDropPill(gr,sortX,sortY,sortPillW,38,'排序：'+labelOf(PL_SORTS,plSort,'歌手'),plSortMenuOpen);
   drawSortDirBtn(gr,sortX+sortPillW+sortGap,sortY,sortDirW,38);
 

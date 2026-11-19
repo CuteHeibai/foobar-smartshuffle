@@ -3,16 +3,40 @@
    every module shares one global scope, so load order is set there. */
 
 /* ------------------------- fullscreen "chill" mode ------------------------- */
-function enterFullscreen(){ fsMode=true; try{ if(UIWizard && UIWizard.WindowState!==1) UIWizard.ToggleMaximize(); }catch(e){} if(fsView==='viz') startViz(); if(fsView==='lyrics'){ loadLyrics(); lySnap=true; } repaintAll(); }
-function exitFullscreen(){ fsMode=false; vizMenuOpen=false; stopViz(); repaintAll(); }
-// the style list belongs to the viz view: leaving it (or fullscreen) must not leave a menu armed
-function setFsView(v){ fsView=v; vizMenuOpen=false; if(v==='viz') startViz(); else stopViz(); if(v==='lyrics'){ loadLyrics(); lySnap=true; } repaintAll(); }
+function enterFullscreen(){
+  ssAbortResize();
+  if(typeof ssHideLyrics==='function')ssHideLyrics();
+  fsMode=true;
+  try{ if(UIWizard && UIWizard.WindowState!==1)UIWizard.ToggleMaximize(); }catch(e){}
+  applyCaption();applyKeyMode();
+  if(fsView==='viz')startViz();
+  if(fsView==='lyrics'){loadLyrics();lySnap=true;}
+  repaintAll();
+}
+function exitFullscreen(){
+  if(typeof ssHideLyrics==='function')ssHideLyrics();
+  if(fsView==='stats'){
+    ssStatsStop();
+    fsView=ssFsStatsPrevious;
+  }
+  fsMode=false;stopViz();applyCaption();
+  if(view==='stats')ssStatsStart();
+  applyKeyMode();repaintAll();
+}
+function setFsView(v){
+  if(fsView==='stats')ssStatsStop();
+  if(typeof ssHideLyrics==='function')ssHideLyrics();
+  fsView=v;
+  if(v==='viz')startViz();else stopViz();
+  if(v==='lyrics'){loadLyrics();lySnap=true;}
+  applyKeyMode();repaintAll();
+}
 function doFsAct(act,album){
-  if(act==='exit') exitFullscreen();
-  else if(act==='browse'){view='songs';songsScroll=songsScrollT=0;exitFullscreen();}
+  if(act==='browse'){view='songs';songsScroll=songsScrollT=0;exitFullscreen();}
   else if(act==='featured'&&album)ssPlayCollection('play_album',[album]);
   else if(act==='lyrics') setFsView(fsView==='lyrics'?'default':'lyrics');
   else if(act==='viz') setFsView(fsView==='viz'?'default':'viz');
+  else if(act==='stats-back')setFsView(ssFsStatsPrevious);
 }
 /* ---- audio spectrum visualizer: real PCM via fb.GetAudioChunk -> FFT bars ----
    Three things separate a spectrum that looks designed from one that merely twitches, and all
@@ -136,6 +160,7 @@ function vizIdle(){
 var vizWasIdle=false;
 function vizUpdate(){
   if(!fsMode || fsView!=='viz'){ stopViz(); return; }
+  if(!fsMode||fsView!=='viz')return;
   var ch=null, ok=false;
   try{ ch=fb.GetAudioChunk(0.06); }catch(e){ ch=null; }
   if(ch && ch.SampleCount>0){ try{ ok=vizAnalyse(ch); }catch(e){ ok=false; } }
@@ -170,8 +195,8 @@ function fsMiniNP(gr){   // small cover + title + artist, top-left (lyrics/viz v
   if(src){
     var lbl='正在播放歌单  ';
     tL(gr,lbl,FONT.fsSrc,COL.text3,64,20,W/2,20);
-    var lw=gr.CalcTextWidth(lbl,FONT.fsSrc);
-    tL(gr,src,FONT.fsSrcName,COL.text,64+lw,20,Math.max(0,W/2-lw),20);   // bold: the playlist name
+    var lw=ssMeasureText(gr,lbl,FONT.fsSrc,20);
+    tL(gr,src,FONT.fsSrcName,COL.text,64+lw,20,Math.max(0,W/2-lw),20);
   }
   if(NP)drawRounded(gr,64,78,s,6,NP,'np');else ssDrawIdleRecord(gr,64,78,s);
   tL(gr,npTitleStr||'尚未播放',FONT.sect2,COL.text,64+s+18,84,W/2,26);
@@ -185,7 +210,7 @@ function ssFsStageBottom(w,h){return h-Math.round(172*ssFsTransportScale(w,h));}
 var ssFsFonts=new Map();
 function ssFsFont(font,s){
   if(s===1)return font;
-  var size=Math.max(1,Math.round(font.Size*s)),key=[font.Name,size,font.Style||0].join('|');
+  var size=Math.max(ssFontFloor(font.Name),Math.round(font.Size*s)),key=[font.Name,size,font.Style||0].join('|');
   if(!ssFsFonts.has(key)){
     var face=gdi.Font(font.Name,size,font.Style||0);
     SS_FONT_META.push({font:face,name:font.Name,size:size,style:font.Style||0});
@@ -235,13 +260,25 @@ function drawFsDefault(gr,bot){
   HB_FS.push({x0:bx,y0:by,x1:bx+bw,y1:by+36,act:'browse'});
 
 }
+function ssFsLyricsRect(w,h,bot){
+  var s=ssFsScale(w,h),x=Math.round(140*s),y=Math.max(158,Math.round(165*s));
+  return w>2*x&&bot>y?{x:x,y:y,w:w-2*x,h:bot-y}:null;
+}
 function drawFsLyrics(gr,bot){
   fsMiniNP(gr);
-  var s=ssFsScale(W,H),inset=Math.round(140*s),top=Math.round(165*s),font=ssFsFont(FONT.fsLyric,s);
-  loadLyrics();   // reload for the current track (fast: cached by track; reloads on track change)
-  if(noLyrics()){ tC(gr,'未找到歌词',FONT.sect2,COL.text2,0,Math.round(H*0.45),W,40); return; }
-  if(lyrics.synced) drawRollingLyrics(gr,inset,top,W-2*inset,bot,font,COL.green,'c');
-  else drawStaticLyrics(gr,inset,W-2*inset,top+Math.round(15*s),bot,font,0.4);
+  var r=ssFsLyricsRect(W,H,bot);
+  if(r)drawFsLyricsStage(gr,r);
+}
+function drawFsLyricsStage(gr,r){
+  if(!NP||ssLyricVisible)return;
+  loadLyrics();
+  if(noLyrics()){
+    if(!ssLyricPanelAvailable()) tC(gr,'未找到歌词',FONT.sect2,COL.text2,r.x,r.y,r.w,r.h);
+    return;
+  }
+  var s=ssFsScale(W,H),font=ssFsFont(FONT.fsLyric,s);
+  if(lyrics.synced) drawRollingLyrics(gr,r.x,r.y,r.w,r.y+r.h,font,COL.green,'c');
+  else drawStaticLyrics(gr,r.x,r.w,r.y+Math.round(15*s),r.y+r.h,font,0.4);
 }
 function vizAlpha(c,a){ return RGBA((c>>16)&255,(c>>8)&255,c&255,a); }
 /* One colour ramp, shared by every style: the shared accent, brightening toward white as a band gets
@@ -360,41 +397,42 @@ function drawVizWave(gr,top,bot){
 /* The waveform is parked, not deleted: it is off the picker on request, and its capture is gated
    on the style below so it costs nothing while it is out. Putting it back is this one line. */
 var VIZ_STYLES=[['频谱','bars'],['环形频谱','radial']];
-var vizMenuOpen=false, HB_VIZ=null, VIZ_HB=[];
+var HB_VIZ=null;
 function setVizStyle(v){
-  vizStyle=v; vizMenuOpen=false;
+  vizStyle=v;
   repaintAll();
+}
+function ssShowVizStyles(anchor){
+  var items=VIZ_STYLES.map(function(style){
+    return {label:style[0],checked:style[1]===vizStyle,run:function(){setVizStyle(style[1]);}};
+  });
+  ssShowPopup(items,anchor.x0,anchor.y1,'',false,'viz',anchor,true);
 }
 function drawVizBody(gr,top,bot){
   if(vizStyle==='radial') drawVizRadial(gr,top,bot);
   else if(vizStyle==='wave') drawVizWave(gr,top,bot);
   else drawVizBars(gr,top,bot);              // also the landing place for an unknown property value
 }
-function drawFsViz(gr,bot){
+function ssFsVizRect(w,h){
+  var top=Math.round(VIZ_TOP*ssFsScale(w,h));
+  return {x:0,y:top,w:w,h:Math.max(0,ssFsStageBottom(w,h)-top)};
+}
+function drawFsViz(gr){
   fsMiniNP(gr);
   var s=ssFsScale(W,H);
-  drawVizBody(gr,Math.round(VIZ_TOP*s),bot);
+  drawVizBand(gr);
   var pw=Math.round(196*s),ph=Math.round(36*s),px=W-Math.round(72*s)-pw,py=Math.round(52*s);
-  HB_VIZ=drawDropPill(gr,px,py,pw,ph,labelOf(VIZ_STYLES,vizStyle,'频谱'),vizMenuOpen);
-  VIZ_HB=vizMenuOpen?drawDropMenu(gr,HB_VIZ,VIZ_STYLES,vizStyle,pw):[];
+  HB_VIZ=drawDropPill(gr,px,py,pw,ph,labelOf(VIZ_STYLES,vizStyle,'频谱'),!!(ssPopup&&ssPopup.kind==='viz'));
 }
-/* A viz frame repaints only the band the visual lives in: at 30fps nothing else on screen has
-   moved. The picker is deliberately NOT drawn here -- its menu hangs into the top of the band, so
-   while it is open on_paint takes the full path instead (see the fullscreen branch there). */
+// The repaint request and the opaque band must cover the same pixels at every scale.
 function drawVizBand(gr){
-  var s=ssFsScale(W,H),top=Math.round(VIZ_TOP*s),bot=ssFsStageBottom(W,H);
-  gr.FillSolidRect(0,top,W,Math.max(0,bot-top),COL.base);
-  drawVizBody(gr,top,bot);
-}
-function drawFsExit(gr){
-  var s=ssFsScale(W,H),w=Math.round(106*s),h=Math.round(30*s);
-  var x=W-Math.min(Math.round(62*s),Math.round(W*.075))-w,y=Math.round(18*s);
-  var iconW=Math.round(24*s),labelX=Math.round(28*s);
-  var hot=hv(x,y,x+w,y+h);
-  if(hot)ssFillContinuousRect(gr,x,y,w,h,7,7,COL.rowHover);
-  drawIcon(gr,'compress',hot?COL.text:COL.text2,x,y,iconW,h,Math.round(16*s));
-  tL(gr,'退出全屏',ssFsFont(FONT.pl,s),hot?COL.text:COL.text2,x+labelX,y,w-labelX,h);
-  HB_FS.push({x0:x,y0:y,x1:x+w,y1:y+h,act:'exit'});
+  var r=ssFsVizRect(W,H);
+  if(!r.h)return;
+  // Clear edge pixels fully before restoring smoothing for the spectrum shapes.
+  gr.SetSmoothingMode(3);
+  gr.FillSolidRect(r.x,r.y,r.w,r.h,COL.base);
+  gr.SetSmoothingMode(2);
+  drawVizBody(gr,r.y,r.y+r.h);
 }
 function drawFsBar(gr,featured){
   var scale=ssFsTransportScale(W,H),s=scale*56/48,height=Math.round(120*scale),by=H-height,tools=ssFooterToolLayout(s,true);
@@ -412,17 +450,12 @@ function drawFsBar(gr,featured){
 }
 function drawFullscreen(gr){
   HB_PLPLAY=[];HB_PLAYLIST_PLAY=null;
-  HB_CTRL=[]; HB_SEEK=null; HB_VOL=null; HB_FS=[]; SB=null; SBH=null; SBN=null;
+  HB_CTRL=[]; HB_SEEK=null; HB_VOL=null; HB_FS=[]; HB_VIZ=null; SB=null; SBH=null; SBN=null;
   gr.FillSolidRect(0,0,W,H,COL.base);
-  var bot=ssFsStageBottom(W,H);
-  var previousHint=ssTextRenderingHint;
-  ssTextRenderingHint=4; // GDI+ AntiAliasGridFit, grayscale antialiasing.
-  try{
-    var featured;
-    if(fsView==='lyrics') drawFsLyrics(gr,bot);
-    else if(fsView==='viz') drawFsViz(gr,bot);
-    else featured=drawFsDefault(gr,bot);
-    drawFsExit(gr);
-    drawFsBar(gr,featured);
-  }finally{ssTextRenderingHint=previousHint;}
+  var bot=ssFsStageBottom(W,H),featured;
+  if(fsView==='lyrics')drawFsLyrics(gr,bot);
+  else if(fsView==='viz')drawFsViz(gr);
+  else if(fsView==='stats')drawFsStats(gr,bot);
+  else featured=drawFsDefault(gr,bot);
+  drawFsBar(gr,featured);
 }

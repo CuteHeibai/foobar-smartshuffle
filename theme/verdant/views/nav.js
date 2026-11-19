@@ -21,23 +21,29 @@ function drawNav(gr){
   var s=ssDensity,m=12*s, g=8*s, bh=34*s, iy=R.navTop.y+Math.round((R.navTop.h-bh)/2);
   var bw=Math.floor((R.navTop.w-2*m-g)/2);
   var hx=R.navTop.x+m, sx2=hx+bw+g;
-  var hon=(view==='home'), hhov=hv(hx,iy,hx+bw,iy+bh);
-  if(hon||hhov) ssFillContinuousRect(gr,hx,iy,bw,bh,7,7,hon?COL.rowActive:COL.rowHover);
+  var end=sx2+bw;
+  if(typeof ssResizeAnimating==='function'&&ssResizeAnimating()){
+    var p=ssResizePosition('nav-search',sx2,iy,R.navTop.x),min=Math.min(bw,Math.round(65*s));
+    sx2=Math.max(hx+g+min,Math.min(end-min,p.x));
+  }
+  var homeW=sx2-hx-g,searchW=end-sx2;
+  var hon=(view==='home'), hhov=hv(hx,iy,hx+homeW,iy+bh);
+  if(hon||hhov) ssFillContinuousRect(gr,hx,iy,homeW,bh,7,7,hon?COL.rowActive:COL.rowHover);
   var isz=Math.round(17*s);drawIcon(gr,'home',hon?COL.text:COL.text2,hx+Math.round(11*s),iy+Math.round((bh-isz)/2),isz,isz,isz);
-  tL(gr,'首页',FONT.pl,hon?COL.text:COL.text2,hx+Math.round(33*s),iy,bw-Math.round(40*s),bh);
-  HB_HOME={x0:hx,y0:iy,x1:hx+bw,y1:iy+bh};
-  var son=(view==='search'), shov=hv(sx2,iy,sx2+bw,iy+bh);
-  if(son||shov) ssFillContinuousRect(gr,sx2,iy,bw,bh,7,7,son?COL.rowActive:COL.rowHover);
+  tL(gr,'首页',FONT.pl,hon?COL.text:COL.text2,hx+Math.round(33*s),iy,homeW-Math.round(40*s),bh);
+  HB_HOME={x0:hx,y0:iy,x1:hx+homeW,y1:iy+bh};
+  var son=(view==='search'), shov=hv(sx2,iy,end,iy+bh);
+  if(son||shov) ssFillContinuousRect(gr,sx2,iy,searchW,bh,7,7,son?COL.rowActive:COL.rowHover);
   drawIcon(gr,'search',son?COL.text:COL.text2,sx2+Math.round(11*s),iy+Math.round((bh-isz)/2),isz,isz,isz);
-  tL(gr,'搜索',FONT.pl,son?COL.text:COL.text2,sx2+Math.round(33*s),iy,bw-Math.round(40*s),bh);
-  HB_SEARCH={x0:sx2,y0:iy,x1:sx2+bw,y1:iy+bh};
+  tL(gr,'搜索',FONT.pl,son?COL.text:COL.text2,sx2+Math.round(33*s),iy,searchW-Math.round(40*s),bh);
+  HB_SEARCH={x0:sx2,y0:iy,x1:end,y1:iy+bh};
   // The canvas gap between the two cards is inside the region repaintNavAll invalidates but is
   // painted by neither of them -- it used to survive only because a full paint cleared the whole
   // window first, so drawNav has to own it now.
   var gapY=R.navTop.y+R.navTop.h;
   gr.FillSolidRect(R.navTop.x,gapY,R.navTop.w,R.navLib.y-gapY,COL.black);
   gr.FillSolidRect(R.navLib.x,R.navLib.y,R.navLib.w,R.navLib.h,COL.black);
-  tL(gr,'音乐库',FONT.head,COL.text3,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
+  tL(gr,'音乐库',FONT.head,COL.text2,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
   var active=plman.ActivePlaylist, pls=visiblePlaylists();
   var footH=72*s, footTop=R.navLib.y+R.navLib.h-footH;   // pinned "add playlist" footer, always visible
   var pinY=R.navLib.y+48*s, pinH=58*s,albumH=34*s,extraH=albumH*2;
@@ -76,7 +82,7 @@ function drawNav(gr){
   // crop partial rows top & bottom, redraw the sticky header block (title + All Songs), then the scrollbar
   gr.FillSolidRect(R.navLib.x,R.navLib.y,R.navLib.w,listTop-R.navLib.y,COL.black);
   gr.FillSolidRect(R.navLib.x,cropY,R.navLib.w,R.navLib.y+R.navLib.h-cropY,COL.black);
-  tL(gr,'音乐库',FONT.head,COL.text3,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
+  tL(gr,'音乐库',FONT.head,COL.text2,R.navLib.x+18,R.navLib.y+14,R.navLib.w-56,26);
   drawNavRow(gr,pinY,pinH,view==='songs'&&songsGroup!=='artist',hv(R.navLib.x,pinY,R.navLib.x+R.navLib.w,pinY+pinH),-1,'全部歌曲',fmtNum(libCount())+' 首歌曲');
   HB_ALLSONGS={x0:R.navLib.x,y0:pinY,x1:R.navLib.x+R.navLib.w,y1:pinY+pinH};
   var albumY=pinY+pinH,albumOn=view==='albums'||view==='album';

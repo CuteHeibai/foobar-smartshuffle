@@ -17,11 +17,11 @@ function ssAccent(a){return ssAlpha(COL.green,a);}
 function ssPalette(mode){
   if(mode==='light')return {
     black:RGB(244,245,247),base:RGB(255,255,255),elev:RGB(246,247,249),hover:RGB(235,236,240),
-    text:RGB(18,18,18),text2:RGB(72,72,72),text3:RGB(92,92,92),
+    text:RGB(40,40,40),text2:RGB(93,93,93),text3:RGB(143,143,143),
     green:RGB(10,110,240),greenC:RGB(10,110,240),greenHover:RGB(0,92,214),
     rowHover:RGBA(16,17,19,10),rowActive:RGBA(10,110,240,18),line:RGB(228,230,234),seekbg:RGB(219,222,227),
     splitter:RGB(210,212,218),gridLine:RGBA(16,17,19,40),gridAxis:RGBA(16,17,19,80),
-    popup:RGB(255,255,255),popupAlt:RGB(249,250,252),button:RGB(238,239,243),buttonHover:RGB(228,230,235),
+    popup:RGB(255,255,255),popupAlt:RGB(249,250,252),submenuLine:RGB(212,216,224),button:RGB(238,239,243),buttonHover:RGB(228,230,235),
     input:RGB(242,243,246),banner:RGB(246,247,250),cardHover:RGB(242,243,246),skeleton:RGB(236,237,241),
     pill:RGB(240,241,245),accentMuted:RGB(214,228,252),onAccent:RGB(255,255,255),onDanger:RGB(255,255,255),
     danger:RGB(215,38,61),dangerHover:RGB(180,28,48),error:RGB(200,40,60),
@@ -30,11 +30,11 @@ function ssPalette(mode){
   };
   return {
     black:RGB(15,16,18),base:RGB(22,23,26),elev:RGB(30,31,35),hover:RGB(40,42,47),
-    text:RGB(246,246,246),text2:RGB(166,166,166),text3:RGB(137,137,137),
+    text:RGB(220,220,220),text2:RGB(175,175,175),text3:RGB(143,143,143),
     green:RGB(64,156,255),greenC:RGB(64,156,255),greenHover:RGB(100,180,255),
     rowHover:RGBA(255,255,255,14),rowActive:RGBA(64,156,255,26),
     line:RGB(48,50,55),splitter:RGB(48,50,55),gridLine:RGBA(255,255,255,26),gridAxis:RGBA(255,255,255,64),seekbg:RGB(62,65,72),
-    popup:RGB(30,31,35),popupAlt:RGB(36,38,43),button:RGB(44,46,52),buttonHover:RGB(54,57,64),
+    popup:RGB(30,31,35),popupAlt:RGB(36,38,43),submenuLine:RGB(76,79,87),button:RGB(44,46,52),buttonHover:RGB(54,57,64),
     input:RGB(38,40,45),banner:RGB(32,34,39),cardHover:RGB(38,40,45),skeleton:RGB(36,38,43),
     pill:RGB(36,38,43),accentMuted:RGB(40,60,90),onAccent:RGB(8,10,14),onDanger:RGB(255,255,255),
     danger:RGB(255,69,58),dangerHover:RGB(255,95,84),error:RGB(255,120,110),
@@ -50,34 +50,43 @@ var PALETTE=[RGB(105,75,68),RGB(108,95,78),RGB(130,74,85),RGB(81,91,101),RGB(133
    Every font is built here at load time from UISCALE, which core/props.js has already resolved
    from the panel property (or the display DPI). That is why props.js loads first, and why a
    scale change needs a panel reload rather than just a repaint.
-   Regular text uses Inter; headings use its medium weight. */
+   Titles, controls and metadata are distinguished by size and colour. */
 var ssDensity=1;
 var SS_FONT_META=[],SS_FIT_FONTS=[],SS_SCRIPT_FONTS={};
-function gf(name,sz,style){var size=Math.max(1,Math.round(sz*UISCALE)),font=gdi.Font(name,size,style||0);SS_FONT_META.push({font:font,name:name,size:size,style:style||0});return font;}
-function F(sz,bold){ return gf(bold?'Inter Medium':'Inter', sz, 0); }
+var SS_MIN_TEXT_SIZE=12;
+function ssFontFloor(name){return name==='Segoe MDL2 Assets'?1:SS_MIN_TEXT_SIZE;}
+function ssCreateFont(name,sz){
+  var size=Math.max(ssFontFloor(name),Math.round(sz*UISCALE)),font=gdi.Font(name,size,0);
+  SS_FONT_META.push({font:font,name:name,size:size,style:0});
+  return font;
+}
+function ssInterFont(sz){return ssCreateFont('Inter',sz);}
 function ssCreateFonts(){return {
-  lib:F(15,1), pl:F(13,1), plSub:F(11,0),
-  eyebrow:F(11,1), title:F(28,1), meta:F(13,0),
-  rowTitle:F(14,0), rowArtist:F(12,0), rowNum:F(13,0), rowCell:F(13,0), head:F(12,1),
-  tab:F(16,1), sect:F(15,1), qName:F(13,0), qArtist:F(11,0),
-  npTitle:F(15,0), npArtist:F(12,0), time:F(12,0),
-  icon:gf('Segoe MDL2 Assets',15), iconBtn:gf('Segoe MDL2 Assets',18),
-  navIco:gf('Segoe MDL2 Assets',24), cap:gf('Segoe MDL2 Assets',10),
-  menu:F(12), menuPrimary:F(13,1), card:F(14,1), sect2:F(20,1),
-  searchTxt:F(16),
-  lyric:F(18,1),
-  fsLyric:gf('Segoe UI',28), fsTitle:gf('Segoe UI Semibold',26), fsArtist:gf('Segoe UI',18),
-  fsSrc:gf('Segoe UI',13), fsSrcName:gf('Segoe UI Semibold',13)
+  // Page titles, sections and artwork captions.
+  title:ssInterFont(28), sect2:ssInterFont(20), sect:ssInterFont(15),
+  card:ssInterFont(14), meta:ssInterFont(13), eyebrow:ssInterFont(11),
+  // Navigation, menus and search input.
+  searchTxt:ssInterFont(16), tab:ssInterFont(16), lib:ssInterFont(15),
+  pl:ssInterFont(13), plSub:ssInterFont(11), menuPrimary:ssInterFont(13), menu:ssInterFont(12),
+  titleMenu:ssCreateFont('Segoe UI',14),
+  // Track lists, lyrics and now playing.
+  rowTitle:ssInterFont(14), rowArtist:ssInterFont(12), rowNum:ssInterFont(13), rowCell:ssInterFont(13),
+  head:ssInterFont(12), qName:ssInterFont(13), qArtist:ssInterFont(11), lyric:ssInterFont(18),
+  npTitle:ssInterFont(15), npArtist:ssInterFont(12), time:ssInterFont(12),
+  // Fullscreen text.
+  fsTitle:ssCreateFont('Segoe UI',26), fsArtist:ssCreateFont('Segoe UI',18),
+  fsSrc:ssCreateFont('Segoe UI',13), fsSrcName:ssCreateFont('Segoe UI',13), fsLyric:ssCreateFont('Segoe UI',28),
+  // Fallback symbols.
+  icon:ssCreateFont('Segoe MDL2 Assets',15), iconBtn:ssCreateFont('Segoe MDL2 Assets',18),
+  navIco:ssCreateFont('Segoe MDL2 Assets',24)
 };}
 var FONT=ssCreateFonts();
 function chr(c){ return String.fromCharCode(c); }
-// MDL2 fallbacks for drawIcon when gdi.LoadSVG is unavailable (keys mirror ICONS), plus caption buttons
+// MDL2 fallbacks for legacy icons when gdi.LoadSVG is unavailable.
 var GLYPH = {
   play:chr(0xE768), pause:chr(0xE769), prev:chr(0xE892), next:chr(0xE893),
-  shuffle:chr(0xE8B1), repeat:chr(0xE8EE), repeat1:chr(0xE8ED), volume:chr(0xE767),
+  volume:chr(0xE767),
   search:chr(0xE721), home:chr(0xE80F), add:chr(0xE710), more:chr(0xE712), close:chr(0xE711), clock:chr(0xE823),
-  heart:chr(0xEB51),heartFilled:chr(0xEB52),
-  cmin:chr(0xE921), cmax:chr(0xE922), crestore:chr(0xE923), cclose:chr(0xE8BB)
 };
 var CH_DOT=chr(0xB7), CH_BULL=chr(0x2022);
 
@@ -85,8 +94,7 @@ var CH_DOT=chr(0xB7), CH_BULL=chr(0x2022);
 var DT_L = 0x4|0x20|0x800|0x8000;        // left + vcenter + singleline + noprefix + end-ellipsis
 var DT_R = 0x2|0x4|0x20|0x800;           // right + vcenter + singleline + noprefix
 var DT_C = 0x1|0x4|0x20|0x800;           // center + vcenter + singleline + noprefix
-/* A label owns exactly its supplied rectangle. Shrink its font when necessary;
-   never enlarge the rectangle into the next label or neighbouring panel. */
+// Labels own their supplied rectangles. Fit their height down to the readable floor.
 var LH_F=[], LH_V=[];
 function lineH(gr,f){
   for(var i=0;i<LH_F.length;i++) if(LH_F[i]===f) return LH_V[i];
@@ -97,15 +105,15 @@ function lineH(gr,f){
 var fitY=0, fitH=0;
 function fitV(gr,f,y,h){fitY=y;fitH=h;}
 function ssFitFont(gr,font,height,text,width){
-  var limit=Math.max(1,Math.floor(height)),fitWidth=width!==undefined;
-  if(lineH(gr,font)<=limit&&(!fitWidth||gr.CalcTextWidth(text,font)<=width))return font;
+  var limit=Math.max(1,Math.floor(height)),fitWidth=width!==undefined,floor=ssFontFloor(font.Name);
+  if((font.Size||floor)>=floor&&lineH(gr,font)<=limit&&(!fitWidth||gr.CalcTextWidth(text,font)<=width))return font;
   var key=fitWidth?String(text)+'|'+Math.floor(width):'';
   for(var i=0;i<SS_FIT_FONTS.length;i++){var c=SS_FIT_FONTS[i];if(c.base===font&&c.height===limit&&c.key===key)return c.font;}
   var meta=null;for(i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
   if(!meta)meta={name:font.Name||'Inter',size:font.Size||14,style:font.Style||0};
   var ratio=Math.min(1,limit/Math.max(1,lineH(gr,font)));if(fitWidth)ratio=Math.min(ratio,width/Math.max(1,gr.CalcTextWidth(text,font)));
-  var size=Math.max(1,Math.floor(meta.size*ratio)),f;
-  do{f=gdi.Font(meta.name,size,meta.style);if(lineH(gr,f)<=limit&&(!fitWidth||gr.CalcTextWidth(text,f)<=width))break;}while(--size>0);
+  var size=Math.max(floor,Math.floor(meta.size*ratio)),f;
+  do{f=gdi.Font(meta.name,size,meta.style);if(lineH(gr,f)<=limit&&(!fitWidth||gr.CalcTextWidth(text,f)<=width))break;}while(--size>=floor);
   if(SS_FIT_FONTS.length>=192)SS_FIT_FONTS=[];SS_FIT_FONTS.push({base:font,height:limit,key:key,font:f});return f;
 }
 var SS_CJK=/[⺀-鿿぀-ヿ가-퟿豈-﫿＀-￯\u{20000}-\u{323af}]/u;
@@ -116,12 +124,15 @@ var SS_RUN_FORMAT=0x1800; // NoWrap and MeasureTrailingSpaces
 var SS_GRAPHEMES=typeof Intl!=='undefined'&&typeof Intl.Segmenter==='function'?new Intl.Segmenter():null;
 function ssCjkFont(font){
   var meta=null;for(var i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
-  if(!meta||(meta.name!=='Inter'&&meta.name!=='Inter Medium'&&meta.name!=='Segoe UI'&&meta.name!=='Segoe UI Semibold'))return font;
-  // YaHei UI covers kana as well, so Chinese and Japanese share one face with Latin.
-  // Inter Medium has no style bit, so the matching CJK weight is YaHei UI bold.
-  var style=meta.name==='Inter Medium'?1:meta.style,key=meta.size+'|'+style;
-  if(!SS_SCRIPT_FONTS[key]){var f=gdi.Font('Microsoft YaHei UI',meta.size,style);SS_FONT_META.push({font:f,name:'Microsoft YaHei UI',size:meta.size,style:style});SS_SCRIPT_FONTS[key]=f;}
-  return SS_SCRIPT_FONTS[key];
+  if(!meta||(meta.name!=='Inter'&&meta.name!=='Segoe UI'))return font;
+  var size=meta.size;
+  // YaHei UI covers both Chinese and kana at the same regular weight.
+  if(!SS_SCRIPT_FONTS[size]){
+    var face=gdi.Font('Microsoft YaHei UI',size,0);
+    SS_FONT_META.push({font:face,name:'Microsoft YaHei UI',size:size,style:0});
+    SS_SCRIPT_FONTS[size]=face;
+  }
+  return SS_SCRIPT_FONTS[size];
 }
 function ssScriptFont(text,font){return SS_CJK.test(text)?ssCjkFont(font):font;}
 function ssTextClusters(text){
@@ -178,10 +189,52 @@ function ssMeasureText(gr,text,font,h){
   for(var run of ssMeasuredRuns(gr,text,font,h,false))width+=run.width;
   return width;
 }
-var ssTextRenderingHint=5;
+var ssTextRenderingHint=4; // GDI+ AntiAliasGridFit gives text grayscale edges on both panels and cached bitmaps.
+var ssPaneTextFade=false,ssPaneLabelWidths=new Map(),ssPaneLabelImages=new Map();
+function ssDrawPaneLabels(gr,draw){
+  var old=ssPaneTextFade;ssPaneTextFade=true;
+  try{draw(gr);}finally{ssPaneTextFade=old;}
+}
+function ssDrawOverflowLabel(gr,s,font,col,x,y,w,h,fixed){
+  var textKey=JSON.stringify([s,font.Name,font.Size,font.Style||0,h,!!fixed]);
+  var measured=ssPaneLabelWidths.get(textKey);
+  if(measured===undefined){
+    measured=ssMeasuredRuns(gr,s,font,h,fixed).reduce(function(sum,run){return sum+run.width;},0);
+    if(ssPaneLabelWidths.size>=768)ssPaneLabelWidths.delete(ssPaneLabelWidths.keys().next().value);
+    ssPaneLabelWidths.set(textKey,measured);
+  }
+  if(measured<=w)return false;
+  x=Math.round(x);y=Math.round(y);w=Math.max(1,Math.floor(w));h=Math.max(1,Math.round(h));
+  var textW=Math.min(Math.ceil(measured)+3,Math.max(4096,w+3));
+  var imageKey=textKey+'|'+col+'|'+textW,image=ssPaneLabelImages.get(imageKey);
+  if(!image){
+    if(ssPaneLabelImages.size>=80){
+      var oldest=ssPaneLabelImages.keys().next().value,previous=ssPaneLabelImages.get(oldest);
+      if(typeof previous.Dispose==='function')previous.Dispose();
+      ssPaneLabelImages.delete(oldest);
+    }
+    image=gdi.CreateImage(textW,h);var raster=image.GetGraphics();
+    try{ssText(raster,s,font,col,0,0,textW,h,0,false,fixed);}finally{image.ReleaseGraphics(raster);}
+    ssPaneLabelImages.set(imageKey,image);
+  }
+  // Copy at 1:1; only the last few source columns lose opacity.
+  var fade=Math.max(1,Math.min(Math.floor(w/2),Math.round(26*Math.max(1,UISCALE)))),body=w-fade;
+  if(body>0)gr.DrawImage(image,x,y,body,h,0,0,body,h);
+  for(var step=0;step<fade;step+=2){
+    var span=Math.min(2,fade-step),opacity=(fade-step-span)/fade;
+    var alpha=Math.round(255*opacity*opacity*(3-2*opacity));
+    if(alpha>0)gr.DrawImage(image,x+body+step,y,span,h,body+step,0,span,h,0,alpha);
+  }
+  return true;
+}
 function ssText(gr,s,f,c,x,y,w,h,align,ellipsis,fixed){
   if(w<=0||h<=0)return;
-  s=String(s);gr.SetTextRenderingHint(ssTextRenderingHint);
+  s=String(s);
+  if(ssPaneTextFade&&ellipsis){
+    if(ssDrawOverflowLabel(gr,s,f,c,x,y,w,h,fixed))return;
+    ellipsis=false;
+  }
+  gr.SetTextRenderingHint(ssTextRenderingHint);
   var runs=ssTextRuns(s,f);
   if(runs.length===1){
     var font=fixed?runs[0].font:ssFitFont(gr,runs[0].font,h);
@@ -233,9 +286,6 @@ var ICONS={
  prev:"<path d='M6 6h2.2v12H6zm3 6l9 6V6z'/>",
  next:"<path d='M15.8 6H18v12h-2.2zM6 18l9-6-9-6z'/>",
  order:"<path d='M5 6h14v2H5zm0 5h14v2H5zm0 5h14v2H5z'/>",
- shuffle:"<path d='M10.59 9.17 5.41 4 4 5.41l5.17 5.17zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04z'/>",
- repeat:"<path d='M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z'/>",
- repeat1:"<path d='M13 15V9h-1l-2 1v1h1.5v4zm4-8v3l4-4-4-4v3H5v6h2V7zm0 10H7v-3l-4 4 4 4v-3h12v-6h-2z'/>",
  volume:"<path d='M3 9v6h4l5 5V4L7 9zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'/>",
  home:"<path d='M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z'/>",
  search:"<path d='M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.49 4.49 0 0 1 9.5 14z'/>",
@@ -243,8 +293,6 @@ var ICONS={
  more:"<path d='M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm12 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'/>",
  close:"<path d='M6.4 5l5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z'/>",
  clock:"<path d='M11.99 2A10 10 0 1 0 22 12 10 10 0 0 0 11.99 2zM12 20a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/>",
- heart:"<path fill-rule='evenodd' d='M12 21.2 3.2 12.6C-2.1 7.3 5.8-.7 12 5.4 18.2-.7 26.1 7.3 20.8 12.6ZM12 18.4l7.4-7.2C23.3 7.3 17.5 1.5 13.4 5.6L12 7l-1.4-1.4C6.5 1.5.7 7.3 4.6 11.2Z'/>",
- heartFilled:"<path d='M12 21.2 3.2 12.6C-2.1 7.3 5.8-.7 12 5.4 18.2-.7 26.1 7.3 20.8 12.6Z'/>",
  expand:"<path d='M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z'/>",
  compress:"<path d='M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z'/>",
  mic:"<path d='M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z'/>",
@@ -255,20 +303,35 @@ var ICONS={
  sortAsc:"<path d='M4 12l1.41 1.41L11 7.83V20h2V7.83l5.59 5.58L20 12l-8-8-8 8z'/>",
  sortDesc:"<path d='M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.59-5.58L4 12l8 8 8-8z'/>"
 };
-var svgCache={};
+var svgCache={},ssIconSources={};
+var SS_SVG_FILES={heart:'heart',heartFilled:'heart',bookmark:'bookmark',bookmarkFilled:'bookmark',
+  settings:'settings',refresh:'refresh-cw',headphones:'headphones',folderOpen:'folder-open',tag:'tag',
+  tools:'wrench',sun:'sun',moon:'moon',windowClose:'x',windowMinimize:'minus',
+  windowMaximize:'maximize-2',windowRestore:'minimize-2',
+  shuffle:'shuffle',sequence:'list-ordered',repeat:'repeat',repeat1:'repeat-1'};
+function ssAssetSvg(name,color){
+  var file=SS_SVG_FILES[name];
+  if(!ssIconSources.hasOwnProperty(file)){
+    try{ssIconSources[file]=utils.ReadTextFile(fb.ProfilePath+'verdant\\assets\\icons\\'+file+'.svg',65001);}
+    catch(e){ssIconSources[file]='';}
+  }
+  var xml=ssIconSources[file].replace(/currentColor/g,color);
+  return name==='heartFilled'||name==='bookmarkFilled'?xml.replace('fill="none"','fill="'+color+'"'):xml;
+}
 // keyed on the numeric colour (alpha stripped -- drawIcon applies that at blit time), so a hit
 // costs one concat instead of unpacking the channels into a string on every icon of every frame
 function iconImg(name,size,col){
   var key=name+'|'+size+'|'+(col&0xffffff);
   if(svgCache.hasOwnProperty(key)) return svgCache[key];
-  var rgb=((col>>16)&0xff)+','+((col>>8)&0xff)+','+(col&0xff);
-  var xml="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='"+size+"' height='"+size+"'><g fill='rgb("+rgb+")'>"+ICONS[name]+"</g></svg>";
-  var bmp=null; try{ bmp=gdi.LoadSVG(xml,size); }catch(e){ bmp=null; }
+  var color='#'+(col&0xffffff).toString(16).padStart(6,'0');
+  var xml=SS_SVG_FILES.hasOwnProperty(name)?ssAssetSvg(name,color):
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='"+size+"' height='"+size+"'><g fill='"+color+"'>"+ICONS[name]+"</g></svg>";
+  var bmp=null; try{ if(xml)bmp=gdi.LoadSVG(xml,size); }catch(e){ bmp=null; }
   svgCache[key]=bmp; return bmp;
 }
 // draw a crisp size-px vector icon centred in [x,y,w,h]; falls back to the MDL2 glyph if LoadSVG is unavailable
 function drawIcon(gr,name,col,x,y,w,h,size){
-  var s=size||Math.min(w,h), img=iconImg(name,s,col);
+  var s=Math.max(1,Math.round(size||Math.min(w,h))), img=iconImg(name,s,col);
   if(img){ var a=(col>>>24)&0xff; if(!a) a=255; gr.DrawImage(img,Math.round(x+(w-s)/2),Math.round(y+(h-s)/2),s,s,0,0,img.Width,img.Height,0,a); return; }
-  tC(gr,GLYPH[name]||'?',(s>=26?FONT.navIco:(s>=18?FONT.iconBtn:FONT.icon)),col,x,y,w,h);
+  if(!SS_SVG_FILES.hasOwnProperty(name))tC(gr,GLYPH[name]||'?',(s>=26?FONT.navIco:(s>=18?FONT.iconBtn:FONT.icon)),col,x,y,w,h);
 }

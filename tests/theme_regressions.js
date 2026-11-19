@@ -7,7 +7,7 @@ function harness(){
   const c={console,Date:{now:()=>now},Math,Number,JSON,isFinite,UISCALE:1,W:1100,H:740,TBH:32,CAPBW:46,
     window:{Width:1100,Height:740,ID:123,Repaint(){paints++;},RepaintRect(){paints++;},SetTimeout(fn){timers.set(++next,fn);return next;},ClearTimeout(id){timers.delete(id);},SetInterval(){return 1;},ClearInterval(){}},
     fb:{ProfilePath:'P:\\',IsPlaying:false},plman:{ActivePlaylist:0},utils:{IsKeyPressed:()=>false,WriteTextFile(p,t){writes.push(JSON.parse(t));return true;}},
-    repaintAll(){paints++;},applyKeyMode(){},pbShuffle:true,fsMode:false,ssLyricVisible:true,confirmDel:null,
+    repaintAll(){paints++;},repaintPanes(){paints++;},applyKeyMode(){},pbShuffle:true,fsMode:false,fsView:'default',ssLyricVisible:true,confirmDel:null,
     RGB:(r,g,b)=>(0xff000000|(r<<16)|(g<<8)|b),RGBA:(r,g,b,a)=>((a<<24)|(r<<16)|(g<<8)|b),
     ssInk:a=>((a<<24)|0xffffff),ssAccent:a=>((a<<24)|0x1ed760),ssAlpha:(c,a)=>((a<<24)|(c&0xffffff)),
     COL:{base:1,black:2,text:3,text2:4,green:5,line:6},FONT:{},M:{radius:10,barH:96},R:{queue:{x:800,y:40,w:290,h:600}},
@@ -56,6 +56,7 @@ test('playback modes lead the menu with preferences, statistics and a smart-only
   assert.equal(typeof c.ssShowPlaybackModes,'function');c.ssShowPlaybackModes(100,200);
   const rows=c.ssPopup.levels[0].items;
   assert.deepEqual(Array.from(rows.slice(0,4),r=>r.label),['智能随机','顺序播放','列表循环','单曲循环']);
+  assert.deepEqual(Array.from(rows.slice(0,4),r=>r.icon),['shuffle','sequence','repeat','repeat1']);
   assert.equal(rows[0].checked,true);assert.equal(rows[4].separator,true);
   assert.equal(rows.find(r=>r.label==='调整随机偏好…').run,c.ssOpen);
   c.ssPopupChoose(rows.find(r=>r.label==='聆听统计…'));assert.equal(stats,1);
@@ -69,6 +70,16 @@ test('playback modes lead the menu with preferences, statistics and a smart-only
   const native=c.ssPopup.levels[0].items;
   assert.ok(!native.some(r=>r.label==='重新开始一轮'));assert.equal(native.find(r=>r.label==='列表循环').checked,true);
 });
+test('the playback-mode button and menu use the same icons for each available mode',()=>{
+  const h=harness(),c=h.c;
+  h.load('views/bar.js');
+  for(const [enabled,order,icon] of [[true,0,'shuffle'],[false,0,'sequence'],[false,1,'repeat'],[false,2,'repeat1']]){
+    c.pbShuffle=enabled;c.ssState={enabled,native_order:order};
+    c.ssShowPlaybackModes(100,200);
+    const current=c.ssPopup.levels[0].items.find(row=>row.checked),button=c.ssPlaybackModeIndicator();
+    assert.equal(current.icon,icon);assert.equal(button.icon,icon);assert.equal(button.title,current.label);
+  }
+});
 test('the playback plugin submenu keeps both settings and update accessible',()=>{
   const h=harness(),c=h.c;c.ssState={update:{available:true,release:{version:'v1.2.3'}}};
   c.ssMeasureText=(gr,t)=>t.length*12;
@@ -80,6 +91,8 @@ test('the playback plugin submenu keeps both settings and update accessible',()=
   c.ssPopupClick(x,y);assert.equal(c.ssPopup.levels.length,2);
   c.ssDrawPopup(gr);
   const settings=c.SS_MENU_HB.find(h=>h.item.label==='插件设置…');assert.ok(settings);
+  assert.equal(settings.item.icon,'settings');
+  assert.ok(fs.existsSync(path.join(root,'assets/icons/settings.svg')));
   c.ssPopupClick(settings.x0+10,settings.y0+10);assert.equal(h.writes.at(-1).op,'settings');
   c.ssAcceptState({...c.ssState,version:1,request_id:h.writes.at(-1).id,response:{ok:true}});
   c.ssShowPlaybackModes(800,500);
@@ -107,7 +120,9 @@ test('output picker uses themed rows and changes only explicit different devices
   const h=harness(),c=h.c,changes=[];h.load('data/output.js');
   c.window.CreatePopupMenu=()=>{throw Error('native light popup must not be opened');};
   c.fb.GetOutputDevices=()=>JSON.stringify([{name:'Current',active:true,output_id:'a',device_id:'1'},{name:'Other',output_id:'b',device_id:'2'}]);
-  c.fb.SetOutputDevice=(...args)=>changes.push(args);c.ssShowOutputs(10,20);
+  const anchor={x0:990,y0:680,x1:1026,y1:716};
+  c.fb.SetOutputDevice=(...args)=>changes.push(args);c.ssShowOutputs(10,20,anchor);
+  assert.equal(c.ssPopup.anchor,anchor);
   assert.equal(changes.length,0);c.ssPopupChoose(c.ssPopup.levels[0].items[1]);assert.deepEqual(changes,[['b','2']]);
 });
 test('preference drag frames reuse one dimmed background instead of repainting the library',()=>{
@@ -220,21 +235,40 @@ test('a maximized library can drag beyond the old 260-pixel cap and restore the 
  c.W=1180;c.H=780;c.layout();assert.ok(c.R.navW<=240);
  c.W=2560;c.H=1440;c.layout();assert.equal(c.R.navW,500);
 });
-test('splitter drags coalesce geometry updates and save the constrained width',()=>{
+test('the divider moves immediately while tiles interpolate between their intact positions',()=>{
+  const h=harness(),c=h.c;
+  c.M.gap=10;
+  Object.assign(c,{view:'home',R:{navW:200,queueW:0,top:{y:44},main:{x:210},barY:650},HB_CARD:[
+    {kind:'album',id:'release',x0:470,y0:142,paintX:470,paintY:142}
+  ]});
+  assert.equal(c.ssResizeBegin(205,200),true);
+  c.R.main.x=250;
+  const position=()=>{const p=c.ssResizePosition('album:release',250,362);return [p.x,p.y];};
+  assert.deepEqual(position(),[510,142]);
+  h.advance(48);
+  const moving=position();assert.ok(moving[0]>250&&moving[0]<510&&moving[1]>142&&moving[1]<362);
+  h.advance(100);assert.deepEqual(position(),[250,362]);
+  c.ssAbortResize();assert.deepEqual(position(),[250,362]);
+});
+test('splitter drags coalesce geometry updates and preserve native lyrics until release',()=>{
   const {h,c,props}=layoutHarness();let hidden=0;c.ssHideLyrics=()=>hidden++;
   assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),true);
   for(let i=0;i<100;i++)c.ssResizeMove(260+i,120);
-  assert.equal(c.R.navW,228);h.flush();assert.ok(c.R.navW>228&&c.R.navW<=240);assert.equal(hidden,1);
+  assert.equal(c.R.navW,228);h.flush();assert.ok(c.R.navW>228&&c.R.navW<=Math.round(c.W*.28));assert.equal(hidden,0);
   c.ssResizeEnd(359,120);assert.equal(props.get(c.SS_WIDTH_KEYS.nav),c.R.navW);assert.equal(c.ssResizing,null);
   c.ssModal=true;assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),false);
 });
-test('splitter movement reflows the panes without scaling a snapshot or touching window chrome',()=>{
- const {h,c}=layoutHarness();let clones=0,chrome=0,paints=0;const image={Clone(){clones++;return {Dispose(){}};}};c.ssSceneImage=image;c.ssSceneW=c.W;c.ssSceneH=c.H;c.ssHideLyrics=()=>{};c.repaintAll=()=>{paints++;};c.UIWizard={set FrameStyle(v){chrome++;},set MoveStyle(v){chrome++;},set DisableWindowSizing(v){chrome++;},SetCaptionAreaSize(){chrome++;}};
- c.ssResizeBegin(c.R.main.x-c.M.gap/2,120);
- for(let frame=0;frame<10;frame++){c.ssResizeMove(250+frame*4,120);h.flush();}
- assert.equal(chrome,0);assert.equal(clones,0);assert.equal(paints,0);
- let blits=0;assert.ok(c.ssPaintResizePreview({DrawImage(source){assert.equal(source,image);blits++;}}));assert.equal(blits,1);
- c.ssResizeEnd(286,120);assert.equal(c.ssResizing,null);assert.equal(paints,1);
+test('splitter movement repaints live panes with fixed content metrics and leaves the other side in place',()=>{
+ const {h,c}=layoutHarness();let chrome=0,paints=0,panes=0;
+ c.repaintPanes=()=>panes++;c.repaintAll=()=>paints++;
+ c.UIWizard={set FrameStyle(v){chrome++;},set MoveStyle(v){chrome++;},set DisableWindowSizing(v){chrome++;},SetCaptionAreaSize(){chrome++;}};
+ c.W=2560;c.H=1440;c.layout();chrome=0;
+ const right=c.R.queue.w,art=c.M.artSz,scales=c.R.libraryScales,start=c.R.main.x-c.M.gap/2;
+ c.ssResizeBegin(start,120);
+ for(let frame=1;frame<=10;frame++){c.ssResizeMove(start+frame*4,120);h.flush();}
+ assert.equal(chrome,0);assert.equal(panes,10);assert.equal(paints,0);
+ assert.equal(c.R.queue.w,right);assert.equal(c.M.artSz,art);assert.deepEqual(c.R.libraryScales,scales);
+ c.ssResizeEnd(start+40,120);assert.equal(c.ssResizing,null);assert.equal(paints,1);
 });
 
 test('outer resize preserves the text font objects, nominal row height and UI scale',()=>{
@@ -278,6 +312,96 @@ test('menu opening, nested hover and closing reuse the displayed scene without r
   c.ssShowPopup([{label:'File'}],12,32,'',true);
   for(let i=0;i<10;i++)c.ssPaintPopup({DrawImage(){}});
   assert.equal(base,0);assert.equal(draws,10);c.ssClosePopup();assert.equal(c.ssPopupRestore,true);assert.equal(disposed,0);
+});
+test('every fullscreen overlay draws the live stage instead of reusing a desktop snapshot',()=>{
+  const {c}=harness();let full=0,desktop=0,titles=0,popups=0;
+  c.fsMode=true;c.ssSceneImage={};c.ssSceneW=c.W;c.ssSceneH=c.H;
+  const background={SetSmoothingMode(){},SetInterpolationMode(){},FillSolidRect(){},DrawImage(){}};
+  c.gdi={CreateImage(){return {GetGraphics:()=>background,ReleaseGraphics(){},Dispose(){}};}};
+  const target={...background,DrawImage(image){assert.notEqual(image,c.ssSceneImage);}};
+  c.drawFullscreen=g=>{assert.equal(g,target);full++;};c.ssDrawBase=()=>desktop++;
+  c.drawTitleBar=()=>titles++;c.ssDrawPopup=()=>popups++;
+  for(const kind of ['playback','output','viz']){
+    c.ssShowPopup([{label:'Action'}],12,32,'',false,kind);
+    c.ssPaintPopup(target);c.ssPaintPopup(target);
+    assert.equal(c.ssPopupImage,null);c.ssClosePopup();assert.equal(c.ssPopupRestore,false);
+  }
+  c.drawPreference=()=>{};c.ssPaintModal(target,true);c.ssPaintModal(target,true);
+  assert.deepEqual([full,desktop,titles,popups],[8,0,0,6]);assert.equal(c.fsMode,true);
+});
+test('fullscreen puts the exit toggle in the desktop footer hitbox at each display size',()=>{
+  const h=harness(),c=h.c,icons=[],hints=[];h.load('views/bar.js');
+  Object.assign(c,{HB_CTRL:[],ssOutputError:'',fsView:'default',hv:()=>false,drawTrackBar(){},ssFillContinuousRect(){},
+    drawIcon:(g,name,colour,x,y,w,h,size)=>icons.push({name,size}),tR:(g,label,f,colour,x,y,w,h)=>hints.push({label,y,h})});
+  for(const [w,h] of [[950,650],[1180,780],[1440,900],[2560,1440]]){
+    c.W=w;c.H=h;c.R.barScale=c.ssDesktopBarScale(w,h);c.M.barH=Math.round(96*c.R.barScale);c.R.barY=h-c.M.barH;
+    const render=(scale,by,height,fullscreen)=>{
+      c.HB_CTRL=[];
+      c.ssDrawFooterTools({},by,height,scale,c.ssFooterToolLayout(scale,fullscreen),fullscreen);
+      return c.HB_CTRL.find(box=>box.act==='fullscreen');
+    };
+    c.hv=()=>false;
+    const enter=render(c.R.barScale,c.R.barY,c.M.barH,false);assert.equal(icons.at(-1).name,'expand');
+    const scale=Math.min(1.7,h/780,w/1180),fullHeight=Math.round(120*scale);
+    c.hv=(x0,y0,x1,y1)=>x0===enter.x0&&y0===enter.y0&&x1===enter.x1&&y1===enter.y1;
+    const exit=render(scale*56/48,h-fullHeight,fullHeight,true);assert.equal(icons.at(-1).name,'compress');
+    assert.deepEqual(exit,enter);
+    assert.equal(icons.at(-1).size,Math.round(24*c.R.barScale));
+    const hint=hints.at(-1);assert.equal(hint.label,'退出全屏');
+    assert.ok(exit.y0-hint.y-hint.h>=0&&exit.y0-hint.y-hint.h<=10);
+    const spectrum=c.HB_CTRL.find(box=>box.act==='viz');assert.ok(spectrum.x1<exit.x0);
+  }
+});
+test('the spectrum invalidates its painted band and plays behind every fullscreen overlay',()=>{
+  const h=harness(),c=h.c,invalidations=[],fills=[],bodies=[];let lookups=0;
+  c.blend=()=>0;
+  const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+  vm.runInContext(app.slice(0,app.lastIndexOf('\nlayout();')),c);h.load('views/fullscreen.js');
+  c.window.RepaintRect=(...rect)=>invalidations.push(rect);
+  c.drawVizBody=(gr,y,bottom)=>bodies.push([y,bottom]);
+  c.fsMode=true;c.fsView='viz';
+  for(const [w,h] of [[1180,780],[1440,900],[2560,1440]]){
+    c.W=w;c.H=h;c.repaintViz();
+    let smoothing;
+    c.drawVizBand({SetSmoothingMode:mode=>smoothing=mode,FillSolidRect:(x,y,w,h)=>{
+      assert.equal(smoothing,3);fills.push([x,y,w,h]);
+    }});
+    assert.equal(smoothing,2);
+    const rect=fills.at(-1);assert.deepEqual(invalidations.at(-1),rect);
+    assert.deepEqual(bodies.at(-1),[rect[1],rect[1]+rect[3]]);
+    assert.equal(rect[1]+rect[3],c.ssFsStageBottom(w,h));
+  }
+  c.fb.GetAudioChunk=()=>{lookups++;return {SampleCount:512};};c.vizAnalyse=()=>true;
+  for(const kind of ['playback','output','viz']){c.ssPopup={kind};c.vizUpdate();}
+  c.ssPopup=null;c.ssModal=true;c.vizUpdate();c.ssModal=false;
+  assert.equal(lookups,4);assert.equal(invalidations.length,7);
+});
+test('fullscreen output and preference overlays retain the same lyric position and font',()=>{
+  const h=harness(),c=h.c;
+  h.load('views/preference.js');
+  const stage={x:180,y:120,w:520,h:460},seen=[];
+  Object.assign(c,{fsMode:true,fsView:'lyrics',NP:{},ssFsLyricsRect:()=>stage,ssFsStageBottom:()=>640,ssFsScale:()=>1.4,
+    ssGeometry:()=>({x:250,y:180,w:360,h:330}),ssPlaceLyrics:(r,native,font,exclude)=>seen.push({r,font,exclude})});
+  for(const kind of ['playback','output']){
+    c.ssShowPopup([{label:'Action'}],12,32,'',false,kind);
+    c.ssPopup.levels[0].rect={x:390,y:260,w:240,h:100};
+    c.ssSyncLyricPanel();c.ssClosePopup();
+  }
+  c.ssModal=true;c.ssSyncLyricPanel();c.ssModal=false;c.ssSyncLyricPanel();
+  assert.deepEqual(seen.map(s=>s.font),[39,39,39,39]);
+  assert.ok(seen.every(s=>s.r===stage));
+  assert.deepEqual(seen.map(s=>s.exclude.length),[1,1,1,0]);
+});
+test('statistics stays fullscreen and returns to the originating stage',()=>{
+  const h=harness(),c=h.c;
+  c.blend=()=>0;h.load('views/fullscreen.js');h.load('data/stats.js');
+  Object.assign(c,{fsMode:true,fsView:'viz',view:'home',startViz(){},stopViz(){}});
+  c.ssStats.from='2026-01-01';c.ssStats.to='2026-01-10';
+  c.ssStatsOpen();
+  assert.equal(c.fsMode,true);assert.equal(c.fsView,'stats');assert.equal(c.view,'home');
+  assert.equal(h.writes.at(-1).op,'listening_stats');
+  c.doFsAct('stats-back');
+  assert.equal(c.fsMode,true);assert.equal(c.fsView,'viz');assert.equal(c.ssStats.timer,0);
 });
 test('top menus remain open during pointer travel until explicitly dismissed',()=>{
   const h=harness(),c=h.c;c.ssShowPopup([{label:'A'}],10,40);c.ssPopup.root='file';
@@ -328,11 +452,11 @@ test('partial scene copy is bounded to its dirty panel',()=>{
 
 
 
-test('bitmap text uses the release ClearType mode and keeps ellipsis alignment',()=>{
+test('bitmap text uses grayscale antialiasing and keeps ellipsis alignment',()=>{
  const h=harness(),c=h.c,draws=[],hints=[];c.gdi={Font:(n,s)=>({n,s})};h.load('core/tokens.js');
- const gr={CalcTextHeight:()=>22,SetTextRenderingHint:v=>hints.push(v),DrawString:(...v)=>draws.push(v),GdiDrawText(){throw Error('ClearType on a bitmap is unsupported');}};
+ const gr={CalcTextHeight:()=>22,SetTextRenderingHint:v=>hints.push(v),DrawString:(...v)=>draws.push(v),GdiDrawText(){throw Error('bitmap labels must use GDI+ DrawString');}};
  c.tL(gr,'中文 & 日本語',c.FONT.pl,1,1.2,2.5,100,20);c.tR(gr,'Right',c.FONT.pl,1,0,0,100,20);
- assert.deepEqual(hints,[5,5]);assert.equal(draws.length,2);assert.equal(draws[0][0],'中文 & 日本語');assert.equal((draws[0][7]>>>20)&15,3);assert.equal((draws[1][7]>>>28)&15,2);
+ assert.deepEqual(hints,[4,4]);assert.equal(draws.length,2);assert.equal(draws[0][0],'中文 & 日本語');assert.equal((draws[0][7]>>>20)&15,3);assert.equal((draws[1][7]>>>28)&15,2);
 });
 test('new playlist footer has separated measured lines at normal and enlarged density',()=>{
  const h=harness(),c=h.c,lines=[];h.load('views/nav.js');c.R.navLib={x:0,y:0,w:260,h:700};c.hv=()=>false;c.navDropHover=false;c.strokeRound=()=>{};c.lineH=(g,f)=>f==='primary'?25:22;c.FONT={pl:'primary',plSub:'sub'};c.tL=(g,t,f,col,x,y,w,h)=>lines.push({t,y,h});

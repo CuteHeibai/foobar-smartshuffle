@@ -3,11 +3,20 @@
    every module shares one global scope, so load order is set there. */
 
 /* Custom window title bar via UI Wizard (foo_ui_wizard) - frameless + our own controls */
-var TBH = Math.round(32*UISCALE), CAPBW = Math.round(46*UISCALE);
+var TBH=Math.round(44*UISCALE);
 var UIWizard=null; try{ UIWizard=new ActiveXObject('UIWizard'); }catch(e){ UIWizard=null; }
 var MENUS=[['文件','file'],['编辑','edit'],['视图','view'],['播放','playback'],['音乐库','library'],['帮助','help']];
-var MENU_END=0, capW=-1, capEnd=-1;
-function applyCaption(){ if(!UIWizard) return; if(capW===W && capEnd===MENU_END) return; try{ UIWizard.SetCaptionAreaSize(MENU_END,0,Math.max(0,W-CAPBW*3-MENU_END),TBH);capW=W;capEnd=MENU_END; }catch(e){} }
+var MENU_END=0,capW=-1,capEnd=-1,capFullscreen=false;
+function applyCaption(){
+  if(!UIWizard)return;
+  var immersive=typeof fsMode!=='undefined'&&fsMode;
+  if(capW===W&&capEnd===MENU_END&&capFullscreen===immersive)return;
+  try{
+    if(immersive)UIWizard.SetCaptionAreaSize(0,0,0,0);
+    else UIWizard.SetCaptionAreaSize(MENU_END,0,Math.max(0,W-MENU_END),TBH);
+    capW=W;capEnd=MENU_END;capFullscreen=immersive;
+  }catch(e){}
+}
 function ssConfigureChrome(){
   if(!UIWizard)return false;
   try{
@@ -56,6 +65,7 @@ function sbFrac(v,start,size,thumb){ return clamp01((v-start-thumb/2)/Math.max(1
 function setScroll(y){
   if(!SB) return;
   var px=Math.round(sbFrac(y,SB.top,SB.h,SB.thumbH)*SB.maxPx);
+  if(fsMode){if(fsView==='stats'){ssStatsScroll=ssStatsScrollT=px;repaintAll();}return;}
   if(view==='playlist') firstRow=firstRowT=px;
   else if(view==='home') homeScroll=homeScrollT=px;
   else if(view==='songs') songsScroll=songsScrollT=px;
@@ -175,29 +185,44 @@ function tPara(gr,s,f,c,x,y,w,lh){
 }
 
 function winMaxed(){ if(!UIWizard) return false; try{ return UIWizard.WindowState===1; }catch(e){ return false; } }
-function drawCapBtn(gr,glyph,x,w,isClose){
-  var hover=hv(x,0,x+w,TBH);
-  if(hover) gr.FillSolidRect(x,0,w,TBH,isClose?RGB(232,17,35):COL.hover);
-  tC(gr,glyph,FONT.cap,(hover&&isClose)?COL.onDanger:COL.text2,x,0,w,TBH);
+function drawWindowControls(gr){
+  var left=Math.round(12*UISCALE),step=Math.round(21*UISCALE),diameter=Math.round(12*UISCALE);
+  var h=Math.round(28*UISCALE),top=Math.round((TBH-h)/2),bottom=top+h;
+  var hot=hv(left,top,left+3*step,bottom),symbol=Math.round(9*UISCALE);
+  var controls=[['close','windowClose',RGB(255,98,92)],['minimize','windowMinimize',RGB(243,185,72)],
+    ['maximize',winMaxed()?'windowRestore':'windowMaximize',RGB(85,192,109)]];
+  HB_CAP=[];
+  for(var i=0;i<controls.length;i++){
+    var x=left+i*step,item=controls[i],cx=x+Math.round((step-diameter)/2),cy=Math.round((TBH-diameter)/2);
+    gr.FillEllipse(cx,cy,diameter,diameter,item[2]);
+    if(hot)drawIcon(gr,item[1],RGB(42,34,32),cx,cy,diameter,diameter,symbol);
+    HB_CAP.push({x0:x,y0:top,x1:x+step,y1:bottom,act:item[0]});
+  }
+  return left+controls.length*step;
+}
+function ssWindowControl(act){
+  if(act==='close'){fb.Exit();return;}
+  if(!UIWizard)return;
+  try{
+    if(act==='minimize')UIWizard.WindowMinimize();
+    else if(act==='maximize'){UIWizard.ToggleMaximize();repaintAll();}
+  }catch(e){}
 }
 function drawTitleBar(gr){
   gr.FillSolidRect(0,0,W,TBH,COL.black);
+  gr.FillSolidRect(0,TBH-1,W,1,COL.line);
   // menu bar (left): real foobar File / Edit / View / Playback / Library / Help
-  HB_MENU=[]; var mx0=12;
+  HB_MENU=[];var mx0=drawWindowControls(gr)+Math.round(12*UISCALE),pad=Math.round(30*UISCALE);
+  var itemH=Math.round(28*UISCALE),itemY=Math.round((TBH-itemH)/2);
   for(var mi=0;mi<MENUS.length;mi++){
-    var lbl=MENUS[mi][0], mw=gr.CalcTextWidth(lbl,FONT.menu)+24, mhover=hv(mx0,0,mx0+mw,TBH);
-    if(mhover) gr.FillSolidRect(mx0,0,mw,TBH,COL.cardHover);
-    tC(gr,lbl,FONT.menu,mhover?COL.text:COL.text2,mx0,0,mw,TBH);
+    var lbl=MENUS[mi][0],mw=Math.ceil(ssMeasureText(gr,lbl,FONT.titleMenu,TBH))+pad;
+    var mhover=hv(mx0,0,mx0+mw,TBH)||(ssPopup&&ssPopup.root===MENUS[mi][1]);
+    if(mhover)ssFillContinuousRect(gr,mx0+2,itemY,mw-4,itemH,6,6,COL.rowHover);
+    tC(gr,lbl,FONT.titleMenu,mhover?COL.text:COL.text2,mx0,0,mw,TBH);
     HB_MENU.push({x0:mx0,y0:0,x1:mx0+mw,y1:TBH,root:MENUS[mi][1],mx:mx0});
     mx0+=mw;
   }
-  if(mx0!==MENU_END){ MENU_END=mx0; applyCaption(); }
-  // window controls (right)
-  var closeX=W-CAPBW, maxX=W-CAPBW*2, minX=W-CAPBW*3;
-  drawCapBtn(gr,GLYPH.cmin,minX,CAPBW,false);
-  drawCapBtn(gr,winMaxed()?GLYPH.crestore:GLYPH.cmax,maxX,CAPBW,false);
-  drawCapBtn(gr,GLYPH.cclose,closeX,CAPBW,true);
-  HB_CAP={minX:minX,maxX:maxX,closeX:closeX,bw:CAPBW};
+  MENU_END=mx0;applyCaption();
 }
 
 /* ---- Header dropdowns: a pill that opens a floating menu. Shared by the playlist sort-by and
