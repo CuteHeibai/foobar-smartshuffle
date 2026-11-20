@@ -238,8 +238,8 @@
     check(Math.abs(item.x1-item.x0-grid.size)<=1&&grid.cols<=7,'Album grid uses at most seven readable columns: '+name);
     geometry=item.x1-item.x0;
    }else{
-    var hasMetadataColumn=job.page==='songs'&&(songsGroup==='album'||(songsGroup==='none'&&R.main.w>=940*mainScale));
-    var columns=ssLibraryTrackLayout(R.main,mainScale,padding,hasMetadataColumn);
+    var readingLimit=job.page==='playlist'?Math.round(1440*mainScale):undefined;
+    var columns=ssLibraryTrackLayout(R.main,mainScale,padding,readingLimit);
     check(Math.abs(item.rowH-M.rowH*mainScale)<=1,'Track row follows the main pane scale: '+name);
     check(!!item.more&&Math.abs(item.more.x0-columns.moreX)<=1,'Track actions match the shared reading columns: '+name);
     geometry=item.rowH;
