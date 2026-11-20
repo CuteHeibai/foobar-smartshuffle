@@ -1,2 +1,2 @@
 #pragma once
-#define SS_VERSION "1.0.21"
+#define SS_VERSION "1.0.22"

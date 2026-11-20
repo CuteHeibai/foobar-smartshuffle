@@ -9,7 +9,7 @@ function RGBA(r,g,b,a){ return ((a<<24)|(r<<16)|(g<<8)|b); }
 /* ------------------------- tokens -------------------------
    The two knobs worth touching are UISCALE (a panel property now -- see core/props.js) and
    M.navW / M.queueW (sidebar and queue-pane widths). Everything else is derived layout. */
-var SS_APPEARANCE='dark';try{if(window.GetProperty('SmartShuffle: appearance','dark')==='light')SS_APPEARANCE='light';}catch(e){}
+var SS_APPEARANCE='light';try{if(window.GetProperty('SmartShuffle: appearance','light')==='dark')SS_APPEARANCE='dark';}catch(e){}
 function ssAlpha(c,a){return ((a<<24)|(c&0xffffff));}
 function ssInk(a){return ssAlpha(COL.text,a);}
 function ssAccent(a){return ssAlpha(COL.green,a);}
@@ -17,7 +17,7 @@ function ssAccent(a){return ssAlpha(COL.green,a);}
 function ssPalette(mode){
   if(mode==='light')return {
     black:RGB(244,245,247),base:RGB(255,255,255),elev:RGB(246,247,249),hover:RGB(235,236,240),
-    text:RGB(40,40,40),text2:RGB(93,93,93),text3:RGB(143,143,143),
+    text:RGB(62,62,62),text2:RGB(102,102,102),text3:RGB(110,110,110),
     green:RGB(10,110,240),greenC:RGB(10,110,240),greenHover:RGB(0,92,214),
     rowHover:RGBA(16,17,19,10),rowActive:RGBA(10,110,240,18),line:RGB(228,230,234),seekbg:RGB(219,222,227),
     splitter:RGB(210,212,218),gridLine:RGBA(16,17,19,40),gridAxis:RGBA(16,17,19,80),
@@ -30,7 +30,7 @@ function ssPalette(mode){
   };
   return {
     black:RGB(15,16,18),base:RGB(22,23,26),elev:RGB(30,31,35),hover:RGB(40,42,47),
-    text:RGB(220,220,220),text2:RGB(175,175,175),text3:RGB(143,143,143),
+    text:RGB(226,226,226),text2:RGB(175,175,175),text3:RGB(143,143,143),
     green:RGB(64,156,255),greenC:RGB(64,156,255),greenHover:RGB(100,180,255),
     rowHover:RGBA(255,255,255,14),rowActive:RGBA(64,156,255,26),
     line:RGB(48,50,55),splitter:RGB(48,50,55),gridLine:RGBA(255,255,255,26),gridAxis:RGBA(255,255,255,64),seekbg:RGB(62,65,72),
@@ -60,19 +60,19 @@ function ssCreateFont(name,sz){
   SS_FONT_META.push({font:font,name:name,size:size,style:0});
   return font;
 }
-function ssInterFont(sz){return ssCreateFont('Inter',sz);}
+function ssUIFont(sz){return ssCreateFont('Segoe UI',sz);}
 function ssCreateFonts(){return {
   // Page titles, sections and artwork captions.
-  title:ssInterFont(28), sect2:ssInterFont(20), sect:ssInterFont(15),
-  card:ssInterFont(14), meta:ssInterFont(13), eyebrow:ssInterFont(11),
+  title:ssUIFont(28), sect2:ssUIFont(20), sect:ssUIFont(15),
+  card:ssUIFont(14), meta:ssUIFont(13), eyebrow:ssUIFont(11),
   // Navigation, menus and search input.
-  searchTxt:ssInterFont(16), tab:ssInterFont(16), lib:ssInterFont(15),
-  pl:ssInterFont(13), plSub:ssInterFont(11), menuPrimary:ssInterFont(13), menu:ssInterFont(12),
+  searchTxt:ssUIFont(16), tab:ssUIFont(16), lib:ssUIFont(15),
+  pl:ssUIFont(13), plSub:ssUIFont(11), menuPrimary:ssUIFont(13), menu:ssUIFont(12),
   titleMenu:ssCreateFont('Segoe UI',14),
   // Track lists, lyrics and now playing.
-  rowTitle:ssInterFont(14), rowArtist:ssInterFont(12), rowNum:ssInterFont(13), rowCell:ssInterFont(13),
-  head:ssInterFont(12), qName:ssInterFont(13), qArtist:ssInterFont(11), lyric:ssInterFont(18),
-  npTitle:ssInterFont(15), npArtist:ssInterFont(12), time:ssInterFont(12),
+  rowTitle:ssUIFont(14), rowArtist:ssUIFont(12), rowNum:ssUIFont(13), rowCell:ssUIFont(13),
+  head:ssUIFont(12), qName:ssUIFont(13), qArtist:ssUIFont(11), lyric:ssUIFont(16),
+  npTitle:ssUIFont(15), npArtist:ssUIFont(12), time:ssUIFont(12),
   // Fullscreen text.
   fsTitle:ssCreateFont('Segoe UI',26), fsArtist:ssCreateFont('Segoe UI',18),
   fsSrc:ssCreateFont('Segoe UI',13), fsSrcName:ssCreateFont('Segoe UI',13), fsLyric:ssCreateFont('Segoe UI',28),
@@ -110,7 +110,7 @@ function ssFitFont(gr,font,height,text,width){
   var key=fitWidth?String(text)+'|'+Math.floor(width):'';
   for(var i=0;i<SS_FIT_FONTS.length;i++){var c=SS_FIT_FONTS[i];if(c.base===font&&c.height===limit&&c.key===key)return c.font;}
   var meta=null;for(i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
-  if(!meta)meta={name:font.Name||'Inter',size:font.Size||14,style:font.Style||0};
+  if(!meta)meta={name:font.Name||'Segoe UI',size:font.Size||14,style:font.Style||0};
   var ratio=Math.min(1,limit/Math.max(1,lineH(gr,font)));if(fitWidth)ratio=Math.min(ratio,width/Math.max(1,gr.CalcTextWidth(text,font)));
   var size=Math.max(floor,Math.floor(meta.size*ratio)),f;
   do{f=gdi.Font(meta.name,size,meta.style);if(lineH(gr,f)<=limit&&(!fitWidth||gr.CalcTextWidth(text,f)<=width))break;}while(--size>=floor);
@@ -189,7 +189,7 @@ function ssMeasureText(gr,text,font,h){
   for(var run of ssMeasuredRuns(gr,text,font,h,false))width+=run.width;
   return width;
 }
-var ssTextRenderingHint=4; // GDI+ AntiAliasGridFit gives text grayscale edges on both panels and cached bitmaps.
+var ssTextRenderingHint=3; // GDI+ AntiAliasGridFit gives text grayscale edges on both panels and cached bitmaps.
 var ssPaneTextFade=false,ssPaneLabelWidths=new Map(),ssPaneLabelImages=new Map();
 function ssDrawPaneLabels(gr,draw){
   var old=ssPaneTextFade;ssPaneTextFade=true;
@@ -308,7 +308,7 @@ var SS_SVG_FILES={heart:'heart',heartFilled:'heart',bookmark:'bookmark',bookmark
   settings:'settings',refresh:'refresh-cw',headphones:'headphones',folderOpen:'folder-open',tag:'tag',
   tools:'wrench',sun:'sun',moon:'moon',windowClose:'x',windowMinimize:'minus',
   windowMaximize:'maximize-2',windowRestore:'minimize-2',
-  shuffle:'shuffle',sequence:'list-ordered',repeat:'repeat',repeat1:'repeat-1'};
+  shuffle:'shuffle',check:'check',sequence:'list-ordered',repeat:'repeat',repeat1:'repeat-1'};
 function ssAssetSvg(name,color){
   var file=SS_SVG_FILES[name];
   if(!ssIconSources.hasOwnProperty(file)){

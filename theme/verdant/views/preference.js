@@ -2,6 +2,12 @@
 var SS_HB=[], SS_GRID=null, SS_LYRIC_BTN=null, SS_LYRIC_PLAY=null;
 var ssLyricChild=null, ssLyricTried=false, ssLyricVisible=false, ssLyricShown=null, ssLyricBounds='';
 var ssNativeLyricKey='';
+function ssStartLyricDrag(){
+  ssPlaceLyrics(null);
+}
+function ssDrawerDragging(){
+  return typeof ssResizing!=='undefined'&&ssResizing&&ssResizing.key==='right'&&!fsMode&&rightTab==='lyrics';
+}
 var ssGridImage=null,ssGridSize=0;
 function ssGradientGrid(size){
   if(ssGridImage&&ssGridSize===size)return ssGridImage;
@@ -30,8 +36,8 @@ function ssDrawGlassBall(gr,gx,gy,size){
 }
 function ssDrawerLyricsRect(){
   var r=R.queue;
-  if(!r||r.w<=80||r.h<=80) return null;
-  return {x:r.x+10,y:r.y+58,w:r.w-20,h:r.h-68};
+  if(!r||r.w<=80||r.h<=88) return null;
+  return {x:r.x+18,y:r.y+68,w:r.w-36,h:r.h-88};
 }
 function ssRequestNativeLyrics(visible,r,fontSize,exclude){
   var parent=Number(window.ID)||0;
@@ -41,13 +47,14 @@ function ssRequestNativeLyrics(visible,r,fontSize,exclude){
     r=r||ssDrawerLyricsRect();
     if(!r) return false;
     p.x=r.x; p.y=r.y; p.w=r.w; p.h=r.h;
-    if(fontSize){p.font_size=fontSize;p.exclude=exclude||[];}
+    if(fontSize)p.font_size=fontSize;
+    if(fontSize||(exclude&&exclude.length))p.exclude=exclude||[];
   }
   var key=JSON.stringify(p);
   if(key!==ssNativeLyricKey){ ssNativeLyricKey=key; ssSend('lyrics_panel',p); }
   return true;
 }
-function ssPlaceLyrics(r,nativeMenu,fontSize,exclude){
+function ssPlaceLyrics(r,fontSize,exclude){
   if(!ssLyricTried){
     ssLyricTried=true;
     try{ ssLyricChild=window.GetPanel('ESLyric'); }catch(e){ ssLyricChild=null; }
@@ -71,7 +78,6 @@ function ssPlaceLyrics(r,nativeMenu,fontSize,exclude){
     }
   }
   ssLyricVisible=false;
-  if(nativeMenu){ ssNativeLyricKey=''; return; } // menu_open hides the native child before building the menu
   if(visible){
     ssLyricVisible=!!(ssRequestNativeLyrics(true,r,fontSize,nativeClip?exclude:[])&&state&&state.ready&&state.visible&&!state.error);
   }else if(ssNativeLyricKey||(state&&state.ready)) ssRequestNativeLyrics(false);
@@ -104,16 +110,16 @@ function ssLyricsClearOfMenu(r,exclude){
   return r;
 }
 function ssSyncLyricPanel(){
+  if(ssDrawerDragging())return;
   var r=null,fontSize=0,exclude=[];
   var liveLyrics=fsMode&&fsView==='lyrics';
-  if((typeof NP==='undefined'||NP)&&(liveLyrics||(!ssModal&&!ssPopup))&&
+  if((typeof NP==='undefined'||NP)&&(liveLyrics||!ssModal)&&
      !(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof renameEdit!=='undefined'&&renameEdit)&&
      !(typeof dupPrompt!=='undefined'&&dupPrompt)&&!(typeof rgPrompt!=='undefined'&&rgPrompt)){
     if(fsMode){
       if(fsView==='lyrics'){
         r=ssFsLyricsRect(W,H,ssFsStageBottom(W,H));
         fontSize=Math.max(26,Math.round(28*ssFsScale(W,H)));
-        if(ssPopup)exclude=ssLyricsMenuExclusions();
         if(ssModal){
           var panel=ssGeometry(W,H);
           exclude.push({x:panel.x-4,y:panel.y-4,w:panel.w+8,h:panel.h+8});
@@ -121,7 +127,8 @@ function ssSyncLyricPanel(){
       }
     }else if(rightTab==='lyrics') r=ssDrawerLyricsRect();
   }
-  ssPlaceLyrics(r,ssPopup&&ssPopup.nativeMenu,fontSize,exclude);
+  if(r&&ssPopup)exclude=exclude.concat(ssLyricsMenuExclusions());
+  ssPlaceLyrics(r,fontSize,exclude);
 }
 function ssLyricPanelAvailable(){
   if(ssLyricChild) return true;

@@ -9,7 +9,6 @@ function ssShowPopup(items,x,y,token,nativeMenu,kind,anchor,below){
   if(typeof ssDropPopupImage==='function')ssDropPopupImage();
   ssPopupRestore=false;ssPopup={serial:++ssPopupSerial,x:x,y:y,token:token||'',nativeMenu:!!nativeMenu,kind:kind,
     anchor:anchor,below:!!below,context:kind==='context',clickSubmenus:kind==='playback',levels:[{items:items,scroll:0,selected:-1}]};
-  if(!nativeMenu&&!fsMode&&typeof ssHideLyrics==='function')ssHideLyrics();
   applyKeyMode();repaintAll();
 }
 function ssStopMenuPoll(){if(ssMenuPollTimer)window.ClearInterval(ssMenuPollTimer);ssMenuPollTimer=0;}
@@ -35,13 +34,15 @@ function ssOpenNativeMenu(kind,args,x,y,extra,showExtra){
   ssPopup.root=kind==='main'?args.root:'';
   ssPopup.extra=extra||[];
   ssPopup.showExtra=!!showExtra;
-  var fields={kind:kind};for(var k in args)fields[k]=args[k];
+  var fields={kind:kind,keep_lyrics:true};for(var k in args)fields[k]=args[k];
   ssPopup.request=ssSend('menu_open',fields);
   if(!ssMenuPollTimer)ssMenuPollTimer=window.SetInterval(ssPoll,16);
 }
 function ssAcceptMenu(done,state){
   if(!ssPopup||!done||done.id!==ssPopup.request)return;
   ssStopMenuPoll();
+  // Older components hide the lyrics child while resolving SDK menus.
+  ssNativeLyricKey='';
   var result=state.response&&state.response.menu;
   ssPopup.token=result?result.token:'';
   var extras=ssPopup.extra||[],details=[];
@@ -94,7 +95,7 @@ function ssPopupChoose(item){
   if(item.run)item.run();else if(item.command!==undefined)ssSend('menu_execute',{token:token,command:item.command});
 }
 function ssMenuLabel(label){var text=String(label||'').replace(/&&/g,'\u0001').replace(/&/g,'').replace(/\u0001/g,'&').split('\t')[0];return typeof ssLocalLabel==='function'?ssLocalLabel(text):text;}
-var SS_SUBMENU_EDGE=12,SS_SUBMENU_GAP=9;
+var SS_SUBMENU_EDGE=12,SS_SUBMENU_GAP=5;
 function ssMenuIconColumn(items,scale){
   return items.some(function(item){return !!item.icon;})?Math.round(24*scale):0;
 }
@@ -115,14 +116,14 @@ function ssSubmenuSide(parent,width){
   return right>=left?1:-1;
 }
 function ssDrawSubmenuSurface(gr,x,y,w,h){
-  var radius=10,density=Math.min(80,Math.round((COL.shadow>>>24)*1.2));
+  var radius=16,density=Math.min(48,COL.shadow>>>24);
   // The light falloff follows the corners and leaves the neighboring menu clear.
   for(var spread=SS_SUBMENU_GAP-1;spread>0;spread--){
     var alpha=Math.max(1,Math.round((SS_SUBMENU_GAP-spread)*density/44));
     ssFillContinuousRect(gr,x-spread,y+2-spread,w+2*spread,h+2*spread,radius+spread,radius+spread,ssAlpha(COL.shadow,alpha));
   }
-  ssFillContinuousRect(gr,x,y,w,h,radius,radius,COL.popupAlt);
-  ssStrokeContinuousRect(gr,x+.5,y+.5,w-1,h-1,radius,radius,1,COL.submenuLine);
+  ssFillContinuousRect(gr,x,y,w,h,radius,radius,COL.popup);
+  ssStrokeContinuousRect(gr,x+.5,y+.5,w-1,h-1,radius,radius,1,COL.line);
 }
 function ssPopupItemHeight(item,rowHeight,separatorHeight){
   return item.separator?separatorHeight:item.heading?Math.round(rowHeight*.8):rowHeight;
@@ -153,21 +154,21 @@ function ssDrawPopup(gr){
   SS_MENU_HB=[];if(!ssPopup)return;
   var previous=null,context=ssPopup.context,playback=ssPopup.clickSubmenus,scale=Math.max(1,UISCALE);
   var menuScale=playback?Math.max(1,Math.min(1.32,W/1280,H/800)):1;
-  var style={playback:playback,minWidth:playback?Math.round(204*menuScale):156,submenuWidth:Math.round(156*menuScale),
+  var style={playback:playback,minWidth:playback?Math.round(204*menuScale):156,submenuWidth:Math.round(204*menuScale),
     primary:menuScale>1?ssFsFont(FONT.menuPrimary,menuScale):FONT.menuPrimary,
-    label:menuScale>1?ssFsFont(FONT.pl,menuScale):FONT.pl};
-  var rootRow=Math.max(30,Math.round(24*scale),Math.round(30*menuScale));
-  var childRow=Math.max(28,Math.round(22*scale),Math.round(28*menuScale));
+    label:menuScale>1?ssFsFont(FONT.lib,menuScale):FONT.lib};
+  var rootRow=Math.max(36,Math.round(24*scale),Math.round(30*menuScale));
+  var childRow=Math.max(35,Math.round(22*scale),Math.round(28*menuScale));
   var widths=ssPopup.levels.map(function(level,d){return ssPopupMenuWidth(gr,level,d?childRow:rootRow,scale,style,d>0);});
   var first=ssPopupFirstVisible();
   var contentBottom=context&&typeof R!=='undefined'&&R.barY>TBH+80?R.barY:H;
   for(var d=first;d<ssPopup.levels.length;d++){
-    var secondary=d>0,rh=secondary?childRow:rootRow,pad=secondary?5:6,inset=secondary?12:14,separator=secondary?8:9;
+    var secondary=d>0,rh=secondary?childRow:rootRow,pad=6,inset=16,separator=10;
     var edge=secondary?SS_SUBMENU_EDGE:8,topBound=TBH+(secondary?SS_SUBMENU_EDGE:4);
     var limit=contentBottom-(secondary?SS_SUBMENU_EDGE:context&&contentBottom!==H?6:8);
     if(secondary&&playback&&ssPopup.anchor)limit=Math.min(limit,Math.floor(ssPopup.anchor.y0)-SS_SUBMENU_EDGE-8);
     var level=ssPopup.levels[d],items=level.items,total=pad*2,offsets=[],width=widths[d];
-    var leading=ssMenuIconColumn(items,scale),iconSize=Math.min(rh-8,Math.round((playback&&!secondary?19:16)*scale));
+    var leading=secondary?Math.max(28,ssMenuIconColumn(items,scale)):ssMenuIconColumn(items,scale),iconSize=Math.min(rh-8,Math.round((playback&&!secondary?19:16)*scale));
     var header=level.drill?rh+5:0;
     for(var i=0;i<items.length;i++){
       offsets.push(total-pad*2);total+=ssPopupItemHeight(items[i],rh,separator);
@@ -206,7 +207,7 @@ function ssDrawPopup(gr){
     for(i=0;i<items.length;i++){
       var it=items[i],ih=ssPopupItemHeight(it,rh,separator);
       if(rowY>=top&&rowY+ih<=bottom){
-        if(it.separator)gr.FillSolidRect(x+inset,rowY+4,width-2*inset,1,COL.line);
+        if(it.separator)gr.FillSolidRect(x+inset,rowY+Math.floor(ih/2),width-2*inset,1,COL.line);
         else if(it.heading)tL(gr,ssMenuLabel(it.label),FONT.plSub,COL.text2,x+inset,rowY,width-inset*2,ih);
         else{
           var current=playback&&it.checked;
@@ -219,7 +220,7 @@ function ssDrawPopup(gr){
             var next=ssPopup.levels[d+1];
             var left=level.selected===i&&next&&!next.drill&&ssSubmenuSide(level.rect,widths[d+1])<0;
             ssDrawContextChevron(gr,x+width-17,Math.round(rowY+ih/2),left?-1:1,it.disabled?COL.text3:COL.text2);
-          }else if(it.checked)tC(gr,'✓',style.label,COL.green,x+width-27,rowY,18,ih);
+          }else if(it.checked)drawIcon(gr,'check',it.disabled?COL.text3:COL.text2,x+width-27,rowY,18,ih,Math.min(iconSize,16));
           SS_MENU_HB.push({x0:x,y0:rowY,x1:x+width,y1:rowY+ih,depth:d,index:i,item:it});
         }
       }

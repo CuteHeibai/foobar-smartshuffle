@@ -139,12 +139,13 @@ function layout(contentOnly){
 }
 // bitmaps are keyed by geometry; and the panel's surface is rebuilt, so the next paint must be full
 function on_size(w,h){
+  if(!(w>0&&h>0)){w=window.Width;h=window.Height;}
   if(w>0&&h>0)ssClampWindowSize(w,h);
   if(w<400||h<200)return;
   if(typeof ssAbortResize==='function')ssAbortResize();
   if(W!==w||H!==h){ssRightForced=false;ssHideLyrics();}
   W=w;H=h;layout();ssDropModalImage();ssDropSceneImage();
-  plCardCache={};artCardCache={};artCardN=0;skelImgs={};dirtyAll=true;ssReportLayout();
+  plCardCache={};artCardCache={};artCardN=0;skelImgs={};dirtyAll=true;ssReportLayout();window.Repaint();
 }
 
 // name/count come from the per-playlist caches, not fresh interop: this runs on every paint of the playlist view
@@ -211,7 +212,7 @@ function ssPaintFrame(gr){
      !renameEdit&&!confirmDel&&!dupPrompt&&!rgPrompt&&!sgMenuOpen&&!plSortMenuOpen){
     ssPaintInteractions(gr);return;
   }
-  if(!fsMode||!ssPopup)ssSyncLyricPanel();
+  if(!ssPopup)ssSyncLyricPanel();
   visPlCache=null;   // one playlist scan per frame, shared by drawNav and drawHome
   gr.SetSmoothingMode(2);
   gr.SetInterpolationMode(5);   // NearestNeighbor: every DrawImage here is 1:1, so filtering is pure cost
@@ -523,7 +524,7 @@ function on_mouse_lbtn_up(x,y){
   }
   if((t=hit(HB_TABS,x,y))){ssSetRightPane(t.tab,true);return;}
   if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act,t); return; }
-  if(HB_HOME && inRect(x,y,HB_HOME)){ view='home'; repaintAll(); return; }
+  if(HB_HOME && inRect(x,y,HB_HOME)){ ssAdvanceHomeRecommendation(); view='home'; repaintAll(); return; }
   if(view==='home'&&typeof ssHomeActionAt==='function'&&(t=ssHomeActionAt(x,y))){ssActivateHomeAction(t);return;}
   if(typeof HB_ARTISTS_NAV!=='undefined'&&HB_ARTISTS_NAV&&inRect(x,y,HB_ARTISTS_NAV)){view='songs';setSongsGroup('artist');songsScroll=songsScrollT=0;repaintAll();return;}
   if(typeof HB_STATS_NAV!=='undefined'&&HB_STATS_NAV&&inRect(x,y,HB_STATS_NAV)){ssStatsOpen();return;}
@@ -830,13 +831,14 @@ function on_library_items_changed(handles){ libChanged();if(handles)ssQueueMedia
 
 /* ------------------------- playback callbacks ------------------------- */
 function on_playback_new_track(){
+  var entering=!NP;
   updateNP();
-  ssPoll();
+  if(entering&&NP&&!fsMode)ssBeginPlaybackReveal();
   repaintAll();
 }
 function npChanged(){ updateNP(); repaintAll(); }
 function on_playback_dynamic_info_track(){ npChanged(); }
-function on_playback_stop(){ ssHideLyrics();npChanged(); }
+function on_playback_stop(reason){ if(reason===2)return;ssHideLyrics();npChanged(); }
 function on_playback_pause(){ npChanged(); }
 function on_playback_time(){
   repaintBar();
@@ -881,4 +883,4 @@ drpSync();         // make foo_verdant agree with the Discord property before an
 
 ssLoadArtists();ssStart();
 ssStartCovers();
-console.log('Smart Shuffle Chinese Verdant 1.0.21 ready');
+console.log('Smart Shuffle Chinese Verdant 1.0.22 ready');

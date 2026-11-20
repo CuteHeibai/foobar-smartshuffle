@@ -61,7 +61,7 @@ function drawPlaylist(gr,r){
       tR(gr,String(d+1),FONT.rowNum,isPlaying?COL.green:COL.text2,numX,ry,numW,rh);
       var alb=meta.album[j],key=meta.artkey[j],previous=order[d-1],artist=meta.artist[j];
       var repeated=alb&&key&&items[previous]&&alb===meta.album[previous]&&key===meta.artkey[previous];
-      if(!repeated)drawCover(gr,coverX,ry+(rh-cs)/2,cs,3,h,alb||String(j),key);
+      drawCover(gr,coverX,ry+(rh-cs)/2,cs,3,h,alb||String(j),key);
       var detail=alb&&alb!==meta.title[j]&&(!repeated||!artist)?[artist,alb].filter(Boolean).join(' '+CH_DOT+' '):artist;
       ssDrawTrackLabels(gr,meta.title[j],detail,isPlaying?COL.green:COL.text,titleX,ry,titleW,rh,s);
       drawIcon(gr,'more',isHover?COL.text:COL.text2,moreX,moreY,moreW,moreW,Math.round(17*s));

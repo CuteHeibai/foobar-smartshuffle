@@ -46,8 +46,8 @@ test('appearance menu uses a native transaction and retains deep and light choic
 test('text tiers and title menu use the measured desktop baseline',()=>{
  const {c}=harness('light');
  const colors=mode=>{const palette=c.ssPalette(mode);return ['text','text2','text3'].map(key=>palette[key]&0xffffff);};
- assert.deepEqual(colors('light'),[0x282828,0x5d5d5d,0x8f8f8f]);
- assert.deepEqual(colors('dark'),[0xdcdcdc,0xafafaf,0x8f8f8f]);
+ assert.deepEqual(colors('light'),[0x3e3e3e,0x666666,0x6e6e6e]);
+ assert.deepEqual(colors('dark'),[0xe2e2e2,0xafafaf,0x8f8f8f]);
  assert.deepEqual([c.FONT.titleMenu.Name,c.FONT.titleMenu.Size,c.FONT.titleMenu.Style],['Segoe UI',14,0]);
 });
 test('personal and menu glyphs rasterize upstream SVG assets with the current theme color',()=>{

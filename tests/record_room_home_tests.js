@@ -5,7 +5,7 @@ function harness(){
  ssMeasureText:(gr,text,font)=>gr.CalcTextWidth(text,font),ssDrawFixedLabel:(gr,s,f,col,x,y,w,h)=>texts.push(s),ssAlpha:()=>0,
  ssDrawIdleRecord(){},drawIcon(){},drawRounded:(gr,x,y,w)=>paints.push({gr,x,y,w}),tL:(gr,text)=>texts.push(text),tC(){},tR(){},drawScrollbar(){},drawScrollbarH(){},drawPlaylistCard(){},startWarmHome(){},
  ssBeginViewport:(key,gr,x,y,w,h)=>{const layer={key,x,y,w,h,gr:{FillRoundRect(){},FillSolidRect(){},CalcTextWidth:s=>s.length*8},done:false};layers.push(layer);return {gr:layer.gr,finish(){layer.done=true;}};}};
- vm.createContext(c);for(const file of ['../core/corners','cards','home'])vm.runInContext(fs.readFileSync('theme/verdant/views/'+file+'.js','utf8'),c);
+ vm.createContext(c);vm.runInContext("Math.random=()=>0",c);for(const file of ['../core/corners','cards','home'])vm.runInContext(fs.readFileSync('theme/verdant/views/'+file+'.js','utf8'),c);
  return {c,paints,layers,texts,gr:{FillSolidRect(){},FillGradRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},FillEllipse(){},SetSmoothingMode(){},DrawLine(){},CalcTextWidth:s=>s.length*8}};
 }
 test('home shows real album navigation when verified artist list is empty inside a clipped viewport',()=>{
@@ -122,4 +122,22 @@ test('album names reserve two title lines and the selection avoids repeated name
  assert.deepEqual(Array.from(c.ssHomeAlbumSelection(duplicate),a=>a.album),['Same Work','Another Work']);
  const discs=[{album:'Soundtrack [Disc 1]',artist:'A'},{album:'Soundtrack [Disc 2]',artist:'B'},{album:'Another Work',artist:'C'}];
  assert.deepEqual(Array.from(c.ssHomeAlbumSelection(discs),a=>a.album),['Soundtrack [Disc 1]','Another Work']);
+});
+
+test('featured album advances through the catalog, survives reload and stays stable during repaints',()=>{
+ const {c}=harness(),albums=c.getAlbumCatalog().albums,saved=new Map();
+ c.window={SetProperty:(key,value)=>saved.set(key,value),GetProperty:(key,fallback)=>saved.get(key)||fallback};
+ vm.runInContext('Math.random=()=>0.5',c);
+ const seen=new Set();
+ assert.notEqual(c.ssHomeAlbumSelection(albums)[0].id,'album-7');
+ for(let i=0;i<albums.length;i++){
+   const id=c.ssHomeAlbumSelection(albums)[0].id;
+   assert.equal(seen.has(id),false);seen.add(id);
+   assert.equal(c.ssHomeAlbumSelection(albums.slice())[0].id,id);
+   c.ssAdvanceHomeRecommendation();
+ }
+ const last=c.ssHomeLastId;
+ vm.runInContext(fs.readFileSync('theme/verdant/views/home.js','utf8'),c);
+ assert.equal(c.ssHomeLastId,last);
+ assert.notEqual(c.ssHomeAlbumSelection(albums)[0].id,last);
 });

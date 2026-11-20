@@ -247,19 +247,19 @@ test('Chinese, kana and Latin titles draw with regular faces and retain the head
  c.tL(g,'歌曲列表',c.FONT.title,1,0,0,400,80);c.tL(g,'夜に駆ける',c.FONT.title,1,0,100,400,80);
  c.tL(g,'Library',c.FONT.title,1,0,200,400,80);c.tL(g,'English song',c.FONT.rowTitle,1,0,300,400,40);
  assert.deepEqual(draws.map(({f})=>[f.Name,f.Style,f.Size]),[
-  ['Microsoft YaHei UI',0,56],['Microsoft YaHei UI',0,56],['Inter',0,56],['Inter',0,28]
+  ['Microsoft YaHei UI',0,56],['Microsoft YaHei UI',0,56],['Segoe UI',0,56],['Segoe UI',0,28]
  ]);
  const mixed=c.ssTextRuns('夜に駆ける / Racing into the Night',c.FONT.rowTitle);
  assert.equal(mixed.length,2);
  assert.ok(/^夜/.test(mixed[0].text)&&mixed[0].text.endsWith(' '),'kana and the separator stay with the CJK face');
  assert.equal(mixed[1].text,'Racing into the Night');
- assert.deepEqual([...mixed.map(r=>r.font.Name)],['Microsoft YaHei UI','Inter']);assert.deepEqual([...mixed.map(r=>r.font.Style)],[0,0]);
+ assert.deepEqual([...mixed.map(r=>r.font.Name)],['Microsoft YaHei UI','Segoe UI']);assert.deepEqual([...mixed.map(r=>r.font.Style)],[0,0]);
 });
-test('navigation, menu and section labels use regular Inter faces',()=>{
+test('navigation, menu and section labels use regular Segoe UI faces',()=>{
  const {c}=context(),g=graphics(),draws=[];g.DrawString=(s,f)=>draws.push([s,f.Name,f.Style]);
  const labels={lib:'Library',pl:'Playlist',menuPrimary:'Play',head:'Track',tab:'Queue',sect:'Up Next',sect2:'Albums',card:'Album title',lyric:'Lyrics'};
  for(const [role,label] of Object.entries(labels))c.tL(g,label,c.FONT[role],1,0,0,400,40);
- assert.deepEqual(draws,Object.values(labels).map(label=>[label,'Inter',0]));
+ assert.deepEqual(draws,Object.values(labels).map(label=>[label,'Segoe UI',0]));
 });
 test('scene restore copies align source and destination to whole pixels',()=>{
  const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[{x0:10.2,y0:49.3,x1:480.8,y1:99.3}];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=40;c.my=70;let copies=[];const g=graphics();g.DrawImage=(im,...args)=>copies.push(args);c.ssPaintInteractions(g);assert.ok(copies.length);assert.ok(copies.every(args=>args.every(Number.isInteger)));
@@ -368,13 +368,13 @@ test('submenus align to the invoking row with compact spacing and a soft shadow 
   c.ssDrawPopup(g);const entry=c.SS_MENU_HB[0];
   c.ssPopupClick(entry.x0+12,entry.y0+10);paints=[];c.ssDrawPopup(g);
   const [parent,child]=c.ssPopup.levels,rect=child.rect;
-  assert.ok(paints.some(mark=>mark.x===rect.x&&mark.y===rect.y&&mark.colour===c.COL.popupAlt));
-  assert.ok(c.COL.submenuLine!==c.COL.line&&strokes.some(mark=>mark.x===rect.x+.5&&mark.colour===c.COL.submenuLine));
+  assert.ok(paints.some(mark=>mark.x===rect.x&&mark.y===rect.y&&mark.colour===c.COL.popup));
+  assert.ok(strokes.some(mark=>mark.x===rect.x+.5&&mark.colour===c.COL.line));
   assert.equal(c.SS_MENU_HB.find(box=>box.depth===1).y0,entry.y0);
   assert.ok(child.rowHeight<parent.rowHeight);
-  assert.ok(x>1000?rect.x+rect.w+8<=parent.rect.x:rect.x-8>=parent.rect.x+parent.rect.w);
+  assert.ok(x>1000?rect.x+rect.w+5<=parent.rect.x:rect.x-5>=parent.rect.x+parent.rect.w);
   const shadow=paints.filter(mark=>mark.x<rect.x&&mark.x+mark.w>rect.x+rect.w&&mark.alpha<255);
-  assert.ok(shadow.length>=6);
+  assert.ok(shadow.length>=4);
   assert.ok(shadow.every(mark=>mark.x>=0&&mark.y>=c.TBH&&mark.x+mark.w<=c.W&&mark.y+mark.h<=c.H));
   assert.ok(shadow[0].alpha<shadow.at(-1).alpha&&shadow.at(-1).alpha<30);
   c.ssClosePopup();

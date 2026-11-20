@@ -108,6 +108,8 @@ public:
     std::future<Preview> previewWork;bool previewDirty=false,autoApply=false;
     struct SeekTarget {std::string id;double seconds;Clock::time_point expires;};
     std::optional<SeekTarget> pendingSeek;
+    json lastTrack=nullptr;
+    bool resumeReady=false;
     play_control::t_track_command startCommand=play_control::track_command_default;
     std::map<std::string,double> lifetime;double countAtStart=0;
     std::map<std::string,bool> roundAudio;
@@ -120,7 +122,7 @@ public:
     std::unique_ptr<native_ss::Updater> updater;
     std::string edition="core";bool updateNotified=false;
     std::string themeVersion;
-    std::string themeAppearance="dark";
+    std::string themeAppearance="light";
     std::string themeRenderedAppearance;
     uint64_t themeWindow=0;
     bool themeUIWizard=false,themeChromeReady=false,nativeAppearanceSynced=false;
@@ -151,7 +153,7 @@ public:
         try{auto j=readjson(root/L"store.json");if(j.value("version",1)==1){temporarySources=j.value("temporary_sources",decltype(temporarySources){});lifetime=j.value("lifetime",decltype(lifetime){});roundAudio=j.value("round_audio",decltype(roundAudio){});enabled=j.value("enabled",true);source=j.value("source",std::string{});rounds=j.value("rounds",decltype(rounds){});recent=j.value("recent",decltype(recent){});scanPaused=j.value("scanPaused",false);}}catch(const std::exception& e){error=std::string("恢复轮次失败，已保留原文件：")+e.what();}
         try{auto j=readjson(root/L"features.json");if(j.is_object())cache=std::move(j);}catch(...){error="音频特征缓存无法读取，将重新分析";}
         lyrics=std::make_unique<native_ss::LyricsHost>();
-        try{if(readjson(root/L"store.json").value("appearance",std::string("dark"))=="light")themeAppearance="light";}catch(...){}
+        try{if(readjson(root/L"store.json").value("appearance",std::string("light"))=="dark")themeAppearance="dark";}catch(...){}
         metadata=std::make_unique<native_ss::MetadataWorker>(root);
         auto hasTheme=fs::exists(root.parent_path()/L"verdant"/L"main.js");
         try{edition=native_ss::installation_edition(readjson(root/L"installation.json"),hasTheme);}catch(...){edition=hasTheme?"full":"core";}
@@ -172,6 +174,7 @@ public:
         if(index_of_source()==~size_t(0))source.clear();
         if(source.empty())select_source(playlist_manager::get()->get_active_playlist());else refresh();
         if(!fs::exists(root/L"request.json"))lastRequest.clear();else try{auto pending=readjson(root/L"request.json");if(!created_during_this_process(root/L"request.json"))lastRequest=pending.value("id",std::string{});}catch(...){}
+        restore_session();
         metadb_handle_ptr h;if(playback_control::get()->get_now_playing(h)){on_playback_new_track(h);accountingPaused=playback_control::get()->is_paused();}
         try{uiLayoutReset=readjson(root/L"store.json").value("layout_reset",uint64_t(0));}catch(...){}
         native_ss::set_layout_reset_handler([this]{++uiLayoutReset;save();changed=true;publish();});
@@ -187,7 +190,7 @@ public:
         });
         publish();
     }
-    ~Engine(){quitting=true;accrue();close_personal("interrupted");save_personal(true);native_ss::set_personal_library_handler({});native_ss::set_listening_stats_handler({});native_ss::close_native_dialogs();native_ss::set_dialog_handlers({},{});native_ss::set_layout_reset_handler({});remove_owned_queue();lyrics.reset();metadata.reset();scanner.reset();save();}
+    ~Engine(){save_session();quitting=true;accrue();close_personal("interrupted");save_personal(true);native_ss::set_personal_library_handler({});native_ss::set_listening_stats_handler({});native_ss::close_native_dialogs();native_ss::set_dialog_handlers({},{});native_ss::set_layout_reset_handler({});remove_owned_queue();lyrics.reset();metadata.reset();scanner.reset();save();}
     json personal_track(const metadb_handle_ptr& h){
         file_info_impl info;std::string title,artist,album;double length=0;
         if(h->get_info(info)){
@@ -200,6 +203,54 @@ public:
             if(pc->get_now_playing(current)&&current==h)length=pc->playback_get_length_ex();
         }
         return {{"id",idof(h)},{"title",title},{"artist",artist},{"album",album},{"duration",std::isfinite(length)&&length>0?length:0}};
+    }
+    metadb_handle_ptr session_handle(const std::string& id){
+        auto cut=id.rfind('|');
+        if(cut==std::string::npos)throw std::runtime_error("Invalid saved track");
+        metadb_handle_ptr h;
+        metadb::get()->handle_create(h,make_playable_location(id.substr(0,cut).c_str(),std::stoul(id.substr(cut+1))));
+        return h;
+    }
+    void restore_session(){
+        try{
+            auto data=readjson(root/L"playback-session.json");
+            lastTrack=data.value("track",json(nullptr));
+            resumeReady=lastTrack.is_object()&&lastTrack.contains("id");
+            auto pm=playlist_manager::get();
+            if(!pm->queue_get_count()){
+                for(const auto& id:data.value("queue",std::vector<std::string>{}))
+                    pm->queue_add_item(session_handle(id));
+            }
+        }catch(const std::exception& e){error=e.what();}
+    }
+    void save_session(){
+        try{
+            auto pm=playlist_manager::get();
+            pfc::list_t<t_playback_queue_item> q;pm->queue_get_contents(q);
+            std::vector<std::string> ids;bool bridgeUsed=false;
+            for(auto& item:q)if(!owned_queue(item,bridgeUsed))ids.push_back(idof(item.m_handle));
+            writejson(root/L"playback-session.json",{{"track",lastTrack},{"queue",ids}});
+        }catch(const std::exception& e){error=e.what();}
+    }
+    bool resume_session(){
+        if(!resumeReady)return false;
+        auto pm=playlist_manager_v5::get();
+        auto h=session_handle(lastTrack.at("id"));
+        size_t pi=pm->find_playlist_by_guid(parseguid(lastTrack.value("playlist",std::string{})));
+        size_t at=lastTrack.value("item",~size_t(0));
+        metadb_handle_ptr match;
+        if(pi<pm->get_playlist_count()&&at<pm->playlist_get_item_count(pi))pm->playlist_get_item_handle(match,pi,at);
+        if(match!=h&&(pi>=pm->get_playlist_count()||!pm->playlist_find_item(pi,h,at))){
+            pi=index_of_source();
+            if(pi>=pm->get_playlist_count()||!pm->playlist_find_item(pi,h,at)){
+                pi=pm->find_or_create_playlist(Managed);at=pm->playlist_get_item_count(pi);
+                metadb_handle_list one;one.add_item(h);pm->playlist_insert_items(pi,at,one,pfc::bit_array_false());
+            }
+        }
+        pendingSeek=SeekTarget{idof(h),lastTrack.value("seconds",0.0),Clock::now()+std::chrono::seconds(15)};
+        managedRequested=enabled&&internal(pi);
+        pm->playlist_execute_default_action(pi,at);
+        return true;
     }
     void close_personal(const char* outcome){
         if(!personalHistory||!personalReady||!personal.active())return;
@@ -249,13 +300,13 @@ public:
         json j={{"version",1},{"pid",GetCurrentProcessId()},{"component",SS_VERSION},{"revision",revision},{"request_id",lastRequest},{"enabled",enabled},{"source",source},{"source_name",source_name()},{"ui_open",uiOpen},{"error",error},{"response",response},{"managed_playlist",Managed}};
         if(!source.empty()){j["point"]=round().preference;j["round"]=round().number;j["remaining_count"]=round().remaining.size();j["remaining"]=list_json(round().remaining);}
         else{j["point"]={{"x",0},{"y",0}};j["round"]=1;j["remaining_count"]=0;j["remaining"]=json::array();}
-        j["ui_layout_reset"]=uiLayoutReset;j["preview_pending"]=previewDirty||previewWork.valid();j["seek_pending"]=pendingSeek.has_value();j["now_id"]=nowId;j["queue"]=json::array();
+        j["ui_layout_reset"]=uiLayoutReset;j["preview_pending"]=previewDirty||previewWork.valid();j["seek_pending"]=pendingSeek.has_value();j["resume"]=resumeReady?lastTrack:json(nullptr);j["now_id"]=nowId;j["queue"]=json::array();
         auto pm=playlist_manager::get();pfc::list_t<t_playback_queue_item> q;pm->queue_get_contents(q);
         j["playlists"]=json::array();for(size_t i=0;i<pm->get_playlist_count();++i){pfc::string8 name;pm->playlist_get_name(i,name);j["playlists"].push_back({{"index",i},{"guid",guidstr(playlist_manager_v5::get()->playlist_get_guid(i))},{"name",name.c_str()},{"writable",playlist_writable(i)},{"reorderable",playlist_reorderable(i)}});}
         bool bridgeUsed=false;for(auto& v:q)if(!owned_queue(v,bridgeUsed))j["queue"].push_back(track_json(idof(v.m_handle)));
         j["native_next"]=json::array();if(!enabled){
             auto pi=index_of_source();size_t at=~size_t(0);if(pi<pm->get_playlist_count()){
-                metadb_handle_list list;pm->playlist_get_all_items(pi,list);for(size_t i=0;i<list.get_count();++i)if(idof(list[i])==nowId){at=i;break;}
+                metadb_handle_list list;pm->playlist_get_all_items(pi,list);for(size_t i=0;i<list.get_count();++i)if(idof(list[i])==(resumeReady?lastTrack.at("id").get_ref<const std::string&>():nowId)){at=i;break;}
                 auto append=[&](size_t i){auto row=track_json(idof(list[i]));row["playlist"]=pi;row["item"]=i;j["native_next"].push_back(row);};
                 for(size_t i=at==~size_t(0)?0:at+1;i<list.get_count();++i)append(i);
                 if(pm->playback_order_get_active()==1&&at!=~size_t(0))for(size_t i=0;i<=at;++i)append(i);
@@ -362,9 +413,15 @@ public:
         events.push_back(std::move(e));
     }
     void on_playback_starting(play_control::t_track_command c,bool paused)override{accrue();startCommand=c;accountingPaused=paused;if(managedRequested){managedContext=true;managedRequested=false;}else if(c!=play_control::track_command_default&&c!=play_control::track_command_next)managedContext=false;}
-    void on_playback_new_track(metadb_handle_ptr h)override{accrue();close_personal(startCommand==play_control::track_command_default?"completed":idof(h)==nowId?"replayed":"switched");personalAwaitingStart=false;if(personalHistory&&personalReady){personal.begin(personal_track(h),epoch());personalDirty=true;}nowId=idof(h);if(pendingSeek&&pendingSeek->id!=nowId)pendingSeek.reset();listened=0;statsCounted=false;auto t=describe(h);duration=t.duration;countAtStart=t.play_count;clock=Clock::now();queue_event(h);startCommand=play_control::track_command_default;accountingPlaying=true;accountingPaused=playback_control::get()->is_paused();}
+    void on_playback_new_track(metadb_handle_ptr h)override{accrue();close_personal(startCommand==play_control::track_command_default?"completed":idof(h)==nowId?"replayed":"switched");personalAwaitingStart=false;if(personalHistory&&personalReady){personal.begin(personal_track(h),epoch());personalDirty=true;}nowId=idof(h);resumeReady=false;lastTrack=personal_track(h);
+        size_t pi,at;auto pm=playlist_manager_v5::get();
+        if(pm->get_playing_item_location(&pi,&at)&&pi<pm->get_playlist_count()){
+            lastTrack["playlist"]=guidstr(pm->playlist_get_guid(pi));lastTrack["item"]=at;
+        }
+        lastTrack["seconds"]=playback_control::get()->playback_get_position();
+        if(pendingSeek&&pendingSeek->id!=nowId)pendingSeek.reset();listened=0;statsCounted=false;auto t=describe(h);duration=t.duration;countAtStart=t.play_count;clock=Clock::now();queue_event(h);startCommand=play_control::track_command_default;accountingPlaying=true;accountingPaused=playback_control::get()->is_paused();}
     void on_playback_stop(play_control::t_stop_reason r)override{accrue();if(r==play_control::stop_reason_starting_another)personalAwaitingStart=personal.active();else{close_personal(r==play_control::stop_reason_eof?(personalAwaitingStart||personal.active_seconds()<.1?"failed":"completed"):r==play_control::stop_reason_shutting_down?"interrupted":"stopped");personalAwaitingStart=false;}if(r!=play_control::stop_reason_starting_another)pendingSeek.reset();accountingPlaying=false;if(r==play_control::stop_reason_eof){ended=true;eofManaged=managedContext&&!historyTarget;eofRevision=revision;eofSource=source;eofRound=source.empty()?0:round().number;eofRemaining=source.empty()?std::vector<std::string>{}:round().remaining;}}
-    void on_playback_seek(double)override{accrue();}
+    void on_playback_seek(double seconds)override{accrue();if(lastTrack.is_object())lastTrack["seconds"]=seconds;}
     void on_playback_pause(bool p)override{accrue();accountingPaused=p;}
     void on_items_added(t_size p,t_size,const pfc::list_base_const_t<metadb_handle_ptr>&,const bit_array&)override{markdirty(p);}
     void on_items_removed(t_size p,const bit_array&,t_size,t_size)override{markdirty(p);}
@@ -657,6 +714,7 @@ public:
             for(auto& item:queue)if(!owned_queue(item,bridgeUsed)){userQueue=true;break;}
             if(!userQueue&&replay_history(false))return;
         }
+        if(!pc->is_playing()&&(action==Transport::play||action==Transport::play_pause)&&resume_session())return;
         if(action==Transport::next)pendingSeek.reset();
         if(pc->is_playing()||!enabled){
             if(action==Transport::next)pc->next();
@@ -955,7 +1013,7 @@ public:
             if(index_of_source()!=~size_t(0))refresh();invalidate();rebuild();response["recycled"]=true;
         }
         else if(op=="menu_open"){
-            lyrics->update({{"visible",false}});
+            if(!req.value("keep_lyrics",false))lyrics->update({{"visible",false}});
             if(req.value("kind",std::string{})=="main")response["menu"]=nativeMenus.open_main(req.at("root").get<std::string>());
             else{
                 if(req.contains("tracks")){response["menu"]=nativeMenus.open_context(selected_handles(req));changed=true;return;}
@@ -1045,6 +1103,7 @@ public:
         auto now=Clock::now();accrue();
         if(historyTarget&&now>=historyDeadline)historyTarget.reset();
         auto pc=playback_control::get();auto pm=playlist_manager::get();
+        if(accountingPlaying&&lastTrack.is_object()&&!pendingSeek&&pc->is_playing())lastTrack["seconds"]=pc->playback_get_position();
         if(pendingMode){auto mode=*pendingMode;pendingMode.reset();set_mode(false,mode);}
         while(!events.empty()){auto e=events.front();events.pop_front();process_new(std::move(e));}
         if(pendingSeek){

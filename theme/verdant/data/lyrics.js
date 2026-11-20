@@ -29,7 +29,7 @@ function lyLayout(gr,maxW,font){
   return lyLay;
 }
 // rolling synced lyrics (queue tab + fullscreen). align: 'c' centred / 'l' left
-function drawRollingLyrics(gr,x,top,w,bot,font,curCol,align){
+function drawRollingLyrics(gr,x,top,w,bot,font,curCol,align,contextCol){
   var viewMid=Math.round((top+bot)/2), L=lyLayout(gr,w,font), subLh=L.subLh, li,s;
   lyCur=currentLyricLine();
   lyTarget=L.cen[lyCur]||0;
@@ -38,7 +38,7 @@ function drawRollingLyrics(gr,x,top,w,bot,font,curCol,align){
     var bcY=viewMid+(L.cen[li]-lyScroll);
     if(bcY<top-L.blockH[li] || bcY>bot+L.blockH[li]) continue;
     var isCur=(li===lyCur), dist=Math.abs(bcY-viewMid), a=clamp01(1-dist/(viewMid-top));
-    var col=isCur?curCol:ssInk(Math.round(24+120*a));
+    var col=isCur?curCol:contextCol===undefined?ssInk(Math.round(24+120*a)):ssAlpha(contextCol,Math.round(148+107*a));
     var parts=L.subs[li], bTop=Math.round(bcY-L.blockH[li]/2);
     /* The cull above keeps a block while its CENTRE is near the view, which let its top edge sit a
        whole block height above `top` -- over the tab strip in the queue pane, over the mini header

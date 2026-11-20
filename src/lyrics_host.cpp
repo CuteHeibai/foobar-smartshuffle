@@ -7,6 +7,8 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <fstream>
+#include <vector>
 #include <stdexcept>
 #include <string>
 
@@ -104,9 +106,10 @@ public:
             apply_fullscreen_font(font_size);
             const std::array next_bounds{x, y, width, height};
             if (bounds_ != next_bounds) {
-                if (!SetWindowPos(window_, nullptr, x, y, width, height, SWP_NOACTIVATE | SWP_NOZORDER))
+                if (!SetWindowPos(window_, nullptr, x, y, width, height, SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOCOPYBITS))
                     throw std::runtime_error("无法调整歌词面板大小");
                 bounds_ = next_bounds;
+                RedrawWindow(window_, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN);
             }
             apply_window_region(request, x, y, width, height);
             set_visible(true);
@@ -138,10 +141,10 @@ public:
     }
 
     bool query_color(const GUID& which, t_ui_color& result) override {
-        if (which == ui_color_background) result = light_?RGB(255,255,255):RGB(18,18,18);
-        else if (which == ui_color_text) result = light_?RGB(28,39,33):RGB(225,225,225);
-        else if (which == ui_color_highlight) result = light_?RGB(8,127,73):RGB(30,215,96);
-        else if (which == ui_color_selection) result = light_?RGB(220,231,224):RGB(60,60,60);
+        if (which == ui_color_background) result = light_?RGB(255,255,255):RGB(22,23,26);
+        else if (which == ui_color_text) result = light_?RGB(102,102,102):RGB(175,175,175);
+        else if (which == ui_color_highlight) result = light_?RGB(62,62,62):RGB(226,226,226);
+        else if (which == ui_color_selection) result = light_?RGB(214,228,252):RGB(40,60,90);
         else if (which == ui_color_darkmode) result = light_?RGB(255,255,255):0;
         else return false;
         return true;
@@ -179,7 +182,7 @@ private:
     void ensure_font(int fullscreen_size) {
         const UINT effective = window_dpi(parent_);
         if (font_ && dpi_ == effective && font_size_ == fullscreen_size) return;
-        const int height = fullscreen_size ? fullscreen_size : MulDiv(15, static_cast<int>(effective), 96);
+        const int height = fullscreen_size ? fullscreen_size : MulDiv(16, static_cast<int>(effective), 96);
         const auto replacement = CreateFontW(-height, 0, 0, 0,
             FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS, fullscreen_size ? ANTIALIASED_QUALITY : CLEARTYPE_QUALITY,

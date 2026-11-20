@@ -2,6 +2,41 @@
 var HB_HOME_CONTINUE=null,HB_HOME_ALBUMS=null,ssHomeFocus='';
 var ssHomeAlbumSource=null,ssHomeAlbums=[];
 var SS_HOME_ALBUM_LIMIT=9;
+var ssHomeLastId='',ssHomeAdvance=true;
+var SS_HOME_LAST_PROPERTY='SmartShuffle: last featured album';
+try{ssHomeLastId=window.GetProperty(SS_HOME_LAST_PROPERTY,'');}catch(e){}
+
+var SS_HOME_HISTORY_PROPERTY='SmartShuffle: featured album history';
+var ssHomeSeen=new Set();
+try{ssHomeSeen=new Set(JSON.parse(window.GetProperty(SS_HOME_HISTORY_PROPERTY,'[]')));}catch(e){}
+if(ssHomeLastId)ssHomeSeen.add(ssHomeLastId);
+
+function ssPickHomeAlbum(ranked){
+  var current=ranked.find(function(item){return item.id===ssHomeLastId;});
+  if(!ssHomeAdvance&&current)return current;
+  var candidates=ranked.filter(function(item){return !ssHomeSeen.has(item.id);});
+  if(!candidates.length){
+    ssHomeSeen.clear();
+    candidates=ranked.length>1?ranked.filter(function(item){return item!==current;}):ranked;
+  }
+  var picked=candidates[Math.floor(Math.random()*candidates.length)];
+  ssHomeAdvance=false;
+  if(picked.id){
+    ssHomeSeen.add(picked.id);
+    ssHomeLastId=picked.id;
+    try{
+      window.SetProperty(SS_HOME_HISTORY_PROPERTY,JSON.stringify(Array.from(ssHomeSeen)));
+      window.SetProperty(SS_HOME_LAST_PROPERTY,ssHomeLastId);
+    }catch(e){}
+  }
+  return picked;
+}
+
+function ssAdvanceHomeRecommendation(){
+  ssHomeAdvance=true;
+  ssHomeAlbumSource=null;
+  homeScroll=homeScrollT=0;
+}
 
 function ssHomeReleaseKey(title){
   return String(title||'').normalize('NFKC').trim().toLowerCase().replace(/\s*[\[(](?:disc|disk|cd)[ ._-]*\d+\s*[\])]\s*$/i,'');
@@ -19,6 +54,11 @@ function ssHomeAlbumSelection(albums){
   ssHomeAlbumSource=albums;ssHomeAlbums=[];
   var artists=new Set(),titles=new Set();
   var ranked=albums.slice().sort(function(a,b){return (parseInt(b.year,10)||0)-(parseInt(a.year,10)||0);});
+  if(ranked.length){
+    var picked=ssPickHomeAlbum(ranked);
+    ranked.splice(ranked.indexOf(picked),1);
+    ranked.unshift(picked);
+  }
   for(var album of ranked){
     if(ssHomeAlbums.length===SS_HOME_ALBUM_LIMIT)break;
     var title=ssHomeReleaseKey(album.album);

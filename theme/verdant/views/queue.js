@@ -90,6 +90,25 @@ function ssDrawLyricsNotice(gr,r,title,description,detail,canPlay){
     SS_LYRIC_PLAY={x0:bx,y0:by,x1:bx+bw,y1:by+bh};
   }
 }
+var ssReleasedLyricFrame=null;
+function ssDrawResizeLyrics(gr,r,drag){
+  var h=Math.max(1,r.h-88);
+  if(!drag.lyricFrame||drag.lyricTrack!==NP){
+    var width=Math.max(1,drag.startWidth-36);
+    var image=gdi.CreateImage(width,h),g=image.GetGraphics();
+    try{
+      g.FillSolidRect(0,0,width,h,COL.base);
+      if(noLyrics())tC(g,'松开后继续显示歌词',FONT.meta,COL.text2,0,Math.floor(h/2)-13,width,26);
+      else if(lyrics.synced){
+        stopLyAnim();lySnap=true;
+        drawRollingLyrics(g,0,0,width,h,FONT.lyric,COL.text,'c',COL.text2);
+      }else drawStaticLyrics(g,0,width,6,h,FONT.lyric,0.45);
+    }finally{image.ReleaseGraphics(g);}
+    drag.lyricFrame=image;drag.lyricTrack=NP;
+  }
+  var frame=drag.lyricFrame,w=Math.min(frame.Width,Math.max(0,r.w-36));
+  if(w>0)gr.DrawImage(frame,r.x+r.w-18-w,r.y+68,w,h,frame.Width-w,0,w,h);
+}
 function drawQueue(gr){
   if(!R.queue||R.queue.w<=0){HB_TABS=[];HB_Q=[];SS_LYRIC_BTN=SS_LYRIC_PLAY=null;SS_QUEUE_SB=null;return;}
   ssDrawQueueContent(gr);
@@ -116,19 +135,35 @@ function ssDrawQueueContent(gr){
       ssDrawLyricsNotice(gr,r,'尚未播放','播放后在此显示歌词','',ssHasTransportSource());
       return;
     }
-    if(ssLyricVisible) return;
+    if(ssLyricVisible){ssReleasedLyricFrame=null;return;}
+    if(ssReleasedLyricFrame){
+      if(!ssResizing&&ssReleasedLyricFrame.lyricTrack===NP&&
+         ((ssFlight&&ssFlight.op==='lyrics_panel')||ssOut.some(function(q){return q.op==='lyrics_panel';}))){
+        ssDrawResizeLyrics(gr,r,ssReleasedLyricFrame);return;
+      }
+      ssReleasedLyricFrame=null;
+    }
     loadLyrics();
+    if(typeof ssDrawerDragging==='function'&&ssDrawerDragging()){
+      ssDrawResizeLyrics(gr,r,ssResizing);return;
+    }
     if(noLyrics()){
       ssDrawLyricsNotice(gr,r,'未找到歌词','将 .lrc 保存到歌曲旁，','或播放器的 lyrics 文件夹。',false);
       return;
     }
-    var viewTop=r.y+64, viewBot=r.y+r.h-16, maxW=r.w-28;
-    if(lyrics.synced) drawRollingLyrics(gr,r.x+14,viewTop,maxW,viewBot,FONT.lyric,COL.green,'c');
-    else drawStaticLyrics(gr,r.x+14,maxW,viewTop+6,viewBot,FONT.lyric,0.45);
+    var viewTop=r.y+68, viewBot=r.y+r.h-20, maxW=r.w-36;
+    if(lyrics.synced) drawRollingLyrics(gr,r.x+18,viewTop,maxW,viewBot,FONT.lyric,COL.text,'c',COL.text2);
+    else drawStaticLyrics(gr,r.x+18,maxW,viewTop+6,viewBot,FONT.lyric,0.45);
     return;
   }
 
   var qy=r.y+64,compactH=ssTrackTextMetrics(ssDensity,true).height;
+  if(!NP&&typeof ssState!=='undefined'&&ssState&&ssState.resume){
+    var saved=ssState.resume;
+    tL(gr,'上次播放 · '+fmtTime(saved.seconds),FONT.plSub,COL.text2,x,qy,r.w-36,24);
+    tL(gr,saved.title,FONT.rowTitle,COL.text,x,qy+26,r.w-36,30);
+    qy+=62;
+  }
   if(NP){
     drawIcon(gr,fb.IsPaused?'pause':'equalizer',COL.green,x,qy,18,24,15);
     tL(gr,fb.IsPaused?'已暂停':'播放中',FONT.plSub,COL.text2,x+23,qy,r.w-59,24);

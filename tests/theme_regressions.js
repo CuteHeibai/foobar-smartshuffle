@@ -254,7 +254,7 @@ test('splitter drags coalesce geometry updates and preserve native lyrics until 
   const {h,c,props}=layoutHarness();let hidden=0;c.ssHideLyrics=()=>hidden++;
   assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),true);
   for(let i=0;i<100;i++)c.ssResizeMove(260+i,120);
-  assert.equal(c.R.navW,228);h.flush();assert.ok(c.R.navW>228&&c.R.navW<=Math.round(c.W*.28));assert.equal(hidden,0);
+  const initial=c.R.navW;h.flush();assert.ok(c.R.navW>initial&&c.R.navW<=Math.round(c.W*.36));assert.equal(hidden,0);
   c.ssResizeEnd(359,120);assert.equal(props.get(c.SS_WIDTH_KEYS.nav),c.R.navW);assert.equal(c.ssResizing,null);
   c.ssModal=true;assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),false);
 });
@@ -306,7 +306,7 @@ test('opening native menus sends their request before any separate lyrics-hide r
   assert.equal(h.writes[0].op,'menu_open');assert.equal(c.ssPopup.nativeMenu,true);assert.ok(c.ssMenuPollTimer);
 });
 test('menu opening, nested hover and closing reuse the displayed scene without rebuilding the library',()=>{
-  const h=harness(),c=h.c;let base=0,draws=0,disposed=0;
+  const h=harness(),c=h.c;let base=0,draws=0,disposed=0; c.rightTab='queue';
   c.ssSceneImage={Dispose(){disposed++;}};c.ssSceneW=c.W;c.ssSceneH=c.H;
   c.ssDrawBase=()=>base++;c.drawTitleBar=()=>{};c.ssDrawPopup=()=>draws++;
   c.ssShowPopup([{label:'File'}],12,32,'',true);
@@ -381,7 +381,7 @@ test('fullscreen output and preference overlays retain the same lyric position a
   h.load('views/preference.js');
   const stage={x:180,y:120,w:520,h:460},seen=[];
   Object.assign(c,{fsMode:true,fsView:'lyrics',NP:{},ssFsLyricsRect:()=>stage,ssFsStageBottom:()=>640,ssFsScale:()=>1.4,
-    ssGeometry:()=>({x:250,y:180,w:360,h:330}),ssPlaceLyrics:(r,native,font,exclude)=>seen.push({r,font,exclude})});
+    ssGeometry:()=>({x:250,y:180,w:360,h:330}),ssPlaceLyrics:(r,font,exclude)=>seen.push({r,font,exclude})});
   for(const kind of ['playback','output']){
     c.ssShowPopup([{label:'Action'}],12,32,'',false,kind);
     c.ssPopup.levels[0].rect={x:390,y:260,w:240,h:100};
@@ -456,7 +456,7 @@ test('bitmap text uses grayscale antialiasing and keeps ellipsis alignment',()=>
  const h=harness(),c=h.c,draws=[],hints=[];c.gdi={Font:(n,s)=>({n,s})};h.load('core/tokens.js');
  const gr={CalcTextHeight:()=>22,SetTextRenderingHint:v=>hints.push(v),DrawString:(...v)=>draws.push(v),GdiDrawText(){throw Error('bitmap labels must use GDI+ DrawString');}};
  c.tL(gr,'中文 & 日本語',c.FONT.pl,1,1.2,2.5,100,20);c.tR(gr,'Right',c.FONT.pl,1,0,0,100,20);
- assert.deepEqual(hints,[4,4]);assert.equal(draws.length,2);assert.equal(draws[0][0],'中文 & 日本語');assert.equal((draws[0][7]>>>20)&15,3);assert.equal((draws[1][7]>>>28)&15,2);
+ assert.deepEqual(hints,[3,3]);assert.equal(draws.length,2);assert.equal(draws[0][0],'中文 & 日本語');assert.equal((draws[0][7]>>>20)&15,3);assert.equal((draws[1][7]>>>28)&15,2);
 });
 test('new playlist footer has separated measured lines at normal and enlarged density',()=>{
  const h=harness(),c=h.c,lines=[];h.load('views/nav.js');c.R.navLib={x:0,y:0,w:260,h:700};c.hv=()=>false;c.navDropHover=false;c.strokeRound=()=>{};c.lineH=(g,f)=>f==='primary'?25:22;c.FONT={pl:'primary',plSub:'sub'};c.tL=(g,t,f,col,x,y,w,h)=>lines.push({t,y,h});

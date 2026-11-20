@@ -25,8 +25,9 @@ function ssTransportLayout(w,left,right,s){
   var room=Math.max(0,Math.min(center-left,right-center));
   return {center:center,seekWidth:Math.max(24,Math.min(380*s,room*2-112*s))};
 }
+function ssResumeTrack(){return !NP&&typeof ssState!=='undefined'&&ssState?ssState.resume:null;}
 function ssHasTransportSource(){
-  if(NP||fb.IsPlaying||fb.IsPaused)return true;
+  if(ssResumeTrack()||NP||fb.IsPlaying||fb.IsPaused)return true;
   if(ssState&&ssState.queue&&ssState.queue.length)return true;
   if(typeof plman==='undefined'||typeof plCount!=='function')return false;
   if(pbShuffle&&ssState&&ssState.source){
@@ -49,7 +50,9 @@ function ssDrawTransport(gr,by,height,s,layout,trackBg,timeFont){
 
   var w=layout.seekWidth,x=center-w/2,y=by+Math.round(height*.76),th=4*s,len=Number(fb.PlaybackLength);
   HB_SEEK=null;
-  if(!NP){
+  var resume=ssResumeTrack();
+  if(resume)len=resume.duration;
+  if(!NP&&!resume){
     if(layout.startLabel){
       var labelH=Math.round(20*s),labelW=Math.min(360*s,W),labelY=Math.round(py+size+4*s);
       tCE(gr,layout.startLabel,timeFont,secondary?COL.text2:COL.text,center-labelW/2,labelY,labelW,labelH);
@@ -58,11 +61,13 @@ function ssDrawTransport(gr,by,height,s,layout,trackBg,timeFont){
     return;
   }
   if(!(len>0)){gr.FillSolidRect(x,y,w,th,COL.seekbg);return;}
-  var pos=drag==='seek'?dragFrac:clamp01(fb.PlaybackTime/len);
+  var seconds=resume?resume.seconds:fb.PlaybackTime;
+  var pos=drag==='seek'?dragFrac:clamp01(seconds/len);
   HB_SEEK=drawTrackBar(gr,x,y,w,th,COL.seekbg,pos,COL.green,trackBg);
   HB_SEEK.y0=Math.max(HB_SEEK.y0,cy+size/2+1);
+  if(resume)HB_SEEK=null;
   var timeColor=layout.timeColor||COL.text2;
-  tR(gr,fmtTime(drag==='seek'?len*dragFrac:fb.PlaybackTime),timeFont,timeColor,x-Math.round(54*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
+  tR(gr,fmtTime(drag==='seek'?len*dragFrac:seconds),timeFont,timeColor,x-Math.round(54*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
   tL(gr,fmtTime(len),timeFont,timeColor,x+w+Math.round(10*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
 }
 function ssFooterToolEnd(s){return W-Math.round(28*s);}
@@ -180,6 +185,30 @@ function ssDrawFooterTool(gr,x,y,s,act,icon,active,label,labelFont){
   HB_CTRL.push(box);
   return hot&&!labelFont?label:'';
 }
+var ssFooterResumeId='',ssFooterResumeHandle=null;
+function ssFooterCoverHandle(resume){
+  if(NP)return NP;
+  if(!resume)return null;
+  if(ssFooterResumeId!==resume.id||!ssFooterResumeHandle){
+    ssFooterResumeId=resume.id;
+    var playlist=(ssState.playlists||[]).find(function(p){return p.guid===resume.playlist;});
+    var items=playlist?getItems(playlist.index):null;
+    var handle=items&&items[resume.item];
+    ssFooterResumeHandle=handle&&ssTrackID(handle)===resume.id?handle:ssCatalogHandle(resume.id);
+  }
+  return ssFooterResumeHandle;
+}
+var ssPlaybackRevealAt=0,ssPlaybackRevealTimer=0;
+function ssBeginPlaybackReveal(){
+  ssPlaybackRevealAt=Date.now();
+  if(ssPlaybackRevealTimer)return;
+  ssPlaybackRevealTimer=window.SetInterval(function(){
+    if(!NP||fsMode||Date.now()-ssPlaybackRevealAt>=140){
+      window.ClearInterval(ssPlaybackRevealTimer);ssPlaybackRevealTimer=ssPlaybackRevealAt=0;
+    }
+    repaintBar();
+  },24);
+}
 function drawBar(gr){
   HB_CTRL=[];
   var by=R.barY;
@@ -187,11 +216,16 @@ function drawBar(gr){
   gr.FillSolidRect(0,by,W,M.barH,COL.black);
   // left: cover + title/artist
   var cs=Math.round(64*s), cx=Math.round(16*s), cy=by+(M.barH-cs)/2;
-  if(NP)drawCover(gr,cx,cy,cs,5,NP,'np');else ssDrawIdleRecord(gr,cx,cy,cs);
+  var resume=ssResumeTrack(),cover=ssFooterCoverHandle(resume);
+  if(cover)drawCover(gr,cx,cy,cs,5,cover,'np');else ssDrawIdleRecord(gr,cx,cy,cs);
   var tx=cx+cs+14*s;
   var personalSpace=NP&&typeof ssPersonalEnabled==='function'&&ssPersonalEnabled()?56*s:0;
-  ssDrawFooterTitle(gr,NP?npTitleStr:'尚未播放',FONT.npTitle,COL.text,tx,by+26*s,Math.max(20,R.barInfoW-tx-12*s-personalSpace),20*s);
-  tL(gr,npArtistStr,FONT.npArtist,COL.text2,tx,by+50*s,Math.max(20,R.barInfoW-tx-12*s-personalSpace),18*s);
+  ssDrawFooterTitle(gr,NP?npTitleStr:resume?resume.title:'尚未播放',FONT.npTitle,COL.text,tx,by+26*s,Math.max(20,R.barInfoW-tx-12*s-personalSpace),20*s);
+  tL(gr,resume?resume.artist:npArtistStr,FONT.npArtist,COL.text2,tx,by+50*s,Math.max(20,R.barInfoW-tx-12*s-personalSpace),18*s);
+  if(ssPlaybackRevealAt&&NP){
+    var remaining=Math.max(0,1-(Date.now()-ssPlaybackRevealAt)/140);
+    gr.FillSolidRect(cx,cy,Math.max(cs,R.barInfoW-cx-personalSpace-12*s),cs,ssAlpha(COL.black,Math.round(175*remaining*remaining)));
+  }
   if(personalSpace){
     var summary=ssState&&ssState.personal||{},fx=R.barInfoW-54*s,fy=by+(M.barH-28*s)/2;
     ssDrawPersonalHeart(gr,fx,fy,28*s,!!summary.now_favorite);

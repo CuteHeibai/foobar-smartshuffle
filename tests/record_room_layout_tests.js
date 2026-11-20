@@ -94,8 +94,8 @@ run('narrow windows constrain the library and larger windows restore the saved w
  const {c,props}=harness({'SmartShuffle: library width':410,'SmartShuffle: right pane open':true});
  for(const width of [800,1180]){
   const layout=c.ssLayoutWidths(width);
-  assert.ok(layout.nav<=280 && layout.nav<=width*.24+1);
-  assert.ok(width-layout.nav-layout.right-40>=Math.min(480,width*.46)-2);
+  assert.ok(layout.nav<=width*.36+1);
+  assert.ok(width-layout.nav-layout.right-40>=Math.min(480,width*.42)-2);
  }
  assert.equal(c.ssLayoutWidths(1800).nav,410);
  assert.equal(c.ssLayoutWidths(2560).nav,410);
@@ -106,8 +106,8 @@ run('narrow windows constrain the library and larger windows restore the saved w
 run('the standard desktop reserves the majority of its width for the main pane',()=>{
  const {c}=harness({'SmartShuffle: library width':280,'SmartShuffle: lyrics width':320,'SmartShuffle: right pane open':true});
  const widths=c.ssLayoutWidths(1180);
- assert.ok(widths.nav<=240&&widths.right<=268);
- assert.ok(1180-40-widths.nav-widths.right>=637);
+ assert.ok(widths.nav===280&&widths.right===320);
+ assert.ok(1180-40-widths.nav-widths.right>=530);
  assert.equal(c.ssWidths.nav,280);assert.equal(c.ssWidths.right,320);
 });
 run('artist collections keep multi-track album headers and put singles into consecutive rows',()=>{
@@ -274,7 +274,7 @@ run('search caret damage matches the text and pill drawn at each pane scale',()=
   assert.equal(full.font.size,16*scale);assert.ok(full.x>=requested.x&&full.x+full.w<=requested.x+requested.w);
  }
 });
-run('playlist artwork and album labels identify runs in display order',()=>{
+run('every playlist row shows artwork while labels identify album runs',()=>{
  const {c,gr,labels,covers,track}=libraryPaintHarness();
  const order=[0,2,1,3],items=order.map((_,i)=>({id:'track-'+i}));
  const meta={title:['First','Different release','Same release','Return to first'],artist:['First Artist','Different Artist','Guest Artist','First Artist'],album:order.map(()=>track.album),len:order.map(()=>track.len),artkey:['album-a','album-b','album-a','album-a']};
@@ -283,7 +283,7 @@ run('playlist artwork and album labels identify runs in display order',()=>{
  assert.deepEqual(Array.from(c.HB_TR,row=>row.item),order);
  assert.deepEqual(Array.from(c.HB_TR,row=>row.playId),order.map(i=>items[i].id));
  assert.ok(c.HB_TR.every(row=>row.rowH===c.HB_TR[0].rowH&&row.more.x0===c.HB_TR[0].more.x0));
- assert.deepEqual(covers.map(art=>art.handle.id),['track-0','track-1','track-3']);
+ assert.deepEqual(covers.map(art=>art.handle.id),order.map(i=>items[i].id));
  assert.deepEqual(labels.filter(label=>label.text.includes(track.album)).map(label=>label.text),['First Artist · '+track.album,'Different Artist · '+track.album,'First Artist · '+track.album]);
  assert.ok(labels.some(label=>label.text==='Guest Artist'));
  assert.equal(new Set(labels.filter(label=>meta.title.includes(label.text)).map(label=>label.x)).size,1);

@@ -20,7 +20,7 @@ test('long footer title starts a bounded animation and caches antialiased untrim
   const h=harness();h.draw();assert.equal(h.timers.size,1,'an overlong now-playing title needs an animation timer');
   const copy=h.titleCopy();assert.ok(copy,'the title must be composited through its own bitmap crop');
   assert.equal(copy.x,94);assert.equal(copy.y,706);assert.equal(copy.w,194);assert.equal(copy.h,20);assert.equal(copy.sw,copy.w);assert.equal(copy.sh,copy.h);
-  const text=h.words.find(w=>w.s===h.c.npTitleStr);assert.equal(text.hint,4,'use grayscale antialiasing on the title bitmap');assert.equal((text.flags>>>20)&15,0,'long title bitmap must contain the whole title without ellipsis');
+  const text=h.words.find(w=>w.s===h.c.npTitleStr);assert.equal(text.hint,3,'use grayscale antialiasing on the title bitmap');assert.equal((text.flags>>>20)&15,0,'long title bitmap must contain the whole title without ellipsis');
   h.advance(1500);h.draw();assert.equal(h.images.length,1,'moving frames should reuse the rendered title');assert.ok(h.titleCopy().sx>0);
 });
 test('fitting title and absent track create no animation or title bitmap',()=>{

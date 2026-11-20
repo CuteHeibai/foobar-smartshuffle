@@ -70,7 +70,11 @@ function ssAcceptState(s){
   }
   if(typeof ssAcceptDiscovery==='function')ssAcceptDiscovery(s);
   if(typeof ssAcceptCovers==='function')ssAcceptCovers(s);
-  ssPump(); if(ssModal&&typeof ssRepaintPreference==='function')ssRepaintPreference();else repaintAll();
+  ssPump();
+  if(done&&done.op==='lyrics_panel'&&typeof ssResizing!=='undefined'&&ssResizing&&!ssModal){
+    repaintPanes();return;
+  }
+  if(ssModal&&typeof ssRepaintPreference==='function')ssRepaintPreference();else repaintAll();
 }
 function ssPoll(){
   try{
@@ -87,7 +91,7 @@ function ssPoll(){
 function ssStart(){
   if(ssStarted) return;
   ssStarted=true;ssStarting=true;ssPoll();ssStarting=false;
-  ssSend('state',{theme_version:'1.0.21',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard,theme_color:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'});
+  ssSend('state',{theme_version:'1.0.22',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard,theme_color:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'});
   if(typeof ssReportLayout==='function')ssReportLayout();
   if(typeof UIWizard!=='undefined'&&UIWizard)window.SetTimeout(function(){
     ssSend('state',{theme_chrome_ready:ssConfigureChrome()});

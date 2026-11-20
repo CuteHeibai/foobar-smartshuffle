@@ -384,7 +384,7 @@
  }
  window.SetTimeout(function(){try{
   check(typeof ssSetRightPane==='function','Drawer controller is available');
-  check(ssTextRenderingHint===4&&FONT.title.Name==='Inter'&&FONT.title.Style===0&&FONT.fsTitle.Name==='Segoe UI'&&FONT.fsTitle.Style===0,
+  check(ssTextRenderingHint===3&&FONT.title.Name==='Segoe UI'&&FONT.title.Style===0&&FONT.fsTitle.Name==='Segoe UI'&&FONT.fsTitle.Style===0,
     'Real GDI uses grayscale antialiasing and regular Latin title faces');
   var cjk=ssScriptFont('字体测试',FONT.title);
   check(cjk.Name==='Microsoft YaHei UI'&&cjk.Style===0,'Real GDI uses a regular CJK face');

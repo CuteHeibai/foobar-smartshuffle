@@ -36,6 +36,7 @@ function ssPaintPopup(gr){
   gr.DrawImage(ssPopupImage,0,0,W,H,0,0,W,H);
   drawTitleBar(gr);ssDrawContextTargets(gr);
   ssDrawPopup(gr);
+  if(rightTab==='lyrics')ssSyncLyricPanel();
 }
 function ssDropModalImage(){if(ssModalImage){try{ssModalImage.Dispose();}catch(e){}}ssModalImage=null;if(ssPreferenceImage)try{ssPreferenceImage.Dispose();}catch(e){}ssPreferenceImage=null;ssPreferenceKey='';ssTrail=[];if(ssPreferenceFrame)window.ClearTimeout(ssPreferenceFrame);ssPreferenceFrame=0;ssPreferencePartial=false;}
 function ssRepaintPreference(){

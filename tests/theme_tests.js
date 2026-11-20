@@ -103,7 +103,7 @@ test('named ESLyric child follows lyrics tab bounds and hides for preference mod
   vm.runInContext(fs.readFileSync(path.join(root, 'views/preference.js'), 'utf8'), c);
   c.ssHideLyrics();assert.equal(lookups,0,'early resize should wait for the first paint to look up the child');
   assert.equal(typeof c.ssSyncLyricPanel, 'function'); c.ssSyncLyricPanel();
-  assert.equal(shows.at(-1), true); assert.deepEqual(moves.at(-1).slice(0, 4), [660,108,230,382]);
+  assert.equal(shows.at(-1), true); assert.deepEqual(moves.at(-1).slice(0, 4), [668,118,214,362]);
   c.ssModal = true; c.ssSyncLyricPanel(); assert.equal(shows.at(-1), false);
 });
 test('an idle lyrics drawer keeps the native child hidden until there is a current track',()=>{
@@ -120,7 +120,7 @@ test('an idle lyrics drawer keeps the native child hidden until there is a curre
 test('named lyrics return after resize frames that do not synchronize the child panel',()=>{
  const c=harness().c,shows=[];c.rightTab='lyrics';c.R={queue:{x:650,y:50,w:250,h:450}};
  c.window.GetPanel=()=>({Show:b=>shows.push(b),Move(){}});vm.runInContext(fs.readFileSync(path.join(root,'views/preference.js'),'utf8'),c);
- c.ssSyncLyricPanel();c.ssResizing={key:'nav'};c.ssHideLyrics();c.ssResizing=null;c.ssSyncLyricPanel();
+ c.ssSyncLyricPanel();c.repaintPanes=()=>{};c.ssResizing={key:'nav'};c.ssHideLyrics();c.ssResizing=null;c.ssSyncLyricPanel();
  assert.deepEqual(shows,[true,false,true]);assert.equal(c.ssLyricShown,true);assert.equal(c.ssLyricVisible,true);
 });
 
@@ -176,14 +176,14 @@ test('modal geometry fits 900 by 600 at 125 and 150 percent with eight visible r
 test('startup sends one theme readiness handshake with native panel window', () => {
   const h = harness(); h.c.window.ID = 12345; h.c.ssStart(); h.c.ssStart();
   assert.equal(h.writes.length,1); assert.equal(h.writes[0].op,'state');
-  assert.equal(h.writes[0].theme_version,'1.0.21'); assert.equal(h.writes[0].theme_window,12345);
+  assert.equal(h.writes[0].theme_version,'1.0.22'); assert.equal(h.writes[0].theme_window,12345);
 });
 test('missing named child requests native ESLyric host and waits for actual ready visibility', () => {
   const h = harness(), c = h.c; c.window.ID = 9876; c.R = { queue: { x:650,y:50,w:250,h:450 } }; c.rightTab='lyrics';
   vm.runInContext(fs.readFileSync(path.join(root,'views/preference.js'),'utf8'),c);
   c.ssSyncLyricPanel(); assert.equal(h.writes.length,1); assert.equal(h.writes[0].op,'lyrics_panel');
   assert.equal(h.writes[0].parent,9876); assert.equal(h.writes[0].visible,true);
-  assert.deepEqual([h.writes[0].x,h.writes[0].y,h.writes[0].w,h.writes[0].h],[660,108,230,382]);
+  assert.deepEqual([h.writes[0].x,h.writes[0].y,h.writes[0].w,h.writes[0].h],[668,118,214,362]);
   assert.equal(c.ssLyricVisible,false); c.ssSyncLyricPanel(); assert.equal(h.writes.length,1);
   h.ack({ lyrics_panel:{ready:true,visible:true,error:''} }); c.ssSyncLyricPanel(); assert.equal(c.ssLyricVisible,true); assert.equal(h.writes.length,1);
   c.ssModal=true; c.ssSyncLyricPanel(); assert.equal(h.writes.at(-1).visible,false); assert.equal(c.ssLyricVisible,false);
@@ -257,6 +257,19 @@ test('fullscreen keeps the same sized live native lyrics under the playback menu
   c.ssPopup=null; c.ssSyncLyricPanel(); draw();
   assert.equal(writes.at(-1).visible,true);assert.deepEqual(writes.at(-1).exclude,[]);assert.deepEqual(text,[]);
 });
+test('drawer lyrics remain live across nested SDK menus', () => {
+  const {c,writes,ack}=fullscreenLyricsHarness();
+  c.fsMode=false; c.rightTab='lyrics'; c.window.ID=555;
+  c.R.queue={x:480,y:40,w:320,h:440};
+  const panel={lyrics_panel:{ready:true,visible:true,region_clip:true,error:''}};
+  c.ssSyncLyricPanel(); const initial=writes.at(-1); ack(panel);
+  c.ssPopup={nativeMenu:true,levels:[{rect:{x:320,y:80,w:200,h:260}},{rect:{x:520,y:105,w:190,h:160}}]};
+  c.ssSyncLyricPanel(); const nested=writes.at(-1);
+  assert.equal(nested.visible,true); assert.equal(nested.exclude.length,2);
+  for(const key of ['x','y','w','h','font_size'])assert.equal(nested[key],initial[key]);
+  ack(panel); c.ssPopup=null; c.ssSyncLyricPanel();
+  assert.equal(writes.at(-1).visible,true); assert.equal(writes.at(-1).exclude,undefined);
+});
 test('fullscreen still draws local timed lyrics if ESLyric is unavailable', () => {
   const {c,ack,draw,text,local} = fullscreenLyricsHarness();
   c.window.ID=555; c.ssSyncLyricPanel();
@@ -267,5 +280,19 @@ test('fullscreen still draws local timed lyrics if ESLyric is unavailable', () =
   c.NP={Path:'T:\\without-lyrics.wav'};
   draw(); assert.deepEqual(text,['未找到歌词']);
   c.NP=null; draw(); assert.deepEqual(text,['未找到歌词']);
+});
+
+
+test('drawer drag hides once and restores native lyrics at the final size',()=>{
+  const {c,writes,ack}=fullscreenLyricsHarness();
+  c.fsMode=false;c.rightTab='lyrics';c.window.ID=555;c.R.queue={x:400,y:40,w:340,h:440};
+  c.ssSyncLyricPanel();ack({lyrics_panel:{ready:true,visible:true,region_clip:true}});
+  c.repaintPanes=()=>{};c.ssResizing={key:'right'};c.ssStartLyricDrag();
+  assert.equal(writes.at(-1).visible,false);
+  ack({lyrics_panel:{ready:true,visible:false,region_clip:true}});
+  for(let w=250;w<450;w+=2){c.R.queue.w=w;c.ssSyncLyricPanel();}
+  assert.equal(writes.length,2);
+  c.ssResizing=null;c.ssSyncLyricPanel();
+  assert.equal(writes.at(-1).visible,true);assert.equal(writes.at(-1).w,412);
 });
 console.log(`${passed} theme contract tests passed`);
