@@ -61,6 +61,21 @@ test('queue keeps partial rows at both viewport edges during fractional scrollin
  assert.ok(!c.ssQueueRowSelected({...c.HB_Q[0],track_id:'replacement'}),'a changed track cannot inherit the selection');
 });
 
+test('replaying overlapping album tracks counts identities once across both queue sections',()=>{
+ const {c,load}=context();load('views/queue.js');load('views/preference.js');
+ c.R={};c.NP=null;c.HB_Q=[];c.hv=()=>false;c.drawSBV=()=>null;c.SB_QUEUE={};c.drag=null;
+ const row=id=>({id,title:'Same title',artist:'Artist'}),totals=[]; c.ssDrawQueueTrackLabels=()=>{};
+ c.tL=(g,label)=>{if(/^\d+ 首$/.test(label))totals.push(label);};
+ c.tR=()=>{};
+ for(const shuffle of [true,false]){
+  c.pbShuffle=shuffle;
+  const auto=['a|0','b|0','b|1'].map(row);
+  c.ssState={queue:['a|0','a|0','b|0'].map(row),remaining:auto,native_next:auto.map((r,i)=>({...r,playlist:2,item:i}))};
+  c.ssDrawNativeQueue(graphics(),{x:0,y:0,w:300,h:700},18,150,680);
+  assert.equal(totals.pop(),'3 首');
+ }
+});
+
 test('queue actions outside a clipped row ignore the pointer',()=>{
  const {c}=context();
  const hidden={x0:170,y0:204,x1:195,y1:224};

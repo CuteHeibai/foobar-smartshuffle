@@ -122,7 +122,7 @@ function ssDrawFooterTools(gr,by,height,s,tools,fullscreen){
 // opaque background, then copy a moving crop so glyphs can never reach controls.
 var ssFooterMarquee=null,ssFooterMarqueeTimer=null;
 function ssFooterMarqueeAllowed(){
-  return !!NP&&(fb.IsPlaying||fb.IsPaused)&&!fsMode&&
+  return !(typeof ssReducedMotion!=='undefined'&&ssReducedMotion)&&!!NP&&(fb.IsPlaying||fb.IsPaused)&&!fsMode&&
     !(typeof ssPopup!=='undefined'&&ssPopup)&&!(typeof ssModal!=='undefined'&&ssModal)&&
     !(typeof renameEdit!=='undefined'&&renameEdit)&&
     !(typeof confirmDel!=='undefined'&&confirmDel)&&!(typeof dupPrompt!=='undefined'&&dupPrompt)&&
@@ -200,6 +200,7 @@ function ssFooterCoverHandle(resume){
 }
 var ssPlaybackRevealAt=0,ssPlaybackRevealTimer=0;
 function ssBeginPlaybackReveal(){
+  if(typeof ssReducedMotion!=='undefined'&&ssReducedMotion)return;
   ssPlaybackRevealAt=Date.now();
   if(ssPlaybackRevealTimer)return;
   ssPlaybackRevealTimer=window.SetInterval(function(){

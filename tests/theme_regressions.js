@@ -255,7 +255,7 @@ test('splitter drags coalesce geometry updates and preserve native lyrics until 
   assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),true);
   for(let i=0;i<100;i++)c.ssResizeMove(260+i,120);
   const initial=c.R.navW;h.flush();assert.ok(c.R.navW>initial&&c.R.navW<=Math.round(c.W*.36));assert.equal(hidden,0);
-  c.ssResizeEnd(359,120);assert.equal(props.get(c.SS_WIDTH_KEYS.nav),c.R.navW);assert.equal(c.ssResizing,null);
+  c.ssResizeEnd(359,120);assert.equal(props.get(c.ssCompactNavKey),c.R.navW);assert.equal(props.has(c.SS_WIDTH_KEYS.nav),false);assert.equal(c.ssResizing,null);
   c.ssModal=true;assert.equal(c.ssResizeBegin(c.R.main.x-c.M.gap/2,120),false);
 });
 test('splitter movement repaints live panes with fixed content metrics and leaves the other side in place',()=>{

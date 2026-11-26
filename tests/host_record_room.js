@@ -66,6 +66,7 @@
   check(true,'Twelve real GDI partial frames leave both spectrum boundaries in the theme colour');
  }
  function checkResize(){
+  var compact=ssCompactNavWidth;
   var fontSize=FONT.rowTitle.Size,min=ssWindowMinimum(),requested={nav:ssWidths.nav,right:ssWidths.right};
   var savedNav=window.GetProperty(SS_WIDTH_KEYS.nav,0),savedRight=window.GetProperty(SS_WIDTH_KEYS.right,0);
   var image=null,gr=null;
@@ -96,16 +97,18 @@
    }
   }finally{
    if(gr)image.ReleaseGraphics(gr);if(image&&typeof image.Dispose==='function')image.Dispose();
+   ssCompactNavWidth=compact;window.SetProperty(ssCompactNavKey,compact);
    ssAbortResize();ssWidths.nav=requested.nav;ssWidths.right=requested.right;
    window.SetProperty(SS_WIDTH_KEYS.nav,savedNav);window.SetProperty(SS_WIDTH_KEYS.right,savedRight);
   }
  }
  function checkMaximizedLibraryResize(){
+  var previousReference=ssWidthReference.nav,referenceProperty=window.GetProperty(SS_WIDTH_KEYS.nav+' window',0);
   var requested=ssWidths.nav,property=window.GetProperty(SS_WIDTH_KEYS.nav,0);
   var requestedRight=ssWidths.right,propertyRight=window.GetProperty(SS_WIDTH_KEYS.right,0);
   var open=ssRightOpen,tab=rightTab;
   try{
-   ssWidths.nav=260;ssSetRightPane('queue',true);
+   ssWidthReference.nav=W;ssWidths.nav=260;ssSetRightPane('queue',true);layout(true);
    var start=R.main.x-M.gap/2,y=R.top.y+40,target=start+240;
    var navScale=R.libraryScales.nav,mainScale=R.libraryScales.main,cover=M.artSz,queueWidth=R.queue.w;
    var image=gdi.CreateImage(W,H),gr=image.GetGraphics();
@@ -141,6 +144,7 @@
     on_mouse_lbtn_up(rightStart-distance,y);
    }
   }finally{
+   ssWidthReference.nav=previousReference;window.SetProperty(SS_WIDTH_KEYS.nav+' window',referenceProperty);
    ssAbortResize();ssWidths.nav=requested;ssWidths.right=requestedRight;
    window.SetProperty(SS_WIDTH_KEYS.nav,property);
    window.SetProperty(SS_WIDTH_KEYS.right,propertyRight);

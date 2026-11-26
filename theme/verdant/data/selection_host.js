@@ -102,7 +102,10 @@ function ssSelectionUp(x,y){
   ssSelectLeftDown=false;
   if(ssSelectHold)window.ClearTimeout(ssSelectHold);ssSelectHold=0;ssDropDragOverlay();
   if(!ssSelectOwner)return false;if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;var owner=ssSelectOwner,action=owner.end(x,y);ssSelectOwner=null;if(!action)return false;
-  if(action.type==='reorder'&&action.changed){
+  if(action.type==='reorder'&&action.changed)ssCommitSelectionOrder(owner,action);
+  ssSelectionRepaint();return action.type!=='click';
+}
+function ssCommitSelectionOrder(owner,action){
     if(owner===ssMainSelect){
       var pi=plman.ActivePlaylist,info=ssPlaylistInfo(pi),hs=getItems(pi),expected=[],order=ssMoveOrder(ssMainRows.length,action.indices,action.targetIndex).map(function(i){return ssMainRows[i].item;});
       for(var k=0;k<hs.Count;k++)expected.push(ssTrackID(hs[k]));
@@ -117,8 +120,6 @@ function ssSelectionUp(x,y){
       if(scope==='native'){var entry=ssQueueRows[0],inf=ssPlaylistInfo(entry.pl);ssSend('track_reorder',{playlist_guid:inf.guid,expected:ids,order:order3});}
       else ssSend('queue_reorder',{scope:scope,source:ssState.source,expected:ids,order:order3});
     }
-  }
-  ssSelectionRepaint();return action.type!=='click';
 }
 function ssCancelSelectionGesture(){ssSelectLeftDown=false;if(ssSelectHold)window.ClearTimeout(ssSelectHold);ssSelectHold=0;ssDropDragOverlay();if(ssSelectOwner)ssSelectOwner.cancel();ssSelectOwner=null;if(ssSelectScroll)window.ClearInterval(ssSelectScroll);ssSelectScroll=0;ssSelectionRepaint();}
 function ssSelectionMove(x,y,mask){

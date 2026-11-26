@@ -91,6 +91,9 @@ function ssLibraryPadding(w){return w<1050?16:24;}
 function ssDesktopBarScale(w,h){
   return Math.max(1,Math.min(1.35,Math.round(Math.min(w/1180,h/780)*40)/40));
 }
+var ssCompactNavKey='SmartShuffle: compact library width';
+var ssCompactNavWidth=window.GetProperty?Number(window.GetProperty(ssCompactNavKey,0))||0:0;
+function ssCompactLibrary(w,showRight){return showRight&&w<1440;}
 function ssLayoutWidths(w){
   // Divider motion changes the viewport. Only changing the window changes content scale.
   var showRight=ssRightOpen&&(ssRightForced||w>=1000*(typeof ssDensity==='number'?ssDensity:1));
@@ -104,6 +107,11 @@ function ssLayoutWidths(w){
     return ssWidthReference[key]>0?ssWidths[key]*w/ssWidthReference[key]:ssWidths[key];
   }
   var navRequest=Math.min(requested('nav',ssDefaultNavWidth(w)),navMax);
+  if(ssCompactLibrary(w,showRight)){
+    // Leave room for titles when both drawers are visible. Ease out the cap toward desktop width.
+    var compactLimit=Math.round(w*.22+Math.max(0,w-1180)*.79);
+    navRequest=ssCompactNavWidth?Math.min(navMax,ssCompactNavWidth):Math.min(navRequest,compactLimit);
+  }
   var rightRequest=Math.min(requested('right',ssDefaultQueueWidth(w)),rightMax);
   var mainMin=Math.min(available-navMin-rightMin,Math.min(720,Math.ceil(w*.43)));
   var sides=available-mainMin,panes;
@@ -139,6 +147,7 @@ function ssSeedResizePosition(key,x,y,origin){
   ssResizeFlow.points[key]={x:x-origin,y:y,fromX:x-origin,fromY:y,at:Date.now()-SS_RESIZE_MOVE_MS};
 }
 function ssStartResizeFlow(key){
+  if(typeof ssReducedMotion!=='undefined'&&ssReducedMotion)return;
   if(ssResizeFlowTimer)window.ClearTimeout(ssResizeFlowTimer);
   ssResizeFlowTimer=0;
   if(typeof view==='undefined')return;
@@ -208,9 +217,14 @@ function ssResizeEnd(x,y){
   var key=ssResizing.key;
   if(key==='right'&&ssResizing.lyricFrame)ssReleasedLyricFrame=ssResizing;
   // Save the visible, constrained width rather than an out-of-window pointer position.
-  ssWidths[key]=key==='nav'?R.navW:R.queueW;
-  ssWidthReference[key]=W;window.SetProperty(SS_WIDTH_KEYS[key]+' window',W);
-  window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);ssResizing=null;
+  if(key==='nav'&&ssCompactLibrary(W,R.queueW>0)){
+    if(R.navW!==ssResizing.startWidth){ssCompactNavWidth=R.navW;window.SetProperty(ssCompactNavKey,R.navW);}
+  }else{
+    ssWidths[key]=key==='nav'?R.navW:R.queueW;
+    ssWidthReference[key]=W;window.SetProperty(SS_WIDTH_KEYS[key]+' window',W);
+    window.SetProperty(SS_WIDTH_KEYS[key],ssWidths[key]);
+  }
+  ssResizing=null;
 
   if(ssResizeFlow){ssResizeFlow.released=Date.now();ssRequestResizeFrame();}
   ssResizeCursor(false);ssReportLayout();
@@ -229,6 +243,7 @@ function ssDrawResizers(gr){
   }
 }
 function ssResetLayout(){
+  ssCompactNavWidth=0;window.SetProperty(ssCompactNavKey,0);
   ssAbortResize();ssSplitHot='';
   if(fsMode&&typeof exitFullscreen==='function')exitFullscreen();
   if(typeof rightTab!=='undefined')rightTab='lyrics';

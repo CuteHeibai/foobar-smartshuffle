@@ -25,6 +25,12 @@ test('light palette keeps text, secondary labels and accent controls legible on 
  assert.ok(contrast(c.COL.text3,c.COL.base)>=3);
  assert.ok(contrast(c.COL.onAccent,c.COL.green)>=4.5);assert.ok(contrast(c.COL.onDanger,c.COL.danger)>=4.5);
 });
+test('dark action labels retain contrast in their normal and hover states',()=>{
+ const {c}=harness('dark');
+ for(const [foreground,background] of [['onPlay','play'],['onPlay','greenHover'],['onDanger','danger'],['onDanger','dangerHover']]){
+  assert.ok(contrast(c.COL[foreground],c.COL[background])>=4.5,background);
+ }
+});
 test('the light divider stays clearer than decorative hairlines on both panel surfaces',()=>{
  const {c}=harness('light');assert.equal(c.COL.line>>>24,255);assert.equal(c.COL.splitter>>>24,255);
  assert.ok(contrast(c.COL.splitter,c.COL.base)>=1.45);assert.ok(contrast(c.COL.splitter,c.COL.elev)>=1.35);

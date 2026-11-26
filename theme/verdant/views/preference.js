@@ -234,31 +234,43 @@ function ssPointerUp(x,y){
   else if(b.act==='familiar') ssSetDraft(.75,0); else if(b.act==='explore') ssSetDraft(-.75,0); else ssSetDraft(0,0);
   return true;
 }
+// Bridge snapshots replace the arrays. Reuse the counts while scrolling the same queue.
+var ssQueueCountCache=null;
+function ssQueueSongCounts(priority,following){
+  if(ssQueueCountCache&&ssQueueCountCache.priority===priority&&ssQueueCountCache.following===following)return ssQueueCountCache;
+  var manualIds=new Set(priority.map(function(row){return row.id;}));
+  var followingIds=new Set(following.map(function(row){return row.id;}));
+  var total=manualIds.size;
+  for(var id of followingIds)if(!manualIds.has(id))total++;
+  ssQueueCountCache={priority:priority,following:following,manual:manualIds.size,automatic:followingIds.size,total:total};
+  return ssQueueCountCache;
+}
 function ssDrawNativeQueue(gr,r,x,qy,bottom){
   if(!ssState) return false;
-  var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], count=priority.length+list.length;
+  var list=(pbShuffle?ssState.remaining:ssState.native_next)||[], priority=ssState.queue||[], rowCount=priority.length+list.length;
+  var counts=ssQueueSongCounts(priority,list);
   var metrics=ssTrackTextMetrics(ssDensity,true);
   var rh=Math.max(56,metrics.height+metrics.title+4);
   var headerH=Math.round(30*ssDensity),act=Math.max(34,Math.round(32*ssDensity)),width=r.w-36;
   var source=ssState.source_name,showSource=source&&!isHiddenPl(source);
   var autoLabel=pbShuffle?'智能随机 · 本轮剩余':showSource?'歌单 · '+source:'歌单后续';
   var sections=[];
-  if(priority.length)sections.push({label:'手动待播',scope:'priority',items:priority});
-  if(list.length)sections.push({label:autoLabel,scope:pbShuffle?'remaining':'native',items:list});
+  if(priority.length)sections.push({label:'手动待播',scope:'priority',items:priority,songs:counts.manual});
+  if(list.length)sections.push({label:autoLabel,scope:pbShuffle?'remaining':'native',items:list,songs:counts.automatic});
   var queued=null;
   tL(gr,NP?'接下来':'待播放',FONT.sect,COL.text,x,qy,width,28); qy+=29;
-  if(count){
+  if(rowCount){
     var canSort=priority.length>1||(list.length>1&&(pbShuffle||ssCanReorder(ssPlaylistInfo(list[0].playlist))));
     var sortW=canSort?Math.min(width,Math.round(114*ssDensity)):0;
-    tL(gr,count+' 首',FONT.qArtist,COL.text2,x,qy,width-sortW,24);
+    tL(gr,counts.total+' 首',FONT.qArtist,COL.text2,x,qy,width-sortW,24);
     if(canSort)tR(gr,'长按拖动排序',FONT.pl,COL.text2,x+width-sortW,qy,sortW,24);
   }else{
     tL(gr,pbShuffle?(ssState.source?'本轮已播完，可重新开始一轮。':'播放歌单后查看待播曲目。'):'已到歌单末尾',FONT.plSub,COL.text2,x,qy,width,32);
   }
   qy+=30;
-  var viewport=Math.max(0,bottom-qy),contentH=count*rh+sections.length*headerH;
+  var viewport=Math.max(0,bottom-qy),contentH=rowCount*rh+sections.length*headerH;
   SS_QUEUE_MAX=Math.max(0,contentH-viewport);ssQueueScroll=clampPx(ssQueueScroll,SS_QUEUE_MAX);ssQueueScrollT=clampPx(ssQueueScrollT,SS_QUEUE_MAX);
-  if(viewport<1||!count)return true;
+  if(viewport<1||!rowCount)return true;
   var drawScroll=Math.round(ssQueueScroll),top=qy,sectionY=top-drawScroll;
   var parentGr=gr,layer=ssBeginViewport('queue-list',gr,r.x,top,r.w,viewport);
   gr=layer.gr;
@@ -269,7 +281,7 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
       if(rowTop>top){
         gr.FillSolidRect(x,sectionY,width,1,COL.line);
         tL(gr,section.label,FONT.pl,COL.text,x,sectionY+1,width-58,headerH-1);
-        tR(gr,section.items.length+' 首',FONT.qArtist,COL.text2,x,sectionY+1,width,headerH-1);
+        tR(gr,section.songs+' 首',FONT.qArtist,COL.text2,x,sectionY+1,width,headerH-1);
       }
       for(var i=first;i<section.items.length;i++){
         var rowY=rowTop+i*rh;
@@ -280,7 +292,7 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
         }
         var meta=ssQueueDisplayMeta(tr,queued||[]);
         var hb={x0:x-8,y0:Math.max(top,rowY),x1:r.x+r.w-18,y1:Math.min(bottom,rowY+rh),rowY:rowY,rowH:rh,next:next};
-        hb.track_id=tr.id;hb.scope=section.scope;hb.queueIndex=section.scope==='native'?tr.item:i;
+        hb.title=meta.t;hb.artist=meta.a;hb.track_id=tr.id;hb.scope=section.scope;hb.queueIndex=section.scope==='native'?tr.item:i;
         if(tr.playlist!==undefined){hb.pl=tr.playlist;hb.item=tr.item;}
         var right=r.x+r.w-18,actionY=rowY+Math.round((rh-act)/2);
         hb.more={x0:right-act,y0:actionY,x1:right,y1:actionY+act};

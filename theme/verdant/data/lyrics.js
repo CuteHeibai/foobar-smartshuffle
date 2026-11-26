@@ -33,7 +33,7 @@ function drawRollingLyrics(gr,x,top,w,bot,font,curCol,align,contextCol){
   var viewMid=Math.round((top+bot)/2), L=lyLayout(gr,w,font), subLh=L.subLh, li,s;
   lyCur=currentLyricLine();
   lyTarget=L.cen[lyCur]||0;
-  if(lySnap){ lyScroll=lyTarget; lySnap=false; } else if(Math.abs(lyTarget-lyScroll)>0.5) startLyAnim();
+  if(lySnap||(typeof ssReducedMotion!=='undefined'&&ssReducedMotion)){ lyScroll=lyTarget; lySnap=false; } else if(Math.abs(lyTarget-lyScroll)>0.5) startLyAnim();
   for(li=0;li<lyrics.lines.length;li++){
     var bcY=viewMid+(L.cen[li]-lyScroll);
     if(bcY<top-L.blockH[li] || bcY>bot+L.blockH[li]) continue;

@@ -63,7 +63,7 @@ var firstRow=0, hoverKey='', scrollKey='', hoverZoneKey='', mx=-1, my=-1, drag=n
 var firstRowT=0, navScrollT=0, homeScrollT=0, PL_MAXPX=0, scrollTimer=null,scrollLast=Date.now();
 function scrollTick(){
   var now=Date.now(),dt=Math.max(1,Math.min(80,now-scrollLast));scrollLast=now;
-  var alpha=1-Math.exp(-dt/95),mm=false,nm=false,qm=false;
+  var alpha=typeof ssReducedMotion!=='undefined'&&ssReducedMotion?1:1-Math.exp(-dt/95),mm=false,nm=false,qm=false;
   function step(current,target,zone){var d=target-current;if(Math.abs(d)<.5)return target;if(zone==='nav')nm=true;else if(zone==='queue')qm=true;else mm=true;return current+d*alpha;}
   firstRow=step(firstRow,firstRowT);homeScroll=step(homeScroll,homeScrollT);songsScroll=step(songsScroll,songsScrollT);
   searchScroll=step(searchScroll,searchScrollT);artScroll=step(artScroll,artScrollT);plScroll=step(plScroll,plScrollT);navScroll=step(navScroll,navScrollT,'nav');
@@ -98,7 +98,7 @@ var fsMode=false, fsView='default', HB_FS=[], vizTimer=null, vizBars=[];
 /* Search and rename need every key, because the user is typing into them. Everywhere else the
    panel still asks for character keys, which is what lets Space reach on_char and act as
    play/pause -- without it the dialog manager swallows Space before the panel ever sees it. */
-function applyKeyMode(){ try{ window.DlgCode=(ssModal||ssPopup||fsMode||confirmDel||view==='search'||renameEdit||(view==='stats'&&ssStats.edit))?DLGC_WANTALLKEYS:DLGC_WANTCHARS; }catch(e){} }
+function applyKeyMode(){ try{ window.DlgCode=(ssModal||ssPopup||fsMode||confirmDel||view==='search'||renameEdit||(view==='stats'&&ssStats.edit))?DLGC_WANTALLKEYS:(DLGC_WANTCHARS|2| (ssKeyboardFocus?1:0)); }catch(e){} }
 
 var searchQuery='', searchScroll=0, searchScrollT=0, searchIdx=null, searchQ2=null, searchArts=[], searchTrks=[], HB_SEARCH=null;
 var HOME_MAXROW=0, SS_COLLECTION_SCROLL_MAX=0, SEARCH_MAXPX=0;
@@ -202,6 +202,11 @@ function ssDrawBase(gr){
 }
 function on_paint(gr){
   ssPaintFrame(gr);
+  if(typeof ssScheduleAccessibility==='function')ssScheduleAccessibility();
+  if(ssKeyboardFocus&&ssKeyboardAvailable()){
+    var focus=ssKeyboardTargets().find(function(t){return t.id===ssKeyboardFocus;});
+    if(focus){var b=focus.box;ssStrokeContinuousRect(gr,b.x0+1,b.y0+1,b.x1-b.x0-2,b.y1-b.y0-2,5,5,2,COL.green);}
+  }
   if(!ssModal&&!ssPopup&&!fsMode&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt)ssDrawResizers(gr);
 }
 function ssPaintFrame(gr){
@@ -302,12 +307,19 @@ function drawMain(gr){
 function seekFrac(x){ return HB_SEEK?clamp01((x-HB_SEEK.x)/HB_SEEK.w):0; }
 function applyVol(x){ if(HB_VOL){ fb.Volume=pos2vol(clamp01((x-HB_VOL.x)/HB_VOL.w)); repaintBar(); } }
 function setQueueScroll(y){if(!SS_QUEUE_SB)return;var s=SS_QUEUE_SB;ssQueueScroll=ssQueueScrollT=Math.round(sbFrac(y,s.top,s.h,s.thumbH)*s.maxPx);repaintQueue();}
+function ssActivateHeaderPlay(target){
+    if(target.album!==undefined)playAlbum(target.album);
+    else if(target.artist!==undefined)playArtist(target.artist);
+    else if(target.library)playLibrary();
+    else playPlaylist(target.pl);
+}
 function ssHeaderPlayAt(x,y){if(HB_ARTIST_PLAY&&inRect(x,y,HB_ARTIST_PLAY))return HB_ARTIST_PLAY;return HB_SONGS_PLAY&&inRect(x,y,HB_SONGS_PLAY)?HB_SONGS_PLAY:hit(HB_PLPLAY,x,y)||(HB_PLAYLIST_PLAY&&inRect(x,y,HB_PLAYLIST_PLAY)?HB_PLAYLIST_PLAY:null);}
 function ssRowPlayAt(x,y){
   var row=hit(HB_TR,x,y);
   return row&&(row.playVisible||row.playOnHover)&&x>=row.pgx0&&x<row.pgx1?row:null;
 }
 function on_mouse_lbtn_down(x,y){
+  if(ssKeyboardFocus){ssKeyboardFocus='';applyKeyMode();repaintAll();}
   ssPlaylistPlayDown=ssTrackPlayDown=ssRowMoreDown=null;
   ssPlaylistPickDown=null;
   ssLyricPlayDown=false;
@@ -462,10 +474,7 @@ function on_mouse_lbtn_up(x,y){
     var target=ssHeaderPlayAt(x,y);
     if(!target||target.pl!==playlistPressed.pl||target.library!==playlistPressed.library||
        target.artist!==playlistPressed.artist||target.album!==playlistPressed.album)return;
-    if(target.album!==undefined)playAlbum(target.album);
-    else if(target.artist!==undefined)playArtist(target.artist);
-    else if(target.library)playLibrary();
-    else playPlaylist(target.pl);
+    ssActivateHeaderPlay(target);
     return;
   }
   if(ssSelectionUp(x,y))return;
@@ -526,22 +535,7 @@ function on_mouse_lbtn_up(x,y){
   if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act,t); return; }
   if(HB_HOME && inRect(x,y,HB_HOME)){ ssAdvanceHomeRecommendation(); view='home'; repaintAll(); return; }
   if(view==='home'&&typeof ssHomeActionAt==='function'&&(t=ssHomeActionAt(x,y))){ssActivateHomeAction(t);return;}
-  if(typeof HB_ARTISTS_NAV!=='undefined'&&HB_ARTISTS_NAV&&inRect(x,y,HB_ARTISTS_NAV)){view='songs';setSongsGroup('artist');songsScroll=songsScrollT=0;repaintAll();return;}
-  if(typeof HB_STATS_NAV!=='undefined'&&HB_STATS_NAV&&inRect(x,y,HB_STATS_NAV)){ssStatsOpen();return;}
-  if(HB_SEARCH && inRect(x,y,HB_SEARCH)){ view='search'; repaintAll(); return; }
-  if(HB_ALBUMS&&inRect(x,y,HB_ALBUMS)){if(view!=='albums'){view='albums';artScroll=artScrollT=0;}repaintAll();return;}
-  if(HB_ALBUM_BACK&&inRect(x,y,HB_ALBUM_BACK)){ssBackFromAlbum();repaintAll();return;}
-  if(HB_ALLSONGS && inRect(x,y,HB_ALLSONGS)){ if(view!=='songs'){ view='songs'; songsScroll=songsScrollT=0; } if(songsGroup==='artist')setSongsGroup('none'); repaintAll(); return; }
-  if(typeof HB_PERSONAL!=='undefined'&&(t=hit(HB_PERSONAL,x,y))){ssOpenPersonal(t.kind);return;}
-  if(HB_ADDPL && inRect(x,y,HB_ADDPL)){ var np=createNewPlaylist(); plman.ActivePlaylist=np; revealPlaylist(np); firstRow=firstRowT=0; view='playlist'; repaintAll(); return; }
-  if(HB_PLADD_FILES && inRect(x,y,HB_PLADD_FILES)){ addFilesToPl(plman.ActivePlaylist); return; }
-  if(HB_PLADD_FOLDER && inRect(x,y,HB_PLADD_FOLDER)){ addFolderToPl(plman.ActivePlaylist); return; }
-  if((t=hit(HB_CARD,x,y))){
-    if(t.kind==='pl'){ plman.ActivePlaylist=t.id; firstRow=firstRowT=0; view='playlist'; }
-    else if(t.kind==='album')ssOpenAlbum(t.id);
-    else loadArtist(t.id);
-    repaintAll(); return;
-  }
+  if(ssActivateLibraryAt(x,y))return;
   if((t=hit(HB_PL,x,y))){ ssPickedPlaylists.clear(); plman.ActivePlaylist=t.i; firstRow=firstRowT=0; view='playlist'; repaintAll(); return; }
   if((t=hit(HB_Q,x,y)))return;
   // Keep the lyric hit and legacy row action for lists with a hover-only play glyph.
@@ -550,6 +544,26 @@ function on_mouse_lbtn_up(x,y){
     if((t.srch&&searchTrks[t.idx].reason==='歌词')||(!t.playVisible&&!t.playOnHover&&t.pgx1!==undefined&&x>=t.pgx0&&x<t.pgx1))playRow(t);
     return;
   }
+}
+function ssActivateLibraryAt(x,y){
+  var t;
+  if(typeof HB_ARTISTS_NAV!=='undefined'&&HB_ARTISTS_NAV&&inRect(x,y,HB_ARTISTS_NAV)){view='songs';setSongsGroup('artist');songsScroll=songsScrollT=0;repaintAll();return true;}
+  if(typeof HB_STATS_NAV!=='undefined'&&HB_STATS_NAV&&inRect(x,y,HB_STATS_NAV)){ssStatsOpen();return true;}
+  if(HB_SEARCH && inRect(x,y,HB_SEARCH)){ view='search'; repaintAll(); return true; }
+  if(HB_ALBUMS&&inRect(x,y,HB_ALBUMS)){if(view!=='albums'){view='albums';artScroll=artScrollT=0;}repaintAll();return true;}
+  if(HB_ALBUM_BACK&&inRect(x,y,HB_ALBUM_BACK)){ssBackFromAlbum();repaintAll();return true;}
+  if(HB_ALLSONGS && inRect(x,y,HB_ALLSONGS)){ if(view!=='songs'){ view='songs'; songsScroll=songsScrollT=0; } if(songsGroup==='artist')setSongsGroup('none'); repaintAll(); return true; }
+  if(typeof HB_PERSONAL!=='undefined'&&(t=hit(HB_PERSONAL,x,y))){ssOpenPersonal(t.kind);return true;}
+  if(HB_ADDPL && inRect(x,y,HB_ADDPL)){ var np=createNewPlaylist(); plman.ActivePlaylist=np; revealPlaylist(np); firstRow=firstRowT=0; view='playlist'; repaintAll(); return true; }
+  if(HB_PLADD_FILES && inRect(x,y,HB_PLADD_FILES)){ addFilesToPl(plman.ActivePlaylist); return true; }
+  if(HB_PLADD_FOLDER && inRect(x,y,HB_PLADD_FOLDER)){ addFolderToPl(plman.ActivePlaylist); return true; }
+  if((t=hit(HB_CARD,x,y))){
+    if(t.kind==='pl'){ plman.ActivePlaylist=t.id; firstRow=firstRowT=0; view='playlist'; }
+    else if(t.kind==='album')ssOpenAlbum(t.id);
+    else loadArtist(t.id);
+    repaintAll(); return true;
+  }
+  return false;
 }
 function playRow(t){
   if(t.personal){ssEnqueueRow(t);}
@@ -684,8 +698,118 @@ function on_mouse_leave(){
   }
   hoverZoneKey='';
 }
+var ssKeyboardFocus='';
+function ssKeyboardTargets(){
+  var targets=[],occurrences=new Map();
+  function add(kind,box,id){
+    if(!box||box.x1<=box.x0||box.y1<=box.y0)return;
+    var key=kind+':'+id,count=occurrences.get(key)||0;
+    occurrences.set(key,count+1);
+    targets.push({kind:kind,box:box,id:count?key+'#'+count:key});
+  }
+  if(fsMode){for(var b of HB_FS)add('stage',b,b.act);add('viz',HB_VIZ,'styles');}
+  else{
+    for(var menu of HB_MENU)add('topMenu',menu,menu.root);
+    for(var cap of HB_CAP)add('window',cap,cap.act);
+    add('libraryHome',HB_HOME,'home');
+    add('library',HB_SEARCH,'search');
+    add('library',HB_ALLSONGS,'songs');
+    add('library',HB_ALBUMS,'albums');
+    if(typeof HB_ARTISTS_NAV!=='undefined')add('library',HB_ARTISTS_NAV,'artists');
+    if(typeof HB_STATS_NAV!=='undefined')add('library',HB_STATS_NAV,'stats');
+    if(typeof HB_PERSONAL!=='undefined')for(var personal of HB_PERSONAL)add('library',personal,personal.kind);
+    add('library',HB_ADDPL,'newPlaylist');
+    if(view==='playlist'){
+      add('library',HB_PLADD_FILES,'files');
+      add('library',HB_PLADD_FOLDER,'folder');
+    }
+    for(var card of HB_CARD)add('library',card,'card:'+card.kind+':'+card.id);
+    for(var nav of HB_PL)add('playlist',nav,nav.i);
+    if(view==='home'){add('home',HB_HOME_CONTINUE,'primary');add('home',HB_HOME_ALBUMS,'albums');}
+    add('library',HB_ALBUM_BACK,'albumBack');
+    add('headerPlay',HB_PLAYLIST_PLAY,'playlist');
+    add('headerPlay',HB_ARTIST_PLAY,'artist');
+    add('headerPlay',HB_SONGS_PLAY,'songs');
+    for(var b of HB_TR){
+      if(view==='playlist')add('track',b,b.pl+':'+b.item+':'+b.playId);
+      else add('playRow',b,[b.playId,b.block,b.idx,b.ti,b.track_id].join(':'));
+      if(b.more)add('rowMenu',b.more,[b.pl,b.item,b.block,b.idx,b.ti].join(':'));
+    }
+    if(R.queue.w>0)for(var tab of HB_TABS)add('tab',tab,tab.tab);
+    if(rightTab==='queue'&&R.queue.w>0)for(var b of HB_Q)add('queue',b,ssQueueRowKey(b)+':'+(b.queueIndex===undefined?b.item:b.queueIndex)+':'+b.track_id);
+  }
+  if((fsMode?fsView:view)==='stats')for(var stat of HB_STATS)add('stat',stat,stat.label||stat.tab||stat.action);
+  if(!fsMode)for(var action of HB_PERSONAL_ACTIONS)add('personalAction',action,[action.kind,action.page,action.track_id,action.settings,action.retry].join(':'));
+  for(var b of HB_CTRL)add('control',b,b.act);
+  if(fb.PlaybackLength>0)add('slider',HB_SEEK,'seek');
+  add('slider',HB_VOL,'volume');
+  return targets;
+}
+function ssKeyboardAvailable(){
+  return !(ssModal||ssPopup||confirmDel||renameEdit||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen||drag);
+}
+function ssFocusKey(key){
+  if(!ssKeyboardAvailable()||![9,13,37,38,39,40].includes(key))return false;
+  if((fsMode?fsView:view)==='stats'&&ssStats.edit)return false;
+  var list=ssKeyboardTargets(),i=list.findIndex(function(t){return t.id===ssKeyboardFocus;}),target=list[i];
+  if(key===9&&list.length){
+    var back=utils.IsKeyPressed(16);
+    ssKeyboardFocus=list[((i<0?(back?0:-1):i)+(back?-1:1)+list.length)%list.length].id;
+    applyKeyMode();repaintAll();return true;
+  }
+  if(!target)return false;
+  var b=target.box;
+  if(target.kind==='slider'&&key>=37&&key<=40){
+    var step=key===38||key===39?1:-1;
+    if(b===HB_SEEK)fb.PlaybackTime=Math.max(0,Math.min(fb.PlaybackLength,fb.PlaybackTime+5*step));
+    else fb.Volume=pos2vol(clamp01(vol2pos(fb.Volume)+step*0.04));
+    repaintBar();return true;
+  }
+  if(key===13){
+    if(target.kind==='stage')doFsAct(b.act,b.album);
+    else if(target.kind==='control')doCtrl(b.act,b);
+    else if(target.kind==='topMenu')openMenu(b.root,b.mx,TBH);
+    else if(target.kind==='window')ssWindowControl(b.act);
+    else if(target.kind==='viz')ssShowVizStyles(b);
+    else if(target.kind==='rowMenu'){
+      var row=HB_TR.find(function(r){return r.more===b;});
+      if(row)ssBatchTrackMenu(row,b.x0,b.y1);
+    }
+    else if(target.kind==='stat'||target.kind==='personalAction'){
+      var x=(b.x0+b.x1)/2,y=(b.y0+b.y1)/2;
+      if(target.kind==='stat'){ssStatsPointerDown(x,y);ssStatsPointerUp(x,y);}
+      else{ssPersonalPointerDown(x,y);ssPersonalPointerUp(x,y);}
+    }
+    else if(target.kind==='playRow')playRow(b);
+    else if(target.kind==='headerPlay')ssActivateHeaderPlay(b);
+    else if(target.kind==='libraryHome'){ssAdvanceHomeRecommendation();view='home';repaintAll();}
+    else if(target.kind==='library')ssActivateLibraryAt((b.x0+b.x1)/2,(b.y0+b.y1)/2);
+    else if(target.kind==='playlist'){ssPickedPlaylists.clear();plman.ActivePlaylist=b.i;firstRow=firstRowT=0;view='playlist';repaintAll();}
+    else if(target.kind==='tab')ssSetRightPane(b.tab,true);
+    else if(target.kind==='home')ssActivateHomeAction(b);
+    else if(target.kind==='track')ssSend('play',{playlist:b.pl,item:b.item});
+    else if(target.kind==='queue')ssOpenQueueMenu(b,b.x0,b.y1);
+    return true;
+  }
+  if((key===38||key===40)&&utils.IsKeyPressed(18)&&(target.kind==='track'||target.kind==='queue')){
+    var track=target.kind==='track',delta=key===38?-1:1;
+    if(track)ssMainSelectionContext();else ssQueueSelectionContext(b);
+    var source=track?ssMainRows:ssQueueRows,at=track?ssMainRowIndex(b):b.queueIndex,to=at+delta;
+    if(!ssSelectContext.writable||!Number.isInteger(at)||to<0||to>=source.length||ssFlight||ssOut.length)return true;
+    ssCommitSelectionOrder(track?ssMainSelect:ssQueueSelect,{key:ssSelectContext.key,indices:[at],targetIndex:to});
+    ssKeyboardFocus=track?'track:'+b.pl+':'+to+':'+b.playId:'queue:'+ssQueueRowKey(b)+':'+to+':'+b.track_id;
+    var visible=track?HB_TR:HB_Q.filter(function(r){return r.scope===b.scope;});
+    if(visible.length&&(delta<0&&visible[0]===b||delta>0&&visible[visible.length-1]===b)){
+      if(track)firstRow=firstRowT=clampPx(firstRow+delta*b.rowH,PL_MAXPX);
+      else ssQueueScroll=ssQueueScrollT=clampPx(ssQueueScroll+delta*b.rowH,SS_QUEUE_MAX);
+    }
+    repaintAll();return true;
+  }
+  return false;
+}
 function on_key_down(key){
   if(ssRecycleKey(key)||ssPopupKey(key)||ssKeyDown(key))return;
+  if(ssFocusKey(key))return;
   if(fsMode){
     if(key===27){
       if(fsView==='stats'){if(!ssStatsInput(key))doFsAct('stats-back');}
@@ -695,7 +819,7 @@ function on_key_down(key){
   }
   if(typeof ssHomeKey==='function')ssHomeKey(key);
 }
-function on_focus(focused){if(!focused&&typeof ssHomeFocus!=='undefined'&&ssHomeFocus){ssHomeFocus='';if(view==='home')repaintMain();}}
+function on_focus(focused){if(!focused&&ssKeyboardFocus){ssKeyboardFocus='';applyKeyMode();repaintAll();}if(!focused&&typeof ssHomeFocus!=='undefined'&&ssHomeFocus){ssHomeFocus='';if(view==='home')repaintMain();}}
 function on_char(code){
   if(ssPopup)return;
   if(ssModal) return;
@@ -883,4 +1007,4 @@ drpSync();         // make foo_verdant agree with the Discord property before an
 
 ssLoadArtists();ssStart();
 ssStartCovers();
-console.log('Smart Shuffle Chinese Verdant 1.0.22 ready');
+console.log('Smart Shuffle Chinese Verdant 1.0.23 ready');

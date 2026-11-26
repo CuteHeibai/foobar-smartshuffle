@@ -14,7 +14,13 @@ function ssApplyAppearance(mode){
   if(typeof VIZ_PEAK!=='undefined')VIZ_PEAK=blend(COL.green,COL.text,.22);
   ssNativeLyricKey='';ssSyncLyricPanel();ssSceneKey='';ssFadeStart=0;repaintAll();return true;
 }
+var ssReducedMotion=false;
+try{ssReducedMotion=window.GetProperty('SmartShuffle: reduce motion',false)===true;}catch(e){}
 function ssAppearanceMenuItems(){
   return [{label:'深色',icon:'moon',checked:SS_APPEARANCE==='dark',run:function(){ssSend('theme_appearance',{appearance:'dark'});}},
-    {label:'浅色',icon:'sun',checked:SS_APPEARANCE==='light',run:function(){ssSend('theme_appearance',{appearance:'light'});}}];
+    {label:'浅色',icon:'sun',checked:SS_APPEARANCE==='light',run:function(){ssSend('theme_appearance',{appearance:'light'});}},
+    {separator:true},{label:'减少动态效果',checked:ssReducedMotion,run:function(){
+      ssReducedMotion=!ssReducedMotion;window.SetProperty('SmartShuffle: reduce motion',ssReducedMotion);
+      ssFadeStart=0;repaintAll();
+    }}];
 }

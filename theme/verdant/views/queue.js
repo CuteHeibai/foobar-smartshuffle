@@ -1,4 +1,5 @@
-﻿/* verdant/views/queue.js -- right sidebar: queue and lyrics tabs
+﻿function ssQueueLyricHighlight(){return SS_APPEARANCE==='light'?RGB(0,82,190):RGB(112,181,255);}
+/* verdant/views/queue.js -- right sidebar: queue and lyrics tabs
    Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
@@ -101,7 +102,7 @@ function ssDrawResizeLyrics(gr,r,drag){
       if(noLyrics())tC(g,'松开后继续显示歌词',FONT.meta,COL.text2,0,Math.floor(h/2)-13,width,26);
       else if(lyrics.synced){
         stopLyAnim();lySnap=true;
-        drawRollingLyrics(g,0,0,width,h,FONT.lyric,COL.text,'c',COL.text2);
+        drawRollingLyrics(g,0,0,width,h,FONT.lyric,ssQueueLyricHighlight(),'c',COL.text2);
       }else drawStaticLyrics(g,0,width,6,h,FONT.lyric,0.45);
     }finally{image.ReleaseGraphics(g);}
     drag.lyricFrame=image;drag.lyricTrack=NP;
@@ -152,7 +153,7 @@ function ssDrawQueueContent(gr){
       return;
     }
     var viewTop=r.y+68, viewBot=r.y+r.h-20, maxW=r.w-36;
-    if(lyrics.synced) drawRollingLyrics(gr,r.x+18,viewTop,maxW,viewBot,FONT.lyric,COL.text,'c',COL.text2);
+    if(lyrics.synced) drawRollingLyrics(gr,r.x+18,viewTop,maxW,viewBot,FONT.lyric,ssQueueLyricHighlight(),'c',COL.text2);
     else drawStaticLyrics(gr,r.x+18,maxW,viewTop+6,viewBot,FONT.lyric,0.45);
     return;
   }
@@ -180,7 +181,7 @@ function ssDrawQueueContent(gr){
       if(qy+rh>bottom) break;
       var qh=mq[qi]; if(!qh) continue;
       var qhb=qRow(gr,r,x,qy,rh); qhb.q=qi;qhb.scope='priority';qhb.queueIndex=qi;qhb.track_id=ssTrackID(qh);qhb.next=shown===0; HB_Q.push(qhb);
-      var qm=qRowMeta(qh);
+      var qm=qRowMeta(qh);qhb.title=qm.t;qhb.artist=qm.a;
       qEntry(gr,r,x,qy,44,qh,'mq'+qi,undefined,qm.t,qm.a,COL.text,qhb.next);
       qy+=rh; shown++;
     }
@@ -214,7 +215,7 @@ function ssDrawQueueContent(gr){
       for(var k=start;k<cnt&&shown<20;k++){
         if(qy+rh>bottom) break;
         var h=items[k]; if(!h) continue;
-        var nhb=qRow(gr,r,x,qy,rh); nhb.pl=pli;nhb.item=k;nhb.next=shown===0; HB_Q.push(nhb);
+        var nhb=qRow(gr,r,x,qy,rh); nhb.title=qmeta.title[k];nhb.artist=qmeta.artist[k];nhb.pl=pli;nhb.item=k;nhb.track_id=ssTrackID(h);nhb.next=shown===0; HB_Q.push(nhb);
         qEntry(gr,r,x,qy,44,h,qmeta.album[k]||String(k),qmeta.artkey[k],qmeta.title[k],qmeta.artist[k],COL.text,nhb.next);
         qy+=rh; shown++;
       }

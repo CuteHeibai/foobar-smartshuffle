@@ -152,9 +152,20 @@ function warmStep(){
    already in flight -- which is what keeps the choice from ever moving backwards. The answer is
    cached once it can no longer change; an unsettled scan is cheap, but it does run per paint. */
 var COVER_CANDS=10, COVER_LOOKAHEAD=2, coverPickCache={};
+var coverPalettes=new WeakMap();
+function coverVisualKey(image,fallback){
+  if(coverPalettes.has(image))return coverPalettes.get(image);
+  var key=fallback;
+  try{
+    var sample=image.Resize(16,16),palette=sample.GetColourScheme(12);
+    if(palette&&palette.length)key=image.Width+'x'+image.Height+':'+palette.join(',');
+  }catch(e){}
+  coverPalettes.set(image,key);
+  return key;
+}
 function coverPick(key,cands,want){
   if(coverPickCache.hasOwnProperty(key)) return coverPickCache[key];
-  var out=[], done=true, i, j, h, k;
+  var out=[], seen=new Set(), done=true, i, j, h, k;
   if(cands) for(i=0;i<cands.length && out.length<want;i++){
     h=cands[i]; if(!h) continue;
     k=albKey(h);
@@ -163,7 +174,10 @@ function coverPick(key,cands,want){
       for(j=1;j<=COVER_LOOKAHEAD && i+j<cands.length;j++) if(cands[i+j]) requestArt(cands[i+j],albKey(cands[i+j]),true);
       done=false; break;
     }
-    if(artCache[k]) out.push(h);
+    if(artCache[k]){
+      var visual=coverVisualKey(artCache[k],k);
+      if(!seen.has(visual)){seen.add(visual);out.push(h);}
+    }
   }
   var res={list:out, done:done};
   if(done && cands && cands.length) coverPickCache[key]=res;   // empty = data not built yet, retry

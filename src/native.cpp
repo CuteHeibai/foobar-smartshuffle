@@ -7,6 +7,7 @@
 #include "recycle.hpp"
 #include "metadata_worker.hpp"
 #include "hover_focus.hpp"
+#include "reader.hpp"
 #include "version.hpp"
 #include "updater.hpp"
 #include "native_dialogs.hpp"
@@ -119,6 +120,8 @@ public:
     std::unique_ptr<native_ss::MetadataWorker> metadata;json metadataState=json::object();
     std::unique_ptr<LocalLabels> localLabels;
     HoverFocus hoverFocus;
+    native_ss::reader::Host reader;
+    json readerAction=nullptr;
     std::unique_ptr<native_ss::Updater> updater;
     std::string edition="core";bool updateNotified=false;
     std::string themeVersion;
@@ -315,6 +318,7 @@ public:
         size_t completed=0,failed=0;for(auto& t:tracks){auto fp=fingerprint(handles[t.id]);if(cache.contains(fp)){if(cache[fp].contains("features"))++completed;else ++failed;}}
         j["scan"]={{"paused",scanPaused},{"completed",completed},{"failed",failed},{"total",tracks.size()},{"pending",scanner?scanner->pending():0},{"revision",scanRevision}};
         j["theme"]={{"version",themeVersion},{"window",themeWindow},{"ui_wizard",themeUIWizard},{"chrome_ready",themeChromeReady},{"appearance",themeAppearance},{"rendered_appearance",themeRenderedAppearance},{"layout",themeLayout}};
+        if(!readerAction.is_null())j["theme"]["accessibility_action"]=readerAction;
         MONITORINFO display{sizeof(display)};
         if(GetMonitorInfoW(MonitorFromWindow(core_api::get_main_window(),MONITOR_DEFAULTTONEAREST),&display)){
             auto work=display.rcWork;
@@ -798,6 +802,13 @@ public:
         const auto op=req.value("op",std::string("state"));response={{"ok",true}};error.clear();
         if(req.value("version",0)!=1)throw std::runtime_error("不支持的接口版本");
         if(req.contains("theme_version")){themeVersion=req.at("theme_version").get<std::string>();themeWindow=req.value("theme_window",uint64_t(0));themeUIWizard=req.value("ui_wizard",false);hoverFocus.set_surface(reinterpret_cast<HWND>(static_cast<uintptr_t>(themeWindow)));darken_frame();}
+        if(req.contains("theme_version")){
+            reader.attach(reinterpret_cast<HWND>(static_cast<uintptr_t>(themeWindow)));
+            readerAction=nullptr;
+        }
+        if(!readerAction.is_null()&&req.contains("theme_accessibility_ack")&&req.at("theme_accessibility_ack")==readerAction.at("serial"))
+            readerAction=nullptr;
+        if(req.contains("theme_accessibility"))reader.update(req.at("theme_accessibility"));
         if(req.contains("theme_chrome_ready")){themeChromeReady=req.at("theme_chrome_ready").get<bool>();if(!nativeAppearanceSynced)apply_native_appearance();darken_frame();}
         if(req.contains("theme_color")){
             auto mode=req.at("theme_color").get<std::string>();
@@ -1100,6 +1111,7 @@ public:
         if(updater->poll()){changed=true;auto u=updater->status();if(!updateNotified&&u.value("automatic",true)&&u.value("available",false)){updateNotified=true;native_ss::open_updates();}}
         for(auto& result:metadata->results()){auto task=result.value("task",std::string{});if(metadataState[task].value("id",std::string{})==result.value("id",std::string{})){metadataState[task]=std::move(result);changed=true;}}
         if(quitting||inside)return;
+        if(readerAction.is_null()&&reader.next(readerAction))changed=true;
         auto now=Clock::now();accrue();
         if(historyTarget&&now>=historyDeadline)historyTarget.reset();
         auto pc=playback_control::get();auto pm=playlist_manager::get();

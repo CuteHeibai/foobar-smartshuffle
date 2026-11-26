@@ -143,7 +143,7 @@ public:
     bool query_color(const GUID& which, t_ui_color& result) override {
         if (which == ui_color_background) result = light_?RGB(255,255,255):RGB(22,23,26);
         else if (which == ui_color_text) result = light_?RGB(102,102,102):RGB(175,175,175);
-        else if (which == ui_color_highlight) result = light_?RGB(62,62,62):RGB(226,226,226);
+        else if (which == ui_color_highlight) result = light_?RGB(0,82,190):RGB(112,181,255);
         else if (which == ui_color_selection) result = light_?RGB(214,228,252):RGB(40,60,90);
         else if (which == ui_color_darkmode) result = light_?RGB(255,255,255):0;
         else return false;

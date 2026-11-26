@@ -36,10 +36,10 @@ function ssPalette(mode){
     line:RGB(48,50,55),splitter:RGB(48,50,55),gridLine:RGBA(255,255,255,26),gridAxis:RGBA(255,255,255,64),seekbg:RGB(62,65,72),
     popup:RGB(30,31,35),popupAlt:RGB(36,38,43),submenuLine:RGB(76,79,87),button:RGB(44,46,52),buttonHover:RGB(54,57,64),
     input:RGB(38,40,45),banner:RGB(32,34,39),cardHover:RGB(38,40,45),skeleton:RGB(36,38,43),
-    pill:RGB(36,38,43),accentMuted:RGB(40,60,90),onAccent:RGB(8,10,14),onDanger:RGB(255,255,255),
+    pill:RGB(36,38,43),accentMuted:RGB(40,60,90),onAccent:RGB(8,10,14),onDanger:RGB(8,10,14),
     danger:RGB(255,69,58),dangerHover:RGB(255,95,84),error:RGB(255,120,110),
     shadow:RGBA(0,0,0,110),scrim:RGBA(0,0,0,150),modalScrim:RGBA(0,0,0,185),
-    play:RGB(64,156,255),onPlay:RGB(255,255,255)
+    play:RGB(64,156,255),onPlay:RGB(8,10,14)
   };
 }
 var COL=ssPalette(SS_APPEARANCE);
@@ -296,7 +296,6 @@ var ICONS={
  expand:"<path d='M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z'/>",
  compress:"<path d='M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z'/>",
  mic:"<path d='M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z'/>",
- lyric:"<path d='M4 4h16v12h-7l-5 4v-4H4z'/>",
  queue:"<path d='M3 6h11v2H3zm0 4h11v2H3zm0 4h7v2H3zm12-1 6 3.5-6 3.5z'/>",
  equalizer:"<path d='M10 20h4V4h-4zm-6 0h4v-8H4zm12-11v11h4V9z'/>",
  chevron:"<path d='M7 10l5 5 5-5z'/>",
@@ -304,7 +303,7 @@ var ICONS={
  sortDesc:"<path d='M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.59-5.58L4 12l8 8 8-8z'/>"
 };
 var svgCache={},ssIconSources={};
-var SS_SVG_FILES={heart:'heart',heartFilled:'heart',bookmark:'bookmark',bookmarkFilled:'bookmark',
+var SS_SVG_FILES={lyric:'captions',heart:'heart',heartFilled:'heart',bookmark:'bookmark',bookmarkFilled:'bookmark',
   settings:'settings',refresh:'refresh-cw',headphones:'headphones',folderOpen:'folder-open',tag:'tag',
   tools:'wrench',sun:'sun',moon:'moon',windowClose:'x',windowMinimize:'minus',
   windowMaximize:'maximize-2',windowRestore:'minimize-2',

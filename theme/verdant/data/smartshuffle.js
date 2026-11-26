@@ -16,6 +16,7 @@ function ssSend(op,args){
   if(op==='lyrics_panel') ssOut=ssOut.filter(function(q){return q.op!=='lyrics_panel';});
   if(op==='menu_open') ssOut=ssOut.filter(function(q){return q.op!=='menu_open';});
   if(op==='cancel') ssOut=ssOut.filter(function(q){return q.op!=='preview';});
+  if(r.theme_accessibility)ssOut=ssOut.filter(function(q){return !q.theme_accessibility;});
   ssOut.push(r); ssPump(); return r.id;
 }
 function ssPump(){
@@ -68,6 +69,7 @@ function ssAcceptState(s){
     ssApplyId='';
     if(!s.response||s.response.ok!==false){ ssModal=false; ssDragging=false; applyKeyMode(); }
   }
+  if(!ssStarting&&s.theme&&typeof ssAccessibilityAction==='function')ssAccessibilityAction(s.theme.accessibility_action);
   if(typeof ssAcceptDiscovery==='function')ssAcceptDiscovery(s);
   if(typeof ssAcceptCovers==='function')ssAcceptCovers(s);
   ssPump();
@@ -91,14 +93,14 @@ function ssPoll(){
 function ssStart(){
   if(ssStarted) return;
   ssStarted=true;ssStarting=true;ssPoll();ssStarting=false;
-  ssSend('state',{theme_version:'1.0.22',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard,theme_color:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'});
+  ssSend('state',{theme_version:'1.0.23',theme_window:Number(window.ID)||0,ui_wizard:typeof UIWizard!=='undefined'&&!!UIWizard,theme_color:typeof SS_APPEARANCE!=='undefined'?SS_APPEARANCE:'dark'});
   if(typeof ssReportLayout==='function')ssReportLayout();
   if(typeof UIWizard!=='undefined'&&UIWizard)window.SetTimeout(function(){
     ssSend('state',{theme_chrome_ready:ssConfigureChrome()});
   },100);
   ssPollTimer=window.SetInterval(ssPoll,50);
 }
-function ssStop(){ if(ssPollTimer) window.ClearInterval(ssPollTimer); if(ssDraftTimer) window.ClearTimeout(ssDraftTimer); }
+function ssStop(){ if(typeof ssReaderTimer!=='undefined'&&ssReaderTimer)window.ClearTimeout(ssReaderTimer); if(ssPollTimer) window.ClearInterval(ssPollTimer); if(ssDraftTimer) window.ClearTimeout(ssDraftTimer); }
 function ssShow(local){
   if(typeof ssDropModalImage==='function')ssDropModalImage();
   ssModal=true; ssDragging=false; ssMessage=''; ssApplyId='';

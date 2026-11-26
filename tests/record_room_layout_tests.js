@@ -106,7 +106,8 @@ run('narrow windows constrain the library and larger windows restore the saved w
 run('the standard desktop reserves the majority of its width for the main pane',()=>{
  const {c}=harness({'SmartShuffle: library width':280,'SmartShuffle: lyrics width':320,'SmartShuffle: right pane open':true});
  const widths=c.ssLayoutWidths(1180);
- assert.ok(widths.nav===280&&widths.right===320);
+ assert.ok(widths.nav<=260&&widths.right===320);
+ c.ssRightOpen=false;assert.equal(c.ssLayoutWidths(1180).nav,280);
  assert.ok(1180-40-widths.nav-widths.right>=530);
  assert.equal(c.ssWidths.nav,280);assert.equal(c.ssWidths.right,320);
 });

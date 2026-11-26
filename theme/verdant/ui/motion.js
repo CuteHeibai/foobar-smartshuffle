@@ -99,6 +99,7 @@ function ssPaintModal(gr,forceFull){
   if(typeof ssDrawGlassBall==='function'&&typeof ssGeometry==='function'){var grid=ssGeometry(W,H).grid;ssDrawGlassBall(gr,grid.x,grid.y,grid.size);}
 }
 function ssDrawTransitions(gr){
+  if(typeof ssReducedMotion!=='undefined'&&ssReducedMotion)return;
   var active=plman.ActivePlaylist, key=[view,active,viewArtist,rightTab,fsMode].join('|');
   if(ssSceneKey!==key){ssFadeZone=ssSceneKey&&ssSceneKey.split('|')[3]!==rightTab?'queue':'main';ssFadeStart=ssSceneKey?Date.now():0;ssSceneKey=key;}
   if(!ssFadeStart)return;
