@@ -1,5 +1,5 @@
 ﻿/* verdant/views/search.js -- search view: box + artist/song results
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 // factored out so the blinking caret repaints just this strip (dirtySearch), not the whole view
@@ -39,7 +39,7 @@ function drawSearchBox(gr,r,layout){
 function drawSearch(gr,r){
   HB_CARD=[]; HB_TR=[];
   computeSearch();
-  var layout=ssSearchLayout(r),list=layout.list,s=layout.s,x0=list.x,w=list.w,boxH=layout.box.h,boxY=layout.box.y,i;
+  var layout=ssSearchLayout(r),list=layout.list,s=layout.s,rSm=typeof ssRad==='function'?ssRad('sm',s):Math.round(4*s),x0=list.x,w=list.w,boxH=layout.box.h,boxY=layout.box.y,i;
   if(!searchQuery.length){
     drawSearchBox(gr,r,layout);
     tL(gr,'支持拼音 / 首字母、日语罗马音、近似拼写及本地歌词。',FONT.qArtist,COL.text2,x0+2,boxY+boxH+18,w,18);
@@ -71,7 +71,7 @@ function drawSearch(gr,r){
       if(ay+cardH<=top) continue;
       var ax=x0+(i%cols)*(cardW+gap),portrait=Math.round(64*s),artist=searchArts[i];
       var ab={x0:ax,y0:Math.max(ay,top),x1:ax+cardW,y1:Math.min(ay+cardH,cropY),kind:'artist',id:artist.name};
-      if(hv(ab.x0,ab.y0,ab.x1,ab.y1))ssFillContinuousRect(gr,ax,ay,cardW,cardH,4,4,COL.rowHover);
+      if(hv(ab.x0,ab.y0,ab.x1,ab.y1))ssFillContinuousRect(gr,ax,ay,cardW,cardH,rSm,rSm,COL.rowHover);
       ssDrawArtistAvatar(gr,ax,ay+Math.round(4*s),portrait,artist.name);
       var atx=ax+portrait+Math.round(14*s),atw=Math.max(1,ax+cardW-atx-8);
       tL(gr,ssArtistName(artist.name),FONT.card,COL.text,atx,ay,atw,cardH);
@@ -93,7 +93,7 @@ function drawSearch(gr,r){
       ssDrawLibraryRowSurface(gr,list,ry,rh,hot,i%2===1);
       var active=ssIsCurrentTrack(tr.h),moreY=ry+Math.round((rh-moreW)/2);
       ssDrawTrackLead(gr,x0,ry,playW,rh,active);
-      drawCover(gr,artX,ry+(rh-cs)/2,cs,4,tr.h,tr.album||tr.title);
+      drawCover(gr,artX,ry+(rh-cs)/2,cs,rSm,tr.h,tr.album||tr.title);
       var detail=tr.snippet?('歌词 '+(tr.lyric_time!==null&&tr.lyric_time!==undefined?fmtTime(tr.lyric_time):'无时间轴')+' · '+tr.snippet):[tr.artist,tr.album===tr.title?'':tr.album].filter(Boolean).join(' '+CH_DOT+' ');
       ssDrawTrackLabels(gr,tr.title,detail,COL.text,textX,ry,moreX-list.gap-textX,rh,s);
       drawIcon(gr,'more',hot?COL.text:COL.text2,moreX,moreY,moreW,moreW,Math.round(17*s));
@@ -106,5 +106,5 @@ function drawSearch(gr,r){
   gr.FillSolidRect(r.x,r.y,r.w,top-r.y,COL.base);
   gr.FillSolidRect(r.x,cropY,r.w,M.pad+2,COL.black);
   drawSearchBox(gr,r,layout);
-  drawScrollbar(gr,r.x+r.w-10,top,viewH,searchScroll,maxPx,viewH,contentH,hv(r.x,top,r.x+r.w,cropY)||drag==='scroll');
+  drawScrollbar(gr,r.x+r.w-10,top,viewH,searchScroll,maxPx,viewH,contentH,[r.x,top,r.x+r.w,cropY]);
 }

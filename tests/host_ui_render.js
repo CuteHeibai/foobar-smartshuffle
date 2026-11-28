@@ -11,7 +11,7 @@
   check(window.MinWidth===minimum.width&&window.MinHeight===minimum.height,'JSplitter has the DPI-aware minimum panel dimensions');
   result.minimum=minimum;
   var bitmap=gdi.CreateImage(500,240),g=bitmap.GetGraphics();
-  result.font_family=FONT.rowTitle.Name;check(FONT.rowTitle.Name==='Inter','Actual theme resolves the bundled Inter font family');
+  result.font_family=FONT.rowTitle.Name;check(FONT.rowTitle.Name==='Segoe UI','Actual theme resolves the Segoe UI font family');
   check(ssScriptFont('中文歌曲',FONT.rowTitle).Name==='Microsoft YaHei UI','Chinese resolves to an explicit sans serif family instead of a KaiTi fallback');
   check(['settings','refresh','folderOpen','heart','bookmarkFilled','windowClose','windowRestore'].every(function(name){
     var icon=iconImg(name,24,COL.text);return icon&&icon.Width>0&&icon.Height>0;

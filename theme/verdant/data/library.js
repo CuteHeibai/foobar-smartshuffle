@@ -1,5 +1,5 @@
 ﻿/* verdant/data/library.js -- library + playlist data: handles, title-format passes, indices, sort order
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* Playlist name/count are read once per playlist instead of once per card per frame -- these

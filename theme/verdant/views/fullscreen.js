@@ -1,13 +1,20 @@
 ﻿/* verdant/views/fullscreen.js -- fullscreen chill mode and the spectrum visualizer
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* ------------------------- fullscreen "chill" mode ------------------------- */
+var ssRestoreAfterFullscreen=null;
 function enterFullscreen(){
+  if(fsMode)return;
   ssAbortResize();
   if(typeof ssHideLyrics==='function')ssHideLyrics();
   fsMode=true;
-  try{ if(UIWizard && UIWizard.WindowState!==1)UIWizard.ToggleMaximize(); }catch(e){}
+  try{
+    if(UIWizard && UIWizard.WindowState!==1){
+      var rect={x:UIWizard.WindowX,y:UIWizard.WindowY,w:UIWizard.WindowWidth,h:UIWizard.WindowHeight};
+      UIWizard.ToggleMaximize();ssRestoreAfterFullscreen=rect;
+    }
+  }catch(e){}
   applyCaption();applyKeyMode();
   if(fsView==='viz')startViz();
   if(fsView==='lyrics'){loadLyrics();lySnap=true;}
@@ -19,7 +26,20 @@ function exitFullscreen(){
     ssStatsStop();
     fsView=ssFsStatsPrevious;
   }
-  fsMode=false;stopViz();applyCaption();
+  fsMode=false;stopViz();
+  if(ssRestoreAfterFullscreen){
+    var rect=ssRestoreAfterFullscreen;ssRestoreAfterFullscreen=null;
+    try{
+      if(UIWizard && UIWizard.WindowState===1){
+        UIWizard.ExitMaximize();
+        if(rect.w>0 && rect.h>0){
+          UIWizard.SetWindowSize(rect.w,rect.h);
+          UIWizard.SetWindowPosition(rect.x,rect.y);
+        }
+      }
+    }catch(e){}
+  }
+  applyCaption();
   if(view==='stats')ssStatsStart();
   applyKeyMode();repaintAll();
 }
@@ -198,7 +218,8 @@ function fsMiniNP(gr){   // small cover + title + artist, top-left (lyrics/viz v
     var lw=ssMeasureText(gr,lbl,FONT.fsSrc,20);
     tL(gr,src,FONT.fsSrcName,COL.text,64+lw,20,Math.max(0,W/2-lw),20);
   }
-  if(NP)drawRounded(gr,64,78,s,6,NP,'np');else ssDrawIdleRecord(gr,64,78,s);
+  var rMiniMd=typeof ssRad==='function'?ssRad('md'):8;
+  if(NP)drawRounded(gr,64,78,s,rMiniMd,NP,'np');else ssDrawIdleRecord(gr,64,78,s);
   tL(gr,npTitleStr||'尚未播放',FONT.sect2,COL.text,64+s+18,84,W/2,26);
   tL(gr,npArtistStr,FONT.qName,COL.text2,64+s+18,116,W/2,20);
 }
@@ -236,7 +257,8 @@ function drawFsDefault(gr,bot){
     var title=NP?(npTitleStr||'尚未播放'):album.album;
     var artist=NP?npArtistStr:ssArtistName(album.artist),src=NP?npPlaylistSrc():null;
     var source=src?'歌单 · '+src:'';
-    drawRounded(gr,m.x,m.y,m.size,Math.round(12*s),NP||album.handle,NP?'np':album.album);
+    var rFsLg=typeof ssRad==='function'?ssRad('lg',s):Math.round(12*s);
+    drawRounded(gr,m.x,m.y,m.size,rFsLg,NP||album.handle,NP?'np':album.album);
     tCE(gr,title,ssFsFont(FONT.fsTitle,s),COL.text,m.textX,m.textY,m.textW,Math.round(45*s));
     tCE(gr,artist,ssFsFont(FONT.fsArtist,s),COL.text2,m.textX,m.textY+Math.round(44*s),m.textW,Math.round(30*s));
     if(NP){
@@ -247,15 +269,15 @@ function drawFsDefault(gr,bot){
     var play=ssDrawAlbumPlayAction(gr,Math.round(W/2-166*s),buttonY,Math.round(175*s),buttonH,'播放这张专辑',ssFsFont(FONT.pl,s),true);
     play.album=album;HB_FS.push(play);
     var libraryX=Math.round(W/2+24*s),libraryW=Math.round(122*s);
-    var hot=hv(libraryX,buttonY,libraryX+libraryW,buttonY+buttonH);
-    if(hot)ssFillContinuousRect(gr,libraryX,buttonY,libraryW,buttonH,5,5,COL.rowHover);
+    var hot=hv(libraryX,buttonY,libraryX+libraryW,buttonY+buttonH),rFsSm=typeof ssRad==='function'?ssRad('sm',s):Math.round(4*s);
+    if(hot)ssFillContinuousRect(gr,libraryX,buttonY,libraryW,buttonH,rFsSm,rFsSm,COL.rowHover);
     tC(gr,'浏览音乐库',ssFsFont(FONT.fsSrc,s),hot?COL.text:COL.text2,libraryX,buttonY,libraryW,buttonH);
     HB_FS.push({x0:libraryX,y0:buttonY,x1:libraryX+libraryW,y1:buttonY+buttonH,act:'browse'});
     return album;
   }
 
-  var fill=hv(bx,by,bx+bw,by+36)?COL.greenHover:COL.green;
-  ssFillContinuousRect(gr,bx,by,bw,36,9,9,fill);
+  var fill=hv(bx,by,bx+bw,by+36)?COL.greenHover:COL.green,rIdleMd=typeof ssRad==='function'?ssRad('md',s):Math.round(8*s);
+  ssFillContinuousRect(gr,bx,by,bw,36,rIdleMd,rIdleMd,fill);
   tC(gr,'浏览音乐库',FONT.pl,COL.onPlay,bx,by,bw,36);
   HB_FS.push({x0:bx,y0:by,x1:bx+bw,y1:by+36,act:'browse'});
 
@@ -443,7 +465,7 @@ function drawFsBar(gr,featured){
     if(ssState.queue&&ssState.queue.length)action='播放待播队列';
     else if(ssState.source_name&&!isHiddenPl(ssState.source_name))action='播放歌单「'+ssState.source_name+'」';
   }
-  var transport={center:Math.round(W/2),seekWidth:Math.round(W-200*scale),hideIdleSeek:true,
+  var transport={center:Math.round(W/2),seekWidth:Math.min(Math.round(W-200*scale),Math.round(920*scale)),hideIdleSeek:true,
     secondaryPlay:!!featured,startLabel:action,timeColor:COL.text};
   ssDrawTransport(gr,by,height,s,transport,COL.base,ssFsFont(FONT.fsSrc,ssFsScale(W,H)));
   ssDrawFooterTools(gr,by,height,s,tools,true);

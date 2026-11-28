@@ -12,7 +12,7 @@
 | `src/scanner.*`、`analyzer/` | foobar 解码、片段抽取、本地声学分析与信息索引 |
 | `src/lyrics_host.*` | ESLyric 子面板承载 |
 | `assets/fonts/` | Inter 字体、原始许可和来源校验值 |
-| `theme/verdant/` | 完整版 JSplitter 界面 |
+| `theme/verdant/` | 完整版 JSplitter 界面，视觉规范见 [界面设计规范](design.md) |
 | `scripts/install.py` | 两版安装、备份、失败恢复 |
 | `scripts/package_public.py` | 公开安装包、许可、校验清单 |
 | `tests/` | 核心、主题、安装与宿主接口测试 |

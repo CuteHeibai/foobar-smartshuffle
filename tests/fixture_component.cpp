@@ -12,6 +12,16 @@ fs::path root;UINT_PTR timer;std::string last;
 HWND languageDialog=nullptr;
 class SettingsCallback:public preferences_page_callback {public:void on_state_changed()override{}};
 std::wstring wide(const std::string& s){int n=MultiByteToWideChar(CP_UTF8,0,s.c_str(),-1,nullptr,0);std::wstring r(n,0);MultiByteToWideChar(CP_UTF8,0,s.c_str(),-1,r.data(),n);r.pop_back();return r;}
+COLORREF sample_background(HWND w, UINT message) {
+    auto dc=GetDC(w), mem=CreateCompatibleDC(dc);
+    auto bitmap=CreateCompatibleBitmap(dc,8,8);
+    auto old=SelectObject(mem,bitmap);
+    SetPixel(mem,2,2,RGB(255,0,255));
+    SendMessageW(w,message,reinterpret_cast<WPARAM>(mem),PRF_CLIENT);
+    auto color=GetPixel(mem,2,2);
+    SelectObject(mem,old);DeleteObject(bitmap);DeleteDC(mem);ReleaseDC(w,dc);
+    return color;
+}
 void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
     std::ifstream f(root/L"fixture-request.json");if(!f)return;json q;f>>q;f.close();auto id=q.at("id").get<std::string>();if(id==last)return;last=id;
     auto pm=playlist_manager::get();json r={{"id",id},{"ok",true}};std::string op=q.at("op");
@@ -60,6 +70,8 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         while(pages.next(base))if((page &= base)&&std::string(page->get_name())=="智能随机"){
             found=true;auto callback=fb2k::service_new<SettingsCallback>();auto instance=page->instantiate(core_api::get_main_window(),callback);
             r["state"]=instance->get_state();r["window"]=IsWindow(instance->get_wnd())!=FALSE;
+            r["background"]=sample_background(instance->get_wnd(),WM_ERASEBKGND);
+            r["host_dark"]=ui_config_manager::g_is_dark_mode();
             auto personal=GetDlgItem(instance->get_wnd(),1004);r["personal_control"]=personal!=nullptr;
             if(personal){
                 r["personal_checked"]=SendMessageW(personal,BM_GETCHECK,0,0)==BST_CHECKED;
@@ -82,7 +94,7 @@ void CALLBACK run(HWND,UINT,UINT_PTR,DWORD){try{
         if(found.w){ShowWindow(found.w,SW_HIDE);r["apply_enabled"]=IsWindowEnabled(GetDlgItem(found.w,IDOK))!=FALSE;r["automatic"]=SendMessageW(GetDlgItem(found.w,1103),BM_GETCHECK,0,0)==BST_CHECKED;
             wchar_t label[128]{};GetWindowTextW(GetDlgItem(found.w,1102),label,128);pfc::stringcvt::string_utf8_from_wide text(label);r["update_label"]=text.get_ptr();r["update_enabled"]=IsWindowEnabled(GetDlgItem(found.w,1102))!=FALSE;
             RECT rect{};GetClientRect(found.w,&rect);r["width"]=rect.right;r["height"]=rect.bottom;
-            if(q.value("render",false)){auto dc=GetDC(found.w),mem=CreateCompatibleDC(dc);auto bitmap=CreateCompatibleBitmap(dc,rect.right,rect.bottom);auto old=SelectObject(mem,bitmap);SendMessageW(found.w,WM_PRINTCLIENT,reinterpret_cast<WPARAM>(mem),PRF_CLIENT);r["rendered"]=GetPixel(mem,2,2)==RGB(18,18,18);SelectObject(mem,old);DeleteObject(bitmap);DeleteDC(mem);ReleaseDC(found.w,dc);}
+            if(q.value("render",false)){auto dc=GetDC(found.w),mem=CreateCompatibleDC(dc);auto bitmap=CreateCompatibleBitmap(dc,rect.right,rect.bottom);auto old=SelectObject(mem,bitmap);SendMessageW(found.w,WM_PRINTCLIENT,reinterpret_cast<WPARAM>(mem),PRF_CLIENT);auto color=GetPixel(mem,2,2);r["background"]=color;r["rendered"]=color==RGB(255,255,255)||color==RGB(22,23,26);SelectObject(mem,old);DeleteObject(bitmap);DeleteDC(mem);ReleaseDC(found.w,dc);}
             if(q.contains("command"))SendMessageW(found.w,WM_COMMAND,q.at("command").get<int>(),0);
         }
     }

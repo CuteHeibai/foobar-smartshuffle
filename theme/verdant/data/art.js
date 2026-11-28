@@ -1,5 +1,5 @@
 ﻿/* verdant/data/art.js -- album art: async fetch queue, masks, covers, mosaics, card bitmaps
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* ---- album art: async cache keyed by album. A miss draws the placeholder and requests the
@@ -232,18 +232,30 @@ function artHue(h,seed){
 }
 /* masked art: circular (artists) / rounded (large covers). Masks + results are cached;
    ApplyMask mutates, so it runs on a resized COPY, never the shared original. */
-var maskCache={}, cArtCache={};
+var maskCache={}, maskOrder=[], MASK_CAP=64, cArtCache={};
+function putMask(k,m){
+  maskCache[k]=m; maskOrder.push(k);
+  if(maskOrder.length>MASK_CAP){
+    var drop=maskOrder.splice(0,Math.floor(MASK_CAP/4));
+    for(var i=0;i<drop.length;i++){
+      var old=maskCache[drop[i]];
+      if(old&&typeof old.Dispose==='function')try{old.Dispose();}catch(e){}
+      delete maskCache[drop[i]];
+    }
+  }
+  return m;
+}
 function circleMask(size){
   var k='c'+size; if(maskCache[k]) return maskCache[k];
   var m=gdi.CreateImage(size,size), g=m.GetGraphics();
   g.FillSolidRect(0,0,size,size,RGB(255,255,255)); g.SetSmoothingMode(2); g.FillEllipse(0,0,size,size,RGB(0,0,0));
-  m.ReleaseGraphics(g); maskCache[k]=m; return m;
+  m.ReleaseGraphics(g); return putMask(k,m);
 }
 function roundMask(size,rad){
   var k='r'+size+'_'+rad; if(maskCache[k]) return maskCache[k];
   var m=gdi.CreateImage(size,size), g=m.GetGraphics();
   g.FillSolidRect(0,0,size,size,RGB(255,255,255)); g.SetSmoothingMode(2); ssFillContinuousRect(g,0,0,size,size,rad,rad,RGB(0,0,0));
-  m.ReleaseGraphics(g); maskCache[k]=m; return m;
+  m.ReleaseGraphics(g); return putMask(k,m);
 }
 function maskedArt(h,seed,size,mask,tag){
   var k=(h?albKey(h):(seed||''))+'|'+size+'|'+tag;   // keyed by album, not the seed label ('np' is constant -> stale art)
@@ -326,8 +338,9 @@ function plCoverReady(pi){
 /* Flat card: the cover is the card. A soft wash only appears on hover, so a resting
    shelf is type on paper instead of a matrix of grey panels. */
 function paintPlCard(gr,x,y,w,pi,hov){
-  if(hov) ssFillContinuousRect(gr,x-8,y-8,w+16,w+M.cardTextH+12,12,12,COL.cardHover);
-  drawPlCover(gr,x,y,w,8,pi,plName(pi));
+  var rLg=typeof ssRad==='function'?ssRad('lg'):12,rMd=typeof ssRad==='function'?ssRad('md'):8;
+  if(hov) ssFillContinuousRect(gr,x-8,y-8,w+16,w+M.cardTextH+12,rLg,rLg,COL.cardHover);
+  drawPlCover(gr,x,y,w,rMd,pi,plName(pi));
   tL(gr,plName(pi),FONT.card,COL.text,x,y+w+10,w-(hov?26:0),20);
   tL(gr,plCount(pi)+' 首歌曲',FONT.plSub,COL.text2,x,y+w+32,w,16);
 }

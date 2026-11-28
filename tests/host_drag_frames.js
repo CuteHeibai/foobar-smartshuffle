@@ -1,6 +1,6 @@
 /* Disposable SDK/GDI drag frame measurements, without desktop input. */
 (function(){
- var result={ok:false,checks:[]},oldView=view,oldActive=plman.ActivePlaylist,oldWidth=W,oldHeight=H,pi=-1,limit=Date.now()+18000,image=null;
+ var warmed=false,result={ok:false,checks:[]},oldView=view,oldActive=plman.ActivePlaylist,oldWidth=W,oldHeight=H,pi=-1,limit=Date.now()+18000,image=null;
  function check(value,label){if(!value)throw Error(label);result.checks.push(label);}
  function finish(error){
   if(error)result.error=String(error);
@@ -10,13 +10,14 @@
  function paint(){var g=image.GetGraphics();try{on_paint(g);}finally{image.ReleaseGraphics(g);}}
  function sample(){try{
   check(ssSelectOwner&&ssSelectOwner.preview().mode==='reorder','The full pointer callback and hold timer activate a drag');
+  if(dirtyAll||anyDirty())paint();
   var row=HB_TR[0],times=[],ops={},paintBase=ssDrawBase,full=0;
   ssDrawBase=function(g){full++;return paintBase(g);};
   for(var f=0;f<100;f++){
    var start=Date.now(),x=row.x0+100+(f%20),y=row.y0+row.y1-row.y0+100+(f*13)%650;
    on_mouse_move(x,y,1);ssSelectionDirty=true;
    var g=image.GetGraphics(),proxy={};
-   ['DrawImage','FillSolidRect','FillRoundRect','DrawRoundRect','FillEllipse','DrawLine','DrawRect','DrawString','SetTextRenderingHint','CalcTextHeight','CalcTextWidth','SetSmoothingMode','SetInterpolationMode'].forEach(function(name){proxy[name]=function(){var t=Date.now(),args=arguments,value=g[name].apply(g,args),entry=ops[name]||(ops[name]={count:0,ms:0,area:0});entry.count++;entry.ms+=Date.now()-t;if(name==='DrawImage')entry.area+=args[3]*args[4];return value;};});
+   ['DrawImage','FillSolidRect','FillRoundRect','DrawRoundRect','FillEllipse','FillPolygon','DrawPolygon','DrawLine','DrawRect','DrawString','SetTextRenderingHint','CalcTextHeight','CalcTextWidth','SetSmoothingMode','SetInterpolationMode'].forEach(function(name){proxy[name]=function(){var t=Date.now(),args=arguments,value=g[name].apply(g,args),entry=ops[name]||(ops[name]={count:0,ms:0,area:0});entry.count++;entry.ms+=Date.now()-t;if(name==='DrawImage')entry.area+=args[3]*args[4];return value;};});
    try{on_paint(proxy);}finally{image.ReleaseGraphics(g);}times.push(Date.now()-start);
   }
   ssDrawBase=paintBase;times.sort(function(a,b){return a-b;});result.frames={mean_ms:times.reduce(function(a,b){return a+b;},0)/times.length,p95_ms:times[94],max_ms:times[99],full_rebuilds:full,ops:ops};
@@ -27,13 +28,31 @@
   var damage=ssQueueInteractionDamage,delays=[],started=0,waiting=false;
   ssQueueInteractionDamage=function(r){damage(r);if(!waiting)return;waiting=false;delays.push(Date.now()-started);window.SetTimeout(next,1);};
   function next(){try{
-   if(delays.length>=24){ssQueueInteractionDamage=damage;delays.sort(function(a,b){return a-b;});result.scheduling={mean_ms:delays.reduce(function(a,b){return a+b;},0)/delays.length,p95_ms:delays[22],max_ms:delays[23]};check(result.scheduling.mean_ms<12,'Drag damage reaches the host without another frame of timer delay');result.ok=true;finish();return;}
+   if(delays.length>=24){ssQueueInteractionDamage=damage;delays.sort(function(a,b){return a-b;});result.scheduling={mean_ms:delays.reduce(function(a,b){return a+b;},0)/delays.length,p95_ms:delays[22],max_ms:delays[23]};check(result.scheduling.mean_ms<12,'Drag damage reaches the host without another frame of timer delay');ssCancelSelectionGesture();window.SetTimeout(function(){try{sampleHover();result.ok=true;finish();}catch(e){finish(e);}},120);return;}
    var row=HB_TR[0];started=Date.now();waiting=true;on_mouse_move(row.x0+100,row.y0+160+delays.length*3,1);
   }catch(e){ssQueueInteractionDamage=damage;finish(e);}}
   next();
  }
+ function sampleHover(){
+  var previousDraw=drawMainCounted,mainDraws=0,times=[];
+  function moveToRow(i){var row=HB_TR[i];on_mouse_move(row.x0+100,Math.floor((row.y0+row.y1)/2),0);}
+  moveToRow(1);paint();
+  drawMainCounted=function(gr){mainDraws++;return previousDraw(gr);};
+  try{
+   for(var i=0;i<100;i++){
+    var started=Date.now();
+    moveToRow(2-i%2);
+    // Consume the pending hover on the offscreen surface, as the drag sample does.
+    ssHoverDirty=true;paint();times.push(Date.now()-started);
+   }
+  }finally{drawMainCounted=previousDraw;}
+  times.sort(function(a,b){return a-b;});
+  result.hover={count:times.length,mean_ms:times.reduce(function(sum,ms){return sum+ms;},0)/times.length,p95_ms:times[94],main_draws:mainDraws};
+  check(!mainDraws,'Moving between song rows keeps the cached main scene');
+ }
  function ready(){try{
   paint();var info=ssPlaylistInfo(pi);if(!info||!info.reorderable||HB_TR.length<4){if(Date.now()>limit)throw Error('Drag list readiness timed out');window.SetTimeout(ready,80);return;}
+  if(!warmed){warmed=true;window.SetTimeout(ready,2500);return;}
   var row=HB_TR[0];on_mouse_lbtn_down(row.x0+100,(row.y0+row.y1)/2);window.SetTimeout(sample,220);
  }catch(e){finish(e);}}
  function start(){try{

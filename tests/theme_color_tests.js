@@ -76,8 +76,8 @@ test('the Mac-style controls sit before the menu and leave the rest of the bar d
  assert.equal(c.TBH,44);assert.equal(circles.length,3);
  assert.deepEqual([...c.HB_CAP].map(box=>box.act),['close','minimize','maximize']);
  assert.ok(c.HB_CAP.at(-1).x1<c.HB_MENU[0].x0);
- assert.deepEqual(icons,['windowClose','windowMinimize','windowMaximize']);
- assert.deepEqual(captions.at(-1),[c.MENU_END,0,c.W-c.MENU_END,c.TBH]);
+ assert.deepEqual(icons,['windowClose','windowMinimize','windowMaximize','sun','settings']);
+ assert.deepEqual(captions.at(-1),[c.MENU_END,0,c.W-c.MENU_END-c.TOP_RIGHT_W,c.TBH]);
  c.fsMode=true;c.applyCaption();assert.deepEqual(captions.at(-1),[0,0,0,0]);
 });
 test('native view menus get appearance choices on click and hover-open paths',()=>{
@@ -116,15 +116,15 @@ test('desktop fullscreen centers artwork and metadata above transport',()=>{
  assert.ok(m.y+m.size<m.textY&&m.textY+Math.round(126*s)<=bottom);
  }
 });
-test('fullscreen title, artist, source and lyric fonts use regular Segoe UI at desktop scale',()=>{
+test('fullscreen title uses bold Segoe UI while metadata stays regular at desktop scale',()=>{
  const {c,load}=harness();load('core/util.js');load('views/fullscreen.js');
  const roles=['fsTitle','fsArtist','fsSrc','fsSrcName','fsLyric'];
  const faces=roles.map(role=>c.ssFsFont(c.FONT[role],1.4));
  assert.deepEqual(faces.map(f=>[f.Name,f.Style,f.Size]),[
-  ['Segoe UI',0,36],['Segoe UI',0,25],['Segoe UI',0,18],['Segoe UI',0,18],['Segoe UI',0,39]
+  ['Segoe UI',1,36],['Segoe UI',0,25],['Segoe UI',0,18],['Segoe UI',0,18],['Segoe UI',0,39]
  ]);
  const scriptFace=c.ssScriptFont('日本語',faces[0]);
- assert.deepEqual([scriptFace.Name,scriptFace.Style,scriptFace.Size],['Microsoft YaHei UI',0,36]);
+ assert.deepEqual([scriptFace.Name,scriptFace.Style,scriptFace.Size],['Microsoft YaHei UI',1,36]);
 });
 test('dark record-room palette retains readable text and accent actions',()=>{
  const {c}=harness('dark');for(const name of ['text','text2','text3','green'])assert.ok(contrast(c.COL[name],c.COL.base)>=4.5,name);assert.ok(contrast(c.COL.onAccent,c.COL.green)>=4.5);

@@ -1,5 +1,5 @@
 ﻿/* verdant/app.js -- panel state, layout, paint dispatch, input, and foobar callbacks
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* ------------------------- state ------------------------- */
@@ -69,6 +69,7 @@ function scrollTick(){
   searchScroll=step(searchScroll,searchScrollT);artScroll=step(artScroll,artScrollT);plScroll=step(plScroll,plScrollT);navScroll=step(navScroll,navScrollT,'nav');
   ssQueueScroll=step(ssQueueScroll,ssQueueScrollT,'queue');
   if(typeof ssPersonalScroll!=='undefined')ssPersonalScroll=step(ssPersonalScroll,ssPersonalScrollT);
+  if(typeof ssSettingsScroll!=='undefined'&&view==='settings')ssSettingsScroll=step(ssSettingsScroll,ssSettingsScrollT);
   if((fsMode?fsView:view)==='stats')ssStatsScroll=step(ssStatsScroll,ssStatsScrollT);
   if(mm){if(fsMode)repaintAll();else repaintMain(true);}
   if(nm) repaintNav();
@@ -76,7 +77,7 @@ function scrollTick(){
   // one more frame after the scroll settles, so shimSettle can restart the sweep it suppressed
   if(!mm && !nm && !qm){ stopScrollAnim(); if(shimCount>0) repaintMain(); }
 }
-function startScrollAnim(){ if(!scrollTimer){scrollLast=Date.now();scrollTimer=window.SetInterval(scrollTick,8);} }
+function startScrollAnim(){ if(!scrollTimer){if(typeof ssStopMeterTimer==='function')ssStopMeterTimer();scrollLast=Date.now();scrollTimer=window.SetInterval(scrollTick,8);} }
 function stopScrollAnim(){ if(scrollTimer){ window.ClearInterval(scrollTimer); scrollTimer=null; } }
 
 function hv(x0,y0,x1,y1){ return mx>=x0 && mx<x1 && my>=y0 && my<y1; }
@@ -127,8 +128,9 @@ function layout(contentOnly){
   M.cpad=Math.round(ssLibraryPadding(W)*ssDensity);
   M.artSz=Math.round(Math.max(72*ssDensity,Math.min(110*ssDensity,topH*.25)));
   M.headH=Math.round(66*ssDensity+M.artSz);SHEAD=M.headH;
-  R.navTop={x:R.navX,y:top0,w:R.navW,h:M.navTopH};
-  R.navLib={x:R.navX,y:top0+M.navTopH+g*2,w:R.navW,h:topH-M.navTopH-g*2};   // wider gap to the library card
+  var navTopH=Math.round(M.navTopH*ssDensity);
+  R.navTop={x:R.navX,y:top0,w:R.navW,h:navTopH};
+  R.navLib={x:R.navX,y:top0+navTopH+g,w:R.navW,h:topH-navTopH-g};
   R.main={x:R.mainX,y:top0,w:R.mainW,h:topH};
   R.queue={x:R.queueX,y:top0,w:R.queueW,h:topH};
   if(contentOnly)return;
@@ -140,6 +142,7 @@ function layout(contentOnly){
 // bitmaps are keyed by geometry; and the panel's surface is rebuilt, so the next paint must be full
 function on_size(w,h){
   if(!(w>0&&h>0)){w=window.Width;h=window.Height;}
+  ssMeterHidden=!(w>0&&h>0);if(ssMeterHidden)ssStopMeterTimer();
   if(w>0&&h>0)ssClampWindowSize(w,h);
   if(w<400||h<200)return;
   if(typeof ssAbortResize==='function')ssAbortResize();
@@ -152,7 +155,7 @@ function on_size(w,h){
 function activePl(){ var i=plman.ActivePlaylist; return {i:i, name:i>=0?plName(i):'', count:i>=0?plCount(i):0}; }
 function updateNP(){
   var m=(fb.IsPlaying||fb.IsPaused)?fb.GetNowPlaying():null;
-  NP=m;
+  NP=m;ssMeterPaused=!m||fb.IsPaused;
   npTitleStr=m?TF.npTitle.EvalWithMetadb(m):'';
   npArtistStr=m?TF.npArtist.EvalWithMetadb(m):'';
 }
@@ -183,9 +186,9 @@ function drawLibraryNav(gr){
   ssDrawScaledLibrary(gr,function(g){ssDrawPaneLabels(g,drawNav);},R.libraryScales&&R.libraryScales.nav,false);
 }
 function drawMainCounted(gr){
-  shimCount=0; gateWaiting=0;
+  ssMeterCell=null;shimCount=0; gateWaiting=0;
   var scales=R.libraryScales;
-  var scale=scales&&['songs','playlist','artist','album','albums','stats','favorites','history','later'].indexOf(view)>=0?scales.main:1;
+  var scale=scales&&['songs','playlist','artist','album','albums','stats','settings','favorites','history','later'].indexOf(view)>=0?scales.main:1;
   if(scales&&view==='home'&&W>=1600)scale=scales.main;
   if(view==='search'&&typeof ssSearchScale==='function')scale=ssSearchScale(R.main);
   ssDrawScaledLibrary(gr,function(g){ssDrawPaneLabels(g,drawMain);},scale,view!=='search'); roundTop(gr,R.main.x,R.main.y,R.main.w);
@@ -201,15 +204,30 @@ function ssDrawBase(gr){
   drawTitleBar(gr);drawMainCounted(gr);drawLibraryNav(gr);ssDrawPaneLabels(gr,drawQueue);drawDesktopBar(gr);ssDrawResizers(gr);
 }
 function on_paint(gr){
-  ssPaintFrame(gr);
+  var meterOnly=ssPaintFrame(gr);
+  ssSyncMeterTimer();
+  if(meterOnly){
+    var box=ssMeterFocusBox;
+    if(ssKeyboardFocus&&box&&ssTouchesMeter({x:box.x0,y:box.y0,w:box.x1-box.x0,h:box.y1-box.y0}))ssPaintFocusBox(gr,box);
+    return;
+  }
+  ssMeterFocusBox=null;
   if(typeof ssScheduleAccessibility==='function')ssScheduleAccessibility();
   if(ssKeyboardFocus&&ssKeyboardAvailable()){
     var focus=ssKeyboardTargets().find(function(t){return t.id===ssKeyboardFocus;});
-    if(focus){var b=focus.box;ssStrokeContinuousRect(gr,b.x0+1,b.y0+1,b.x1-b.x0-2,b.y1-b.y0-2,5,5,2,COL.green);}
+    if(focus){ssMeterFocusBox=focus.box;ssPaintFocusBox(gr,focus.box);}
   }
-  if(!ssModal&&!ssPopup&&!fsMode&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt)ssDrawResizers(gr);
+  if(!ssModal&&!ssPopup&&!fsMode&&!confirmDel&&!renameEdit&&!dupPrompt&&!rgPrompt&&!(typeof ssTrackInfo!=='undefined'&&ssTrackInfo))ssDrawResizers(gr);
+  if(typeof ssTrackInfo!=='undefined'&&ssTrackInfo&&typeof drawTrackInfo==='function')drawTrackInfo(gr);
+}
+var ssMeterFocusBox=null;
+function ssPaintFocusBox(gr,b){
+  var rSm=typeof ssRad==='function'?ssRad('sm'):4;
+  ssStrokeContinuousRect(gr,b.x0+1,b.y0+1,b.x1-b.x0-2,b.y1-b.y0-2,rSm,rSm,2,COL.green);
 }
 function ssPaintFrame(gr){
+  if(typeof ssPaintControlDamage==='function'&&ssPaintControlDamage(gr))return;
+  if(ssPaintMeterDamage(gr))return true;
   if(ssSelectionDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!ssModal&&!ssPopup&&!fsMode){
     ssPaintInteractions(gr);return;
   }
@@ -248,7 +266,7 @@ function ssPaintFrame(gr){
   var modal=ssPopup||renameEdit||confirmDel||dupPrompt||rgPrompt;
   if(dirtyAll || !anyPartial || modal || stale || !ssSceneImage){ // full paint, or an OS/stale paint we can't scope
     clearDirty();
-    var baseGraphics=ssBeginScene();ssDrawBase(baseGraphics);ssEndScene(gr,baseGraphics);ssPaintInteractions(gr);
+    var baseGraphics=ssBeginScene();ssDrawBase(baseGraphics);ssEndScene(gr,baseGraphics);ssPaintInteractions(gr,true);
     drawOverlays(gr);
     ssDrawTransitions(gr);ssDrawPopup(gr);
     return;
@@ -279,12 +297,13 @@ function ssPaintFrame(gr){
     if(view==='search')ssDrawScaledLibrary(gr,function(g){drawSearchBox(g,R.main);},ssSearchScale(R.main),false);
   }
   if(dirtyBar){ dirtyBar=false; drawDesktopBar(gr); }
-  ssEndScene(targetGraphics,gr,regions);gr=targetGraphics;ssPaintInteractions(gr);
+  ssEndScene(targetGraphics,gr,regions);gr=targetGraphics;ssPaintInteractions(gr,regions);
   ssDrawTransitions(gr);
   ssDrawResizers(gr);
 }
 
 function drawMain(gr){
+  if(typeof ssScrollGeometry!=='undefined'){delete ssScrollGeometry.scroll;delete ssScrollGeometry.scrollh;}
   if(typeof HB_PERSONAL_ACTIONS!=='undefined')HB_PERSONAL_ACTIONS=[];
   HB_PLPLAY=[];HB_PLAYLIST_PLAY=null;HB_SONGS_PLAY=null;HB_ARTIST_PLAY=null;HB_ALBUM_BACK=null;
   HB_CARD=[]; HB_TR=[]; SB=null; SBH=null;SS_ARTIST_HB=null;   // clear stale click targets from the previous view
@@ -296,6 +315,7 @@ function drawMain(gr){
   if(view==='home'){ drawHome(gr,r); return; }
   if(view==='search'){ drawSearch(gr,r); return; }
   if(view==='stats'){drawStats(gr,r);return;}
+  if(view==='settings'&&typeof drawSettings==='function'){drawSettings(gr,r);return;}
   if(view==='artist'||view==='album'){ssSyncCollection();drawArtist(gr,r);return;}
   if(view==='albums'){drawAlbums(gr,r);return;}
   if(view==='songs'){ drawSongs(gr,r); return; }
@@ -324,6 +344,7 @@ function on_mouse_lbtn_down(x,y){
   ssPlaylistPickDown=null;
   ssLyricPlayDown=false;
   if(ssPopup)return;
+  if(typeof ssTrackInfo!=='undefined'&&ssTrackInfo)return;
   if(ssPointerDown(x,y)) return;
   if(fsMode){
     if(fsView==='stats'&&ssStatsPointerDown(x,y))return;
@@ -526,11 +547,18 @@ function on_mouse_lbtn_up(x,y){
   }
   if(HB_PLSORT && inRect(x,y,HB_PLSORT)){ plSortMenuOpen=true; repaintAll(); return; }
   if(HB_PLSORTDIR && inRect(x,y,HB_PLSORTDIR)){ togglePlSortDir(); return; }
+  if(typeof ssTrackInfoClick==='function'&&ssTrackInfoClick(x,y))return;
   if(y<TBH){
+    if(typeof HB_TOP_ACTIONS!=='undefined'&&(t=hit(HB_TOP_ACTIONS,x,y))){
+      if(t.act==='appearance'){var nextMode=(typeof SS_APPEARANCE!=='undefined'&&SS_APPEARANCE==='dark')?'light':'dark';ssSend('theme_appearance',{appearance:nextMode});}
+      else if(t.act==='settings'&&typeof ssOpenSettings==='function')ssOpenSettings(false);
+      return;
+    }
     if((t=hit(HB_MENU,x,y))){ openMenu(t.root,t.mx,TBH); return; }
     if((t=hit(HB_CAP,x,y)))ssWindowControl(t.act);
     return;
   }
+  if(view==='settings'&&typeof ssSettingsClick==='function'&&ssSettingsClick(x,y))return;
   if((t=hit(HB_TABS,x,y))){ssSetRightPane(t.tab,true);return;}
   if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act,t); return; }
   if(HB_HOME && inRect(x,y,HB_HOME)){ ssAdvanceHomeRecommendation(); view='home'; repaintAll(); return; }
@@ -610,6 +638,7 @@ function hoverSig(x,y){
     if((i=hitIdx(HB_CAP,x,y))>=0)return 'cap'+i;
     return '';
   }
+  if(typeof SS_QUEUE_SB!=='undefined'&&SS_QUEUE_SB&&inRect(x,y,SS_QUEUE_SB))return 'sbq';
   if(SBH && inRect(x,y,SBH)) return 'sbh';
   if(SBN && inRect(x,y,SBN)) return 'sbn';
   if(HB_ADDPL && inRect(x,y,HB_ADDPL)) return 'addpl';
@@ -640,7 +669,10 @@ function hoverSig(x,y){
     var row=HB_Q[i];
     return 'q'+i+(row.more&&inRect(x,y,row.more)?'-more':'');
   }
-  if((i=hitIdx(HB_TR,x,y))>=0) return 'r'+i;
+  if((i=hitIdx(HB_TR,x,y))>=0){
+    var favorite=HB_TR[i].favoriteAction;
+    return 'r'+i+(favorite&&inRect(x,y,favorite)?'-favorite':'');
+  }
   return '';
 }
 function on_mouse_move(x,y,mask){
@@ -660,13 +692,16 @@ function on_mouse_move(x,y,mask){
     return;
   }
   if(ssSelectionMove(x,y,mask))return;
+  if(typeof ssUpdateControlHover==='function')ssUpdateControlHover();
   var sig=hoverSig(x,y), sk=scrollSection(x,y), z=hoverZone(x,y);
   if(sig!==hoverKey || sk!==scrollKey){   // sk change reveals/hides the section scrollbar
-    var rowOnly=sk===scrollKey&&z===hoverZoneKey&&/^(r\d+|q\d+|)$/.test(sig)&&/^(r\d+|q\d+|)$/.test(hoverKey);
+    var localSig=/^(r\d+(?:-favorite)?|q\d+|sb[hqn]?|)$/;
+    var localOnly=localSig.test(sig)&&localSig.test(hoverKey);
+    var rowChanged=sig!==hoverKey&&(/^[rq]\d/.test(sig)||/^[rq]\d/.test(hoverKey));
     hoverKey=sig; scrollKey=sk;
     // an overlay owns the whole screen and on_paint forces a full paint while one is open
     if(fsMode||renameEdit||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
-    else if(rowOnly&&!fsMode&&ssSceneImage)ssRequestRowHover();
+    else if(localOnly&&!fsMode&&ssSceneImage){if(rowChanged)ssRequestRowHover();}
     else { repaintZone(hoverZoneKey); if(z!==hoverZoneKey) repaintZone(z); }   // clear the old highlight, then draw the new
   }
   hoverZoneKey=z;
@@ -689,12 +724,13 @@ function scrollSection(x,y){
 function on_mouse_leave(){
   ssMenuLeave();
   mx=-1; my=-1;
+  if(typeof ssUpdateControlHover==='function')ssUpdateControlHover();
   if(fsMode){if(hoverKey){hoverKey='';repaintAll();}return;}
   if(hoverKey!==''||scrollKey!==''){
-    var wasRow=/^[rq]\d+$/.test(hoverKey);hoverKey=''; scrollKey='';
+    var wasRow=/^(?:r\d+(?:-favorite)?|q\d+)$/.test(hoverKey),wasRail=/^(?:sb[hqn]?)?$/.test(hoverKey);hoverKey=''; scrollKey='';
     if(renameEdit||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
     else if(wasRow&&ssSceneImage&&!fsMode)ssRequestRowHover();
-    else repaintZone(hoverZoneKey);
+    else if(!wasRail||!ssSceneImage)repaintZone(hoverZoneKey);
   }
   hoverZoneKey='';
 }
@@ -817,9 +853,11 @@ function on_key_down(key){
     }
     return;
   }
+  if(typeof ssTrackInfo!=='undefined'&&ssTrackInfo){if(key===27&&typeof ssCloseTrackInfo==='function')ssCloseTrackInfo();return;}
+  if(key===27&&view==='settings'){view=typeof ssSettingsBackView==='string'&&ssSettingsBackView?ssSettingsBackView:'home';repaintAll();return;}
   if(typeof ssHomeKey==='function')ssHomeKey(key);
 }
-function on_focus(focused){if(!focused&&ssKeyboardFocus){ssKeyboardFocus='';applyKeyMode();repaintAll();}if(!focused&&typeof ssHomeFocus!=='undefined'&&ssHomeFocus){ssHomeFocus='';if(view==='home')repaintMain();}}
+function on_focus(focused){ssMeterFocused=focused;ssSyncMeterTimer();if(!focused&&ssKeyboardFocus){ssKeyboardFocus='';applyKeyMode();repaintAll();}if(!focused&&typeof ssHomeFocus!=='undefined'&&ssHomeFocus){ssHomeFocus='';if(view==='home')repaintMain();}}
 function on_char(code){
   if(ssPopup)return;
   if(ssModal) return;
@@ -881,6 +919,7 @@ function on_mouse_wheel(step){
     return;
   }
   else if(view==='stats'){ssStatsScrollT=clampPx(ssStatsScrollT-step*ssWheelStep(),ssStatsMax);startScrollAnim();return;}
+  else if(view==='settings'&&typeof ssSettingsScrollT!=='undefined'){ssSettingsScrollT=clampPx(ssSettingsScrollT-step*ssWheelStep(),SS_SETTINGS_MAX);startScrollAnim();return;}
   else if(view==='songs'){ songsScrollT=clampPx(songsScrollT-step*ssWheelStep(),SONGS_MAXPX); startScrollAnim(); return; }
   else if(view==='search'){ searchScrollT=clampPx(searchScrollT-step*ssWheelStep(),SEARCH_MAXPX); startScrollAnim(); return; }
   else if(view==='artist'||view==='albums'||view==='album'){artScrollT=clampPx(artScrollT-step*ssWheelStep(),SS_COLLECTION_SCROLL_MAX);startScrollAnim();return;}
@@ -912,10 +951,13 @@ function setDropHover(onLib,onPl){
   if(onLib!==navDropHover){ navDropHover=onLib; repaintNav(); }
   if(onPl!==plDropHover){ plDropHover=onPl; repaintMain(); }
 }
-function on_drag_enter(action,x,y,mask){ dragUpdate(action,x,y); }
+function on_drag_enter(action,x,y,mask){
+  ssMeterFileDrag=true;ssStopMeterTimer();dragUpdate(action,x,y);
+}
 function on_drag_over(action,x,y,mask){ dragUpdate(action,x,y); }
-function on_drag_leave(){ setDropHover(false,false); }
+function on_drag_leave(){ssMeterFileDrag=false;setDropHover(false,false);ssSyncMeterTimer();}
 function on_drag_drop(action,x,y,mask){
+  ssMeterFileDrag=false;
   if(ssModal||ssPopup||fsMode){ action.Effect=0; return; }
   var ext=!action.IsInternal, hit=ext&&(action.Effect&5), pi=hit?plDropTarget(x,y):-1;   // 5 = copy|link
   if(hit && overLib(x,y)){
@@ -932,6 +974,7 @@ function on_drag_drop(action,x,y,mask){
   navDropHover=false; plDropHover=false; repaintAll();
 }
 function on_script_unload(){
+  ssMeterFocused=false;ssStopMeterTimer();
   ssStopFooterMarquee();ssInvalidateSelections();ssAbortResize();
   ssStopCovers();ssStatsStop();
   ssHideLyrics();

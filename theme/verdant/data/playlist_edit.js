@@ -1,5 +1,5 @@
 ﻿/* verdant/data/playlist_edit.js -- playlist + track editing: context menus, rename, delete, add, remove
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 var ssPickedPlaylists=new Set();

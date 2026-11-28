@@ -29,13 +29,13 @@ function ssApplyWindowMinimum(){
 function ssClampWindowSize(w,h){
   var minimum=ssWindowMinimum();
   if((w>=minimum.width&&h>=minimum.height)||!UIWizard||ssWindowClampTimer)return;
-  // UIWizard reports 2 for an ordinary restored window.
-  try{if(UIWizard.WindowState!==2)return;}catch(e){return;}
+  // UIWizard reports 0 for an ordinary restored window.
+  try{if(UIWizard.WindowState!==0)return;}catch(e){return;}
   ssWindowClampTimer=window.SetTimeout(function(){
     ssWindowClampTimer=0;
     var width=window.Width,height=window.Height,size=ssWindowMinimum();
     try{
-      if(UIWizard.WindowState===2&&width>0&&height>0&&(width<size.width||height<size.height))
+      if(UIWizard.WindowState===0&&width>0&&height>0&&(width<size.width||height<size.height))
         UIWizard.SetWindowSize(Math.max(width,size.width),Math.max(height,size.height));
     }catch(e){console.log('Smart Shuffle window minimum: '+String(e));}
   },16);
@@ -74,7 +74,7 @@ function ssFitWidths(left,right,budget,minLeft,minRight){
   return {left:Math.round(left),right:Math.round(right)};
 }
 function ssDefaultNavWidth(w){
-  return Math.min(520,Math.round(w*.225));
+  return Math.max(216,Math.min(264,Math.round(w*.175)));
 }
 function ssDefaultQueueWidth(w){
   return Math.min(620,Math.round(w*.26));

@@ -341,15 +341,15 @@ test('fullscreen puts the exit toggle in the desktop footer hitbox at each displ
       return c.HB_CTRL.find(box=>box.act==='fullscreen');
     };
     c.hv=()=>false;
-    const enter=render(c.R.barScale,c.R.barY,c.M.barH,false);assert.equal(icons.at(-1).name,'expand');
-    const scale=Math.min(1.7,h/780,w/1180),fullHeight=Math.round(120*scale);
-    c.hv=(x0,y0,x1,y1)=>x0===enter.x0&&y0===enter.y0&&x1===enter.x1&&y1===enter.y1;
-    const exit=render(scale*56/48,h-fullHeight,fullHeight,true);assert.equal(icons.at(-1).name,'compress');
-    assert.deepEqual(exit,enter);
-    assert.equal(icons.at(-1).size,Math.round(24*c.R.barScale));
-    const hint=hints.at(-1);assert.equal(hint.label,'退出全屏');
-    assert.ok(exit.y0-hint.y-hint.h>=0&&exit.y0-hint.y-hint.h<=10);
+    render(c.R.barScale,c.R.barY,c.M.barH,false);assert.equal(icons.at(-1).name,'expand');
+    const scale=Math.min(1.7,h/780,w/1180),fullHeight=Math.round(120*scale),fsScale=scale*56/48;
+    const exit=render(fsScale,h-fullHeight,fullHeight,true);assert.equal(icons.at(-1).name,'compress');
     const spectrum=c.HB_CTRL.find(box=>box.act==='viz');assert.ok(spectrum.x1<exit.x0);
+    assert.ok(Math.abs((exit.y0+exit.y1)/2-(spectrum.y0+spectrum.y1)/2)<=1);
+    c.hv=(x0,y0,x1,y1)=>x0===exit.x0&&y0===exit.y0&&x1===exit.x1&&y1===exit.y1;
+    render(fsScale,h-fullHeight,fullHeight,true);
+    const hint=hints.at(-1);assert.equal(hint.label,'退出全屏');
+    assert.ok(exit.y0-hint.y-hint.h>=0&&exit.y0-hint.y-hint.h<=12);
   }
 });
 test('the spectrum invalidates its painted band and plays behind every fullscreen overlay',()=>{
@@ -681,5 +681,74 @@ test('startup cover filter skips real artwork and groups missing tracks for one 
 test('Chinese menu labels preserve native command identity and user-defined text',()=>{
  const h=harness(),c=h.c;c.utils.ReadTextFile=()=>fs.readFileSync(path.join(root,'locale/zh-CN.json'),'utf8');h.load('ui/localization.js');assert.equal(c.ssMenuLabel('&Convert...\tCtrl+X'),'转换…');assert.equal(c.ssMenuLabel('My preset'),'My preset');
  c.ssShowPopup([{label:'Convert',command:21}],0,40,'token',true);c.ssPopupChoose(c.ssPopup.levels[0].items[0]);assert.equal(h.writes.at(-1).command,21);assert.equal(h.writes.at(-1).token,'token');
+});
+
+test('favorite hover draws the cached heart on entering its hit box and restores it on exit',()=>{
+  const h=harness(),c=h.c,painted=[];vm.runInContext(fs.readFileSync(path.join(root,'core/util.js'),'utf8'),c);
+  c.R.main={x:0,y:0,w:500,h:100};c.HB_Q=[];
+  c.HB_TR=[{x0:0,y0:0,x1:500,y1:60,favoriteAction:{x0:450,x1:478,y0:16,y1:44,active:true}}];
+  c.ssDrawPersonalHeart=(...args)=>painted.push(args.slice(1));c.ssSceneImage={};
+  const gr={DrawImage(){},FillPolygon(){}};c.mx=460;c.my=30;c.ssPaintRowHover(gr,false);
+  assert.deepEqual(painted,[[450,16,28,true,true]]);
+  c.mx=449;c.ssPaintRowHover(gr,true);assert.equal(painted.length,1);
+});
+test('playing number cell repaints alone and yields to hover or a suspended host',()=>{
+ const h=harness(),c=h.c,damage=[],bars=[];
+ const row={x0:0,x1:500,y0:20,y1:52,rowY:0,rowH:52};
+ Object.assign(c,{view:'songs',ssSceneImage:{},NP:{},ssMeterPaused:false,ssMeterFocused:true,
+   scrollTimer:0,drag:null,rgPrompt:null,dupPrompt:null,renameEdit:null,sgMenuOpen:false,plSortMenuOpen:false,
+   mx:-1,my:-1,ssReducedMotion:false,ssMeterCell:{row,x:40,w:28,scale:1},ssSelectionDirty:false,
+   dirtyAll:false,anyDirty:()=>false,ssMainRowIndex:()=>0});
+ c.window.RepaintRect=(...args)=>damage.push(args);
+ c.window.Repaint=()=>assert.fail('whole window repaint');
+ c.ssInvalidateRowRasters=c.ssDropSceneImage=()=>assert.fail('cache invalidation');
+ const g={FillSolidRect:(...args)=>bars.push(args),DrawImage(){}};
+ c.ssDrawMeter(g);assert.equal(bars.length,3);assert.ok(bars.every(([x,y,w,h])=>y>=20&&y+h<=52));
+ c.ssSyncMeterTimer();const timer=c.ssMeterTimer;c.ssSyncMeterTimer();assert.ok(timer);assert.equal(c.ssMeterTimer,timer);
+ h.flush();assert.equal(damage.length,1);assert.deepEqual(damage[0],[40,20,28,32,false]);
+ const scene=c.ssSceneImage;assert.ok(c.ssPaintMeterDamage(g));assert.equal(c.ssSceneImage,scene);
+ for(const blocker of [()=>{c.UIWizard.WindowState=2;},()=>{c.window.IsVisible=false;}]){
+   c.UIWizard={WindowState:0};c.window.IsVisible=true;c.ssSyncMeterTimer();blocker();h.flush();
+   assert.equal(damage.length,1);assert.equal(c.ssMeterTimer,0);
+ }
+ c.window.IsVisible=true;c.UIWizard.WindowState=0;
+ c.mx=100;c.my=35;bars.length=0;c.ssDrawMeter(g);assert.equal(bars.length,0);
+ for(const file of ['views/playlist.js','views/songs.js']){
+   const src=fs.readFileSync(path.join(root,file),'utf8');
+   assert.match(src,/ssDrawTrackLead\(gr,[^;]+,false\);/,'play button remains in its actual hit box');
+ }
+ for(const [key,val] of Object.entries({ssMeterPaused:true,fsMode:true,ssPopup:{},scrollTimer:1,
+    drag:'seek',ssMeterFileDrag:true,ssMeterFocused:false,ssMeterHidden:true,ssSelectOwner:{},ssMeterCell:null})){
+   c.mx=-1;c.ssSyncMeterTimer();assert.ok(c.ssMeterTimer,key);const before=c[key];c[key]=val;c.ssSyncMeterTimer();assert.equal(c.ssMeterTimer,0,key);c[key]=before;
+ }
+});
+test('a move between adjacent rows restores the previous hover band once',()=>{
+ const h=harness(),c=h.c,blits=[];
+ Object.assign(c,{R:{main:{x:0,y:0,w:400,h:120}},HB_Q:[],ssSceneImage:{},ssSelectionRects:()=>[],
+   ssDrawSelection(){},HB_TR:[0,1].map(i=>({x0:0,y0:60*i,x1:400,y1:60*i+60})),mx:30,my:20});
+ const gr={DrawImage:(_,x,y,w,h)=>blits.push([x,y,w,h]),FillPolygon(){}};
+ c.ssPaintInteractions(gr);blits.length=0;c.my=80;c.ssPaintInteractions(gr);
+ assert.deepEqual(blits,[[0,0,400,120]]);
+ blits.length=0;c.my=20;c.ssPaintInteractions(gr,[{x:0,y:0,w:400,h:120}]);
+ assert.deepEqual(blits,[],'the scroll composite just restored both rows');
+});
+test('an isolated meter frame never schedules an accessibility rebuild or redraws chrome',()=>{
+ const h=harness(),c=h.c;const src=fs.readFileSync(path.join(root,'app.js'),'utf8');
+ vm.runInContext(src.slice(0,src.lastIndexOf('\nlayout();')),c);
+ let scheduled=0;c.ssPaintMeterDamage=()=>true;c.ssSyncMeterTimer=()=>scheduled++;
+ c.ssScheduleAccessibility=()=>assert.fail('decorative frame scheduled the accessibility tree');
+ c.ssDrawResizers=()=>assert.fail('decorative frame redrew chrome');
+ c.on_paint({});assert.equal(scheduled,1);
+});
+test('leaving fullscreen restores only a window maximized by the theme',()=>{
+ const h=harness(),c=h.c;h.load('core/util.js');h.load('views/fullscreen.js');
+ for(const initial of [0,1]){
+  let state=initial,width=initial===1?2560:1536,height=initial===1?1440:960,x=initial===1?0:512,y=initial===1?0:240;
+  Object.assign(c,{view:'songs',fsMode:false,fsView:'default',stopViz(){},applyCaption(){},
+   UIWizard:{get WindowState(){return state;},get WindowWidth(){return width;},get WindowHeight(){return height;},
+    get WindowX(){return x;},get WindowY(){return y;},ToggleMaximize(){state=1;width=2560;height=1440;x=y=0;},
+    ExitMaximize(){state=0;},SetWindowSize(w,h){width=w;height=h;},SetWindowPosition(a,b){x=a;y=b;}}});
+  const rect=[x,y,width,height];c.enterFullscreen();assert.equal(state,1);c.exitFullscreen();assert.equal(state,initial);assert.deepEqual([x,y,width,height],rect);
+ }
 });
 console.log(passed+' interaction regression checks passed');

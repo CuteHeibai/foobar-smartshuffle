@@ -1,5 +1,5 @@
 ﻿/* verdant/ui/chrome.js -- window chrome + shared widgets: title bar, scrollbars, panels, overlays, menus
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* Custom window title bar via UI Wizard (foo_ui_wizard) - frameless + our own controls */
@@ -12,8 +12,9 @@ function applyCaption(){
   var immersive=typeof fsMode!=='undefined'&&fsMode;
   if(capW===W&&capEnd===MENU_END&&capFullscreen===immersive)return;
   try{
+    var rightReserve=typeof TOP_RIGHT_W==='number'?TOP_RIGHT_W:0;
     if(immersive)UIWizard.SetCaptionAreaSize(0,0,0,0);
-    else UIWizard.SetCaptionAreaSize(MENU_END,0,Math.max(0,W-MENU_END),TBH);
+    else UIWizard.SetCaptionAreaSize(MENU_END,0,Math.max(0,W-MENU_END-rightReserve),TBH);
     capW=W;capEnd=MENU_END;capFullscreen=immersive;
   }catch(e){}
 }
@@ -49,14 +50,113 @@ function strokeRound(gr,x,y,w,h,rad,lw,col){
 var SB_MAIN={sw:6,min:36,track:20,on:175,off:95,key:'scroll'};
 var SB_NAV ={sw:5,min:30,track:16,on:150,off:80,key:'scrolln'};
 var SB_QUEUE={sw:6,min:36,track:20,on:175,off:95,key:'scrollq'};
+// The scene contains the content under each scrollbar. Store only geometry so that
+// crossing a rail or its reveal area can restore and redraw a narrow strip.
+var ssScrollGeometry={},ssControlDamage=null,ssControlStates={},ssPaintedControls={};
+function ssScrollShown(b){
+  var show=b.visual.show;
+  return drag===b.visual.key||(Array.isArray(show)?hv(show[0],show[1],show[2],show[3]):show);
+}
+function ssControlState(b){
+  if(!b||!b.visual)return 0;
+  var d=b.visual,hot=drag===d.key||hv(b.x0,b.y0,b.x1,b.y1);
+  if(d.track!==undefined)return hot?2:0;
+  return ssScrollShown(b)?(hot?2:1):0;
+}
+var ssControlKeys=['seek','vol','scroll','scrolln','scrollq','scrollh'];
+function ssRailControl(key){
+  return key==='seek'?HB_SEEK:key==='vol'?HB_VOL:ssScrollGeometry[key];
+}
+function ssSetScrollHit(key,b){
+  if(key==='scroll')SB=b;
+  else if(key==='scrolln')SBN=b;
+  else if(key==='scrollh')SBH=b;
+  else if(key==='scrollq')SS_QUEUE_SB=b;
+}
+function ssUpdateControlHover(){
+  if(fsMode||!ssSceneImage||ssPopup||ssModal||renameEdit||confirmDel||rgPrompt||dupPrompt||plSortMenuOpen||sgMenuOpen)return;
+  for(var i=0;i<ssControlKeys.length;i++){
+    var key=ssControlKeys[i],b=ssRailControl(key);if(!b||!b.visual)continue;
+    var state=ssControlState(b);
+    if(b.visual.show!==undefined)ssSetScrollHit(key,state?b:null);
+    if(state===(ssControlStates[key]||0))continue;
+    ssControlStates[key]=state;
+    var r=b.visual.bounds;if(!ssControlDamage)ssControlDamage={};ssControlDamage[key]=r;
+    window.RepaintRect(r.x,r.y,r.w,r.h,false);
+  }
+}
+function ssRestoreControl(gr,r){
+  gr.DrawImage(ssSceneImage,r.x,r.y,r.w,r.h,r.x,r.y,r.w,r.h);
+}
+function ssRestoreHotControls(gr,sceneUpdated,rows){
+  for(var key in ssPaintedControls){
+    var r=ssPaintedControls[key],restored=sceneUpdated===true;
+    function overlaps(p){return p&&p.x<r.x+r.w&&p.x+p.w>r.x&&p.y<r.y+r.h&&p.y+p.h>r.y;}
+    var b=ssRailControl(key);
+    if(!restored&&b&&b.visual&&b.visual.bounds===r&&ssControlState(b)===ssControlStates[key]&&
+       !rows.some(overlaps)&&!(sceneUpdated&&sceneUpdated.some(overlaps)))continue;
+    if(!restored&&sceneUpdated)restored=sceneUpdated.some(function(p){
+      return p&&p.x<=r.x&&p.y<=r.y&&p.x+p.w>=r.x+r.w&&p.y+p.h>=r.y+r.h;
+    });
+    if(!restored)ssRestoreControl(gr,r);
+    delete ssPaintedControls[key];
+  }
+}
+function ssPaintHotControls(gr,only){
+  if(!ssSceneImage||fsMode)return;
+  for(var i=0;i<ssControlKeys.length;i++){
+    var key=ssControlKeys[i];if(ssPaintedControls[key]||(only&&!only[key]))continue;
+    var b=ssRailControl(key),state=ssControlState(b);
+    ssControlStates[key]=state;
+    if(!state)continue;
+    if(b.visual.show!==undefined)ssPaintScrollRail(gr,b,state);
+    else ssPaintTrackRail(gr,b,true);
+    ssPaintedControls[key]=b.visual.bounds;
+  }
+}
+function ssPaintControlDamage(gr){
+  if(!ssControlDamage)return false;
+  var damage=ssControlDamage;ssControlDamage=null;
+  if(!ssSceneImage||fsMode||ssPopup||ssModal||renameEdit||confirmDel||rgPrompt||dupPrompt||plSortMenuOpen||sgMenuOpen)return false;
+  var combined=Object.keys(damage).length>1||dirtyAll||anyDirty()||ssSelectionDirty||ssHoverDirty||ssHoverFrame||ssInteractionDamage.length||
+               (typeof ssMeterDirty!=='undefined'&&ssMeterDirty);
+  for(var key in damage){
+    var r=damage[key];
+    if(!combined)combined=ssInteractionPainted.some(function(p){
+      return p.x<r.x+r.w&&p.x+p.w>r.x&&p.y<r.y+r.h&&p.y+p.h>r.y;
+    });
+  }
+  if(combined){
+    for(key in damage)ssQueueInteractionDamage(damage[key]);
+    ssHoverDirty=true;return false;
+  }
+  for(key in damage){ssRestoreControl(gr,damage[key]);delete ssPaintedControls[key];}
+  ssPaintHotControls(gr,damage);return true;
+}
+function ssPaintScrollRail(gr,b,state){
+  if(!state)return;
+  var d=b.visual,wide=state===2?d.hot:d.thin,offset=Math.floor((d.span-wide)/2);
+  var color=ssInk(state===2?d.on:d.off);
+  if(d.horizontal)gr.FillSolidRect(d.start,d.cross+offset,b.thumbW,wide,color);
+  else gr.FillSolidRect(d.cross+offset,d.start,wide,b.thumbH,color);
+}
+function ssRegisterScroll(gr,b,show,key,cross,start,span,on,off,horizontal){
+  var thin=Math.max(1,Math.round(2*ssDensity)),hot=Math.max(thin+1,Math.round(4*ssDensity));
+  var offset=Math.floor((span-hot)/2),length=horizontal?b.thumbW:b.thumbH;
+  b.visual={key:key,show:show,horizontal:horizontal,cross:cross,start:start,span:span,hot:hot,thin:thin,on:on,off:Math.round(off*.58),
+    bounds:horizontal?{x:Math.floor(start),y:Math.floor(cross+offset),w:Math.ceil(length)+1,h:hot+1}
+                     :{x:Math.floor(cross+offset),y:Math.floor(start),w:hot+1,h:Math.ceil(length)+1}};
+  var state=ssControlState(b);
+  if(ssQuietRows)ssScrollGeometry[key]=b;
+  else ssPaintScrollRail(gr,b,state);
+  return state?b:null;
+}
 function drawSBV(gr,sx,top,h,scrollPx,maxPx,viewH,contentH,show,s){
-  if(contentH<=viewH || h<=6 || !show) return null;
-  gr.FillSolidRect(sx,top,s.sw,h,ssInk(s.track));
-  var thumbH=Math.max(s.min,Math.round(h*viewH/contentH)); if(thumbH>h) thumbH=h;
+  if(contentH<=viewH||h<=6)return null;
+  var thumbH=Math.min(h,Math.max(s.min,Math.round(h*viewH/contentH)));
   var ty=top+(maxPx>0?Math.round((h-thumbH)*scrollPx/maxPx):0);
-  var on=(drag===s.key)||hv(sx-6,top,sx+s.sw+6,top+h);
-  gr.FillSolidRect(sx,ty,s.sw,thumbH,ssInk(on?s.on:s.off));
-  return {x0:sx-6,y0:top,x1:sx+s.sw+6,y1:top+h,top:top,h:h,thumbH:thumbH,maxPx:maxPx};
+  var b={x0:sx-6,y0:top,x1:sx+s.sw+6,y1:top+h,top:top,h:h,thumbH:thumbH,maxPx:maxPx};
+  return ssRegisterScroll(gr,b,show,s.key,sx,ty,s.sw,s.on,s.off,false);
 }
 function drawScrollbar(gr,sx,top,h,sp,mp,vh,ch,show){ SB=drawSBV(gr,sx,top,h,sp,mp,vh,ch,show,SB_MAIN); }
 function drawScrollbarN(gr,sx,top,h,sp,mp,vh,ch,show){ SBN=drawSBV(gr,sx,top,h,sp,mp,vh,ch,show,SB_NAV); }
@@ -78,14 +178,11 @@ function setScroll(y){
 function setScrollN(y){ if(!SBN) return; navScroll=navScrollT=Math.round(sbFrac(y,SBN.top,SBN.h,SBN.thumbH)*SBN.maxPx); repaintNav(); }
 
 function drawScrollbarH(gr,sx,top,w,scrollX,maxX,viewW,contentW,show){
-  if(contentW<=viewW || w<=6 || !show){ SBH=null; return; }   // hidden until the section is hovered
-  var sh=5;
-  gr.FillSolidRect(sx,top,w,sh,ssInk(20));
-  var thumbW=Math.max(40,Math.round(w*viewW/contentW)); if(thumbW>w) thumbW=w;
+  if(contentW<=viewW||w<=6){SBH=null;return;}
+  var sh=5,thumbW=Math.min(w,Math.max(40,Math.round(w*viewW/contentW)));
   var tx=sx+(maxX>0?Math.round((w-thumbW)*scrollX/maxX):0);
-  var on=(drag==='scrollh')||hv(sx,top-6,sx+w,top+sh+6);
-  gr.FillSolidRect(tx,top,thumbW,sh,ssInk(on?175:95));
-  SBH={x0:sx,y0:top-6,x1:sx+w,y1:top+sh+6,left:sx,w:w,thumbW:thumbW,maxPx:HOME_PLMAX};
+  var b={x0:sx,y0:top-6,x1:sx+w,y1:top+sh+6,left:sx,w:w,thumbW:thumbW,maxPx:HOME_PLMAX};
+  SBH=ssRegisterScroll(gr,b,show,'scrollh',top,tx,sh,175,95,true);
 }
 function setScrollH(x){   // free pixel scrolling; target set with it so the easing doesn't fight the drag
   if(!SBH) return;
@@ -132,14 +229,16 @@ function roundBottom(gr,x,y,w,h){
 
 /* ---- modal dialogs: dim backdrop + drop-shadowed rounded panel, and a capsule button ---- */
 function modalPanel(gr,cw,ch,cy){
-  gr.FillSolidRect(0,0,W,H,COL.scrim);
-  var cx=Math.round((W-cw)/2);
-  gr.FillSolidRect(cx+4,cy+6,cw,ch,COL.shadow);
-  ssFillContinuousRect(gr,cx,cy,cw,ch,12,12,COL.hover);
+  gr.FillSolidRect(0,0,W,H,COL.modalScrim||COL.scrim);
+  var cx=Math.round((W-cw)/2),rLg=typeof ssRad==='function'?ssRad('lg'):12;
+  ssFillContinuousRect(gr,cx-4,cy+6,cw+8,ch+6,rLg+4,rLg+4,COL.shadow);
+  ssFillContinuousRect(gr,cx,cy,cw,ch,rLg,rLg,COL.popup||COL.base);
+  if(typeof strokeRound==='function')strokeRound(gr,cx,cy,cw,ch,rLg,1,COL.line);
   return cx;
 }
 function dlgBtn(gr,x,y,w,h,label,col,hcol,txt){
-  ssFillContinuousRect(gr,x,y,w,h,20,20,hv(x,y,x+w,y+h)?hcol:col);
+  var rad=h/2;
+  ssFillContinuousRect(gr,x,y,w,h,rad,rad,hv(x,y,x+w,y+h)?hcol:col);
   tC(gr,label,FONT.pl,txt,x,y,w,h);
   return {x0:x,y0:y,x1:x+w,y1:y+h};
 }
@@ -149,8 +248,9 @@ function drawOverlays(gr){
   if(renameEdit){
     var rw=Math.min(420,W-40), rhh=196, ry0=Math.round((H-rhh)/2), rx0=modalPanel(gr,rw,rhh,ry0);
     tL(gr,'重命名歌单',FONT.sect,COL.text,rx0+28,ry0+22,rw-56,26);
-    var ix=rx0+28, iyf=ry0+64, iw=rw-56, ih=46;
-    ssFillContinuousRect(gr,ix,iyf,iw,ih,6,6,COL.input);
+    var ix=rx0+28, iyf=ry0+64, iw=rw-56, ih=46, rMd=typeof ssRad==='function'?ssRad('md'):8;
+    ssFillContinuousRect(gr,ix,iyf,iw,ih,rMd,rMd,COL.input);
+    if(typeof strokeRound==='function')strokeRound(gr,ix,iyf,iw,ih,rMd,1,COL.line);
     var tw3=gr.CalcTextWidth(renameEdit.text,FONT.pl);
     tL(gr,renameEdit.text,FONT.pl,COL.text,ix+14,iyf,iw-28,ih);
     if(caretOn){ var cxr=ix+14+Math.min(iw-30,tw3)+2; gr.FillSolidRect(cxr,iyf+Math.round((ih-20)/2),2,20,COL.text); }
@@ -208,28 +308,55 @@ function ssWindowControl(act){
     else if(act==='maximize'){UIWizard.ToggleMaximize();repaintAll();}
   }catch(e){}
 }
+var HB_TOP_ACTIONS=[],TOP_RIGHT_W=0;
 function drawTitleBar(gr){
   gr.FillSolidRect(0,0,W,TBH,COL.black);
   gr.FillSolidRect(0,TBH-1,W,1,COL.line);
-  // menu bar (left): real foobar File / Edit / View / Playback / Library / Help
-  HB_MENU=[];var mx0=drawWindowControls(gr)+Math.round(12*UISCALE),pad=Math.round(30*UISCALE);
+  // menu bar (left): compact foobar File / Edit / View / Playback / Library / Help
+  HB_MENU=[];HB_TOP_ACTIONS=[];
+  var mx0=drawWindowControls(gr)+Math.round(10*UISCALE),pad=Math.round(22*UISCALE);
   var itemH=Math.round(28*UISCALE),itemY=Math.round((TBH-itemH)/2);
+  var rTitle=typeof ssRad==='function'?ssRad('sm',UISCALE):4;
   for(var mi=0;mi<MENUS.length;mi++){
     var lbl=MENUS[mi][0],mw=Math.ceil(ssMeasureText(gr,lbl,FONT.titleMenu,TBH))+pad;
-    var mhover=hv(mx0,0,mx0+mw,TBH)||(ssPopup&&ssPopup.root===MENUS[mi][1]);
-    if(mhover)ssFillContinuousRect(gr,mx0+2,itemY,mw-4,itemH,6,6,COL.rowHover);
+    var mhover=hv(mx0,0,mx0+mw,TBH)||(typeof ssPopup!=='undefined'&&ssPopup&&ssPopup.root===MENUS[mi][1]);
+    if(mhover)ssFillContinuousRect(gr,mx0+2,itemY,mw-4,itemH,rTitle,rTitle,COL.rowHover);
     tC(gr,lbl,FONT.titleMenu,mhover?COL.text:COL.text2,mx0,0,mw,TBH);
     HB_MENU.push({x0:mx0,y0:0,x1:mx0+mw,y1:TBH,root:MENUS[mi][1],mx:mx0});
     mx0+=mw;
   }
-  MENU_END=mx0;applyCaption();
+  MENU_END=mx0;
+  // right toolbar: one-click appearance toggle + in-theme Settings gear
+  var btnW=Math.round(30*UISCALE),btnGap=Math.round(4*UISCALE),rightPad=Math.round(10*UISCALE),isz=Math.round(16*UISCALE);
+  var needW=btnW*2+btnGap+rightPad;
+  if(W-MENU_END>=needW+Math.round(24*UISCALE)){
+    var setX=W-rightPad-btnW,appX=setX-btnGap-btnW;
+    var isDark=typeof SS_APPEARANCE!=='undefined'&&SS_APPEARANCE==='dark';
+    var appHot=hv(appX,itemY,appX+btnW,itemY+itemH);
+    if(appHot)ssFillContinuousRect(gr,appX,itemY,btnW,itemH,rTitle,rTitle,COL.rowHover);
+    drawIcon(gr,isDark?'sun':'moon',appHot?COL.text:COL.text2,appX,itemY,btnW,itemH,isz);
+    HB_TOP_ACTIONS.push({x0:appX,y0:0,x1:appX+btnW,y1:TBH,act:'appearance'});
+
+    var setOn=typeof view!=='undefined'&&view==='settings';
+    var setHot=hv(setX,itemY,setX+btnW,itemY+itemH);
+    if(setOn||setHot)ssFillContinuousRect(gr,setX,itemY,btnW,itemH,rTitle,rTitle,setOn?COL.rowActive:COL.rowHover);
+    drawIcon(gr,'settings',setOn?COL.green:(setHot?COL.text:COL.text2),setX,itemY,btnW,itemH,isz);
+    if(typeof ssState!=='undefined'&&ssState&&ssState.update&&ssState.update.available){
+      var dot=Math.max(5,Math.round(6*UISCALE));
+      gr.FillEllipse(setX+btnW-dot-3,itemY+3,dot,dot,COL.green);
+    }
+    HB_TOP_ACTIONS.push({x0:setX,y0:0,x1:setX+btnW,y1:TBH,act:'settings'});
+    TOP_RIGHT_W=needW;
+  }else TOP_RIGHT_W=0;
+  applyCaption();
 }
 
 /* ---- Header dropdowns: a pill that opens a floating menu. Shared by the playlist sort-by and
    the All Songs group-by; items are [label,value] pairs and the menu is drawn last so it
    floats over the track list. ---- */
 function drawDropPill(gr,x,y,w,h,label,open){
-  if(open||hv(x,y,x+w,y+h)) ssFillContinuousRect(gr,x,y,w,h,6,6,COL.rowHover);
+  var rMd=typeof ssRad==='function'?ssRad('md'):8;
+  if(open||hv(x,y,x+w,y+h)) ssFillContinuousRect(gr,x,y,w,h,rMd,rMd,COL.rowHover);
   tL(gr,label,FONT.pl,COL.text,x+8,y,w-40,h);
   drawIcon(gr,'chevron',COL.text2,x+w-24,y+(h-18)/2,18,18,16);
   return {x0:x,y0:y,x1:x+w,y1:y+h};
@@ -238,11 +365,12 @@ function drawDropMenu(gr,anchor,items,cur,minW){
   var out=[];
   if(!anchor) return out;
   var bw=Math.max(minW,anchor.x1-anchor.x0), ih=40, bx=anchor.x1-bw, iy=anchor.y1+6, bh=items.length*ih+10;
+  var rMd=typeof ssRad==='function'?ssRad('md'):8, rSm=typeof ssRad==='function'?ssRad('sm'):4;
   gr.FillSolidRect(bx+3,iy+4,bw,bh,COL.shadow);
-  ssFillContinuousRect(gr,bx,iy,bw,bh,8,8,COL.popupAlt);
+  ssFillContinuousRect(gr,bx,iy,bw,bh,rMd,rMd,COL.popupAlt);
   for(var i=0;i<items.length;i++){
     var ry=iy+5+i*ih;
-    if(hv(bx,ry,bx+bw,ry+ih)) ssFillContinuousRect(gr,bx+4,ry,bw-8,ih,5,5,ssInk(20));
+    if(hv(bx,ry,bx+bw,ry+ih)) ssFillContinuousRect(gr,bx+4,ry,bw-8,ih,rSm,rSm,ssInk(20));
     tL(gr,items[i][0],FONT.pl,(items[i][1]===cur)?COL.green:COL.text,bx+18,ry,bw-30,ih);
     out.push({x0:bx,y0:ry,x1:bx+bw,y1:ry+ih,v:items[i][1]});
   }

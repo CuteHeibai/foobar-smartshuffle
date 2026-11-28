@@ -15,7 +15,12 @@ function ssGradientGrid(size){
   ssGridSize=size;ssGridImage=gdi.CreateImage(size,size);var g=ssGridImage.GetGraphics();
   function mix(a,b,t){return RGB(Math.round(a[0]+(b[0]-a[0])*t),Math.round(a[1]+(b[1]-a[1])*t),Math.round(a[2]+(b[2]-a[2])*t));}
   var light=typeof SS_APPEARANCE!=='undefined'&&SS_APPEARANCE==='light';
-  for(var y=0;y<size;y+=4){var t=y/Math.max(1,size-1);g.FillGradRect(0,y,size,Math.min(4,size-y),0,mix(light?[235,222,220]:[77,48,55],light?[239,233,221]:[66,59,47],t),mix(light?[220,193,199]:[111,56,69],light?[225,211,190]:[94,76,52],t));}
+  var topLeft=light?[229,220,250]:[77,48,55],bottomLeft=light?[216,229,236]:[66,59,47];
+  var topRight=light?[216,229,236]:[111,56,69],bottomRight=light?[203,237,222]:[94,76,52];
+  for(var y=0;y<size;y+=4){
+    var t=y/Math.max(1,size-1);
+    g.FillGradRect(0,y,size,Math.min(4,size-y),0,mix(topLeft,bottomLeft,t),mix(topRight,bottomRight,t));
+  }
   ssGridImage.ReleaseGraphics(g);return ssGridImage;
 }
 function ssDrawGlassBall(gr,gx,gy,size){
@@ -142,7 +147,7 @@ function ssHideLyrics(){
   if(ssLyricTried)ssPlaceLyrics(null);else ssLyricVisible=false;
 }
 function ssButton(gr,x,y,w,h,label,act,enabled,primary){
-  var hot=enabled&&hv(x,y,x+w,y+h),color=primary?(enabled?(hot?COL.greenHover:COL.green):COL.seekbg):(hot?COL.hover:COL.elev),radius=Math.min(6,h/2);
+  var hot=enabled&&hv(x,y,x+w,y+h),color=primary?(enabled?(hot?COL.greenHover:COL.green):COL.seekbg):(hot?COL.hover:COL.elev),radius=Math.min(typeof ssRad==='function'?ssRad('md'):8,h/2);
   ssFillContinuousRect(gr,x,y,w,h,radius,radius,color);
   if(!primary)strokeRound(gr,x,y,w,h,radius,1,COL.line);
   tC(gr,label,FONT.pl,primary&&enabled?COL.onAccent:(enabled?COL.text:COL.text3),x,y,w,h);
@@ -168,27 +173,37 @@ function drawPreference(gr,staticOnly){
   SS_HB=[];
   var m=ssGeometry(W,H), x=m.x,y=m.y,w=m.w,h=m.h, gx=m.grid.x,gy=m.grid.y,size=m.grid.size;
   SS_GRID=m.grid;
-  ssFillContinuousRect(gr,x,y,w,h,12,12,COL.base);
-  strokeRound(gr,x,y,w,h,12,1,COL.line);
+  var rLg=typeof ssRad==='function'?ssRad('lg'):12,rMd=typeof ssRad==='function'?ssRad('md'):8;
+  ssFillContinuousRect(gr,x-4,y+6,w+8,h+6,rLg+4,rLg+4,COL.shadow);
+  ssFillContinuousRect(gr,x,y,w,h,rLg,rLg,COL.popup||COL.base);
+  strokeRound(gr,x,y,w,h,rLg,1,COL.line);
   tL(gr,'随机偏好',FONT.sect2,COL.text,x+24,y+18,w-48,34);
-  tL(gr,ssPreferenceLabel()+'  ·  拖动圆点或按方向键微调',FONT.meta,COL.text2,x+24,y+60,w-48,28);
-  var px=x+24,pw=m.left-12, rowH=Math.floor((m.areaH-30)/8), tracks=(ssState&&ssState.preview&&ssState.preview.tracks)||[];
-  var count=m.withPreview?Math.min(tracks.length,8):0,hasSource=!!(ssState&&ssState.source);
+  tL(gr,ssPreferenceLabel()+'  ·  拖动圆点或按方向键微调',FONT.meta,COL.text2,x+24,y+56,w-48,26);
+  var px=x+24,pw=m.left-12, available=Math.max(0,m.areaH-34), tracks=(ssState&&ssState.preview&&ssState.preview.tracks)||[];
+  var minRowH=Math.ceil(24*UISCALE),capacity=Math.min(8,Math.floor(available/minRowH));
+  var rowH=Math.floor(available/Math.max(1,capacity));
+  var count=m.withPreview?Math.min(tracks.length,capacity):0,hasSource=!!(ssState&&ssState.source);
   var pending=!!(ssState&&ssState.preview_pending);
   var notice=pending?'正在生成预览…':hasSource?'暂无可预览的歌曲':'播放歌单后即可生成预览';
-  if(m.withPreview)tL(gr,count?'播放顺序预览 · 前 '+count+' 首':'播放顺序预览',FONT.sect,COL.text,px,m.top,pw,28);
+  if(m.withPreview){
+    tL(gr,count?'播放顺序预览 · 前 '+count+' 首':'播放顺序预览',FONT.sect,COL.text,px,m.top,pw,28);
+    if(count){
+      ssFillContinuousRect(gr,px,m.top+34,pw,count*rowH,rMd,rMd,COL.elev);
+      strokeRound(gr,px,m.top+34,pw,count*rowH,rMd,1,COL.line);
+    }
+  }
   else tL(gr,notice,FONT.pl,COL.text,px,y+88,w-48,28);
-  if(m.withPreview&&!count){
+  if(m.withPreview&&!tracks.length){
     var emptyY=m.top+Math.round(m.areaH*.33);
     drawIcon(gr,'queue',COL.text2,px,emptyY,pw,36,24);
     tC(gr,notice,FONT.pl,COL.text2,px+12,emptyY+44,pw-24,30);
   }
   for(var i=0;i<count;i++){
     var ry=m.top+34+i*rowH, tr=tracks[i];
-    if(i%2===0) gr.FillSolidRect(px,ry,pw,rowH,COL.elev);
-    tL(gr,String(i+1),FONT.rowNum,COL.text3,px+6,ry,28,rowH);
+    if(i>0)gr.DrawLine(px+10,ry,px+pw-10,ry,1,COL.line);
+    tL(gr,String(i+1),FONT.rowNum,COL.text3,px+10,ry,26,rowH);
     var label=(tr.title||'未知曲目')+(tr.artist?' · '+tr.artist:'')+(tr.analyzed===false?' [待分析]':'');
-    tL(gr,label,FONT.qName,COL.text,px+36,ry,pw-42,rowH);
+    tL(gr,label,FONT.qName,COL.text,px+38,ry,pw-48,rowH);
   }
   tC(gr,'风格跳跃',FONT.pl,COL.text2,m.rightX,m.top,m.rightW,26);
   gr.DrawImage(ssGradientGrid(size),gx,gy,size,size,0,0,size,size);
@@ -198,7 +213,7 @@ function drawPreference(gr,staticOnly){
     gr.DrawLine(gx+p+.5,gy,gx+p+.5,gy+size,j===2?1.5:1,line);
     gr.DrawLine(gx,gy+p+.5,gx+size,gy+p+.5,j===2?1.5:1,line);
   }
-  strokeRound(gr,gx,gy,size,size,5,1,COL.line);
+  strokeRound(gr,gx,gy,size,size,rMd,1,COL.line);
   tC(gr,'极少听',FONT.pl,COL.text2,gx-m.labelW-4,gy+size/2-18,m.labelW,36);
   tC(gr,'最常听',FONT.pl,COL.text2,gx+size+4,gy+size/2-18,m.labelW,36);
   tC(gr,'风格相似',FONT.pl,COL.text2,m.rightX,gy+size+5,m.rightW,26);
@@ -306,7 +321,7 @@ function ssDrawNativeQueue(gr,r,x,qy,bottom){
     }
   }finally{layer.finish();}
   gr=parentGr;
-  SS_QUEUE_SB=drawSBV(gr,r.x+r.w-10,top,viewport,ssQueueScroll,SS_QUEUE_MAX,viewport,contentH,hv(r.x,top,r.x+r.w,bottom)||drag==='scrollq',SB_QUEUE);
+  SS_QUEUE_SB=drawSBV(gr,r.x+r.w-10,top,viewport,ssQueueScroll,SS_QUEUE_MAX,viewport,contentH,[r.x,top,r.x+r.w,bottom],SB_QUEUE);
   return true;
 }
 function ssNativeLyrics(){

@@ -1,6 +1,6 @@
 ﻿function ssQueueLyricHighlight(){return SS_APPEARANCE==='light'?RGB(0,82,190):RGB(112,181,255);}
 /* verdant/views/queue.js -- right sidebar: queue and lyrics tabs
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* Manually-queued rows have no playlist behind them, so their title/artist are formatted per
@@ -51,15 +51,15 @@ function ssDrawQueueTrackLabels(gr,title,artist,x,y,w,h,metrics,next){
   if(artist)ssDrawFixedLabel(gr,artist,FONT.rowArtist,COL.text2,x+inset,top,w-inset,metrics.detail);
 }
 function ssDrawQueueAction(gr,box){
-  var w=box.x1-box.x0,h=box.y1-box.y0;
+  var w=box.x1-box.x0,h=box.y1-box.y0,rSm=typeof ssRad==='function'?ssRad('sm'):4;
   var hot=!ssQuietRows&&hv(box.x0,box.y0,box.x1,box.y1);
-  if(hot)ssFillContinuousRect(gr,box.x0+1,box.y0+1,w-2,h-2,6,6,COL.buttonHover);
+  if(hot)ssFillContinuousRect(gr,box.x0+1,box.y0+1,w-2,h-2,rSm,rSm,COL.buttonHover);
   drawIcon(gr,'more',hot?COL.text:COL.text2,box.x0,box.y0,w,h,Math.round(h*.64));
 }
 // hover cue + click target for one queue row; rows are rh apart so the boxes tile exactly
 function qRow(gr,r,x,qy,rh){
-  var x0=x-8, y0=qy-6, x1=r.x+r.w-10, y1=qy+rh-6;
-  if(ssRowHover(x0,y0,x1,y1)) ssFillContinuousRect(gr,x0,y0,x1-x0,y1-y0,6,6,COL.rowHover);
+  var x0=x-8, y0=qy-6, x1=r.x+r.w-10, y1=qy+rh-6, rSm=typeof ssRad==='function'?ssRad('sm'):4;
+  if(ssRowHover(x0,y0,x1,y1)) ssFillContinuousRect(gr,x0,y0,x1-x0,y1-y0,rSm,rSm,COL.rowHover);
   return {x0:x0,y0:y0,x1:x1,y1:y1};
 }
 function ssDrawQueueNext(gr,r,y,h){
@@ -69,23 +69,23 @@ function ssDrawQueueNext(gr,r,y,h){
 }
 // cover + title + artist, the layout every queue entry shares
 function qEntry(gr,r,x,y,cs,h,seed,key,title,artist,tcol,next){
-  drawCover(gr,x,y,cs,4,h,seed,key);
+  drawCover(gr,x,y,cs,typeof ssRad==='function'?ssRad('sm'):4,h,seed,key);
   var tx=x+cs+12,tw=r.w-36-cs-12,textH=Math.max(cs,ssTrackTextMetrics(ssDensity,true).height);
   if(next)tw-=ssDrawQueueNext(gr,r,y,textH);
   ssDrawTrackLabels(gr,title,artist,tcol,tx,y,tw,textH,ssDensity,true);
 }
 function ssDrawLyricsNotice(gr,r,title,description,detail,canPlay){
-  var x=r.x+18,w=r.w-36,y=r.y+64;
+  var x=r.x+18,w=r.w-36,y=r.y+64,rMd=typeof ssRad==='function'?ssRad('md'):8;
   var h=Math.min(canPlay?154:detail?122:96,Math.max(0,r.h-76));
   if(h<76)return;
-  ssFillContinuousRect(gr,x,y,w,h,8,8,COL.elev);
+  ssFillContinuousRect(gr,x,y,w,h,rMd,rMd,COL.elev);
   drawIcon(gr,'lyric',COL.green,x+12,y+12,24,28,18);
   tL(gr,title,FONT.sect,COL.text,x+44,y+11,w-56,30);
   tL(gr,description,FONT.meta,COL.text2,x+14,y+47,w-28,26);
   if(detail&&h>=107)tL(gr,detail,FONT.plSub,COL.text2,x+14,y+74,w-28,28);
   if(canPlay&&h>=130){
     var bx=x+14,by=y+94,bw=Math.min(118,w-28),bh=36,hot=hv(bx,by,bx+bw,by+bh);
-    ssFillContinuousRect(gr,bx,by,bw,bh,6,6,hot?COL.greenHover:COL.green);
+    ssFillContinuousRect(gr,bx,by,bw,bh,rMd,rMd,hot?COL.greenHover:COL.green);
     drawIcon(gr,'play',COL.onAccent,bx+6,by,28,bh,16);
     tL(gr,'播放音乐',FONT.pl,COL.onAccent,bx+38,by,bw-42,bh);
     SS_LYRIC_PLAY={x0:bx,y0:by,x1:bx+bw,y1:by+bh};
@@ -111,6 +111,7 @@ function ssDrawResizeLyrics(gr,r,drag){
   if(w>0)gr.DrawImage(frame,r.x+r.w-18-w,r.y+68,w,h,frame.Width-w,0,w,h);
 }
 function drawQueue(gr){
+  if(typeof ssScrollGeometry!=='undefined')delete ssScrollGeometry.scrollq;
   if(!R.queue||R.queue.w<=0){HB_TABS=[];HB_Q=[];SS_LYRIC_BTN=SS_LYRIC_PLAY=null;SS_QUEUE_SB=null;return;}
   ssDrawQueueContent(gr);
   var r=R.queue;roundBottom(gr,r.x,r.y,r.w,r.h);
@@ -129,8 +130,9 @@ function ssDrawQueueContent(gr){
 
   if(!qOn){
     SS_LYRIC_BTN={x0:r.x+r.w-86,y0:r.y+12,x1:r.x+r.w-12,y1:r.y+44};
+    var rBtnSm=typeof ssRad==='function'?ssRad('sm'):4;
     if(hv(SS_LYRIC_BTN.x0,SS_LYRIC_BTN.y0,SS_LYRIC_BTN.x1,SS_LYRIC_BTN.y1))
-      ssFillContinuousRect(gr,SS_LYRIC_BTN.x0,SS_LYRIC_BTN.y0,74,32,5,5,COL.rowHover);
+      ssFillContinuousRect(gr,SS_LYRIC_BTN.x0,SS_LYRIC_BTN.y0,74,32,rBtnSm,rBtnSm,COL.rowHover);
     tC(gr,'ESLyric',FONT.plSub,COL.text2,SS_LYRIC_BTN.x0,SS_LYRIC_BTN.y0,74,32);
     if(typeof NP!=='undefined'&&!NP){
       ssDrawLyricsNotice(gr,r,'尚未播放','播放后在此显示歌词','',ssHasTransportSource());

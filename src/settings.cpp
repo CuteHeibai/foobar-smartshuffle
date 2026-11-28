@@ -3,6 +3,7 @@
 #include <optional>
 #include <set>
 #include "settings.hpp"
+#include "native_palette.hpp"
 #include "native_dialogs.hpp"
 #include "integration_switch.hpp"
 
@@ -18,13 +19,14 @@ cfg_bool statsEnabled(statsGuid,true);
 std::optional<bool> settingsDarkMode;
 class SettingsInstance;
 std::set<SettingsInstance*> settingsInstances;
-bool settings_dark_mode(){return settingsDarkMode.value_or(ui_config_manager::g_is_dark_mode());}
+
 
 class SettingsInstance:public preferences_page_instance,private ui_config_callback_impl {
 public:
-    SettingsInstance(HWND parent,preferences_page_callback::ptr callback):dark_(settings_dark_mode()),darkHooks_(dark_),callback_(callback){
+    SettingsInstance(HWND parent,preferences_page_callback::ptr callback):dark_(ui_config_manager::g_is_dark_mode()),darkHooks_(dark_),callback_(callback){
+        Gdiplus::GdiplusStartupInput input;Gdiplus::GdiplusStartup(&gdip_,&input,nullptr);
         HDC dc=GetDC(parent);dpi_=GetDeviceCaps(dc,LOGPIXELSY);ReleaseDC(parent,dc);
-        font_=CreateFontW(-MulDiv(15,dpi_,96),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");
+        font_=CreateFontW(-MulDiv(14,dpi_,96),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");
         brush_=CreateSolidBrush(background());
         static ATOM registered=[](){WNDCLASSEXW c{sizeof(c)};c.lpfnWndProc=proc;c.hInstance=core_api::get_my_instance();c.hCursor=LoadCursor(nullptr,IDC_ARROW);c.lpszClassName=L"SmartShuffleSettings";return RegisterClassExW(&c);}();
         if(!registered)throw std::runtime_error("无法注册智能随机设置页");
@@ -32,9 +34,9 @@ public:
         if(!window_)throw std::runtime_error("无法创建智能随机设置页");
         settingsInstances.insert(this);
     }
-    ~SettingsInstance(){settingsInstances.erase(this);if(IsWindow(window_))DestroyWindow(window_);if(font_)DeleteObject(font_);if(brush_)DeleteObject(brush_);}
+    ~SettingsInstance(){settingsInstances.erase(this);if(IsWindow(window_))DestroyWindow(window_);if(font_)DeleteObject(font_);if(brush_)DeleteObject(brush_);if(gdip_)Gdiplus::GdiplusShutdown(gdip_);}
     void refresh_appearance(){
-        const bool dark=settings_dark_mode();
+        const bool dark=ui_config_manager::g_is_dark_mode();
         if(dark_==dark)return;
         dark_=dark;
         if(auto next=CreateSolidBrush(background())){if(brush_)DeleteObject(brush_);brush_=next;}
@@ -47,11 +49,12 @@ public:
     void reset()override{if(themed_installation()){pending_=true;SendMessageW(personal_,BM_SETCHECK,BST_UNCHECKED,0);SendMessageW(stats_,BM_SETCHECK,BST_CHECKED,0);callback_->on_state_changed();}}
 private:
     HWND window_=nullptr,description_=nullptr,button_=nullptr,status_=nullptr,update_=nullptr,integration_=nullptr,personal_=nullptr,stats_=nullptr;HFONT font_=nullptr;HBRUSH brush_=nullptr;
+    ULONG_PTR gdip_=0;
     int dpi_=96;bool pending_=false,dark_;
     fb2k::CCoreDarkModeHooks darkHooks_;
     preferences_page_callback::ptr callback_;
-    COLORREF background()const{return dark_?RGB(18,18,18):RGB(250,250,250);}
-    COLORREF foreground()const{return dark_?RGB(225,225,225):RGB(18,18,18);}
+    COLORREF background()const{return dark_?native_palette(true).background:GetSysColor(COLOR_WINDOW);}
+    COLORREF foreground()const{return native_palette(dark_).foreground;}
     void ui_colors_changed()override{refresh_appearance();}
     int px(int n){return MulDiv(n,dpi_,96);}
     bool personal_available(){return themed_installation()&&!integration_original();}
@@ -65,8 +68,8 @@ private:
         SendMessageW(stats_,BM_SETCHECK,listening_stats_enabled()?BST_CHECKED:BST_UNCHECKED,0);
         if(!personal_available()){ShowWindow(personal_,SW_HIDE);ShowWindow(stats_,SW_HIDE);}
         button_=CreateWindowW(L"BUTTON",L"一键恢复默认布局",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,w,reinterpret_cast<HMENU>(1001),core_api::get_my_instance(),nullptr);
-        update_=CreateWindowW(L"BUTTON",L"检查更新…",WS_CHILD|WS_VISIBLE|WS_TABSTOP,0,0,0,0,w,reinterpret_cast<HMENU>(1002),core_api::get_my_instance(),nullptr);
-        integration_=CreateWindowW(L"BUTTON",integration_original()?L"一键启用新版界面（重启）":L"一键停用改动，切换原版（重启）",WS_CHILD|WS_VISIBLE|WS_TABSTOP,0,0,0,0,w,reinterpret_cast<HMENU>(1003),core_api::get_my_instance(),nullptr);
+        update_=CreateWindowW(L"BUTTON",L"检查更新…",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,w,reinterpret_cast<HMENU>(1002),core_api::get_my_instance(),nullptr);
+        integration_=CreateWindowW(L"BUTTON",integration_original()?L"一键启用新版界面（重启）":L"一键停用改动，切换原版（重启）",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,w,reinterpret_cast<HMENU>(1003),core_api::get_my_instance(),nullptr);
         EnableWindow(integration_,integration_available());
         status_=CreateWindowW(L"STATIC",L"恢复默认栏宽和窗口大小，窗口约占当前屏幕可用面积的五分之二。关闭听歌统计保留已有记录。历史、收藏和稍后听的入口默认隐藏。",WS_CHILD|WS_VISIBLE,0,0,0,0,w,nullptr,core_api::get_my_instance(),nullptr);
         for(auto child:{description_,personal_,stats_,button_,status_,update_,integration_})SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(font_),TRUE);
@@ -75,8 +78,15 @@ private:
         darkHooks_.AddControls(w);
         resize(w);
     }
-    void resize(HWND w){RECT r{};GetClientRect(w,&r);int width=std::max(px(40),int(r.right)-px(40));
-        MoveWindow(description_,px(20),px(16),width,px(personal_available()?50:82),TRUE);MoveWindow(personal_,px(20),px(72),width,px(28),TRUE);MoveWindow(stats_,px(20),px(100),width,px(26),TRUE);int actionsY=personal_available()?132:104;MoveWindow(button_,px(20),px(actionsY),std::min(width,px(220)),px(38),TRUE);MoveWindow(update_,px(252),px(actionsY),std::max(px(80),std::min(width-px(232),px(180))),px(38),TRUE);MoveWindow(integration_,px(20),px(actionsY+46),std::min(width,px(410)),px(40),TRUE);MoveWindow(status_,px(20),px(actionsY+94),width,px(72),TRUE);}
+    void resize(HWND w){RECT r{};GetClientRect(w,&r);int pad=px(24),width=std::max(px(40),int(r.right)-pad*2),bh=px(36),gap=px(12);
+        MoveWindow(description_,pad,px(18),width,px(personal_available()?48:76),TRUE);
+        MoveWindow(personal_,pad,px(74),width,px(28),TRUE);
+        MoveWindow(stats_,pad,px(104),width,px(26),TRUE);
+        int actionsY=personal_available()?142:108,rowW=std::min(width,px(412)),btnW=std::min(px(210),std::max(px(120),(rowW-gap)/2+px(16))),updW=std::max(px(100),rowW-btnW-gap);
+        MoveWindow(button_,pad,px(actionsY),btnW,bh,TRUE);
+        MoveWindow(update_,themed_installation()?pad+btnW+gap:pad,px(actionsY),themed_installation()?updW:std::min(width,px(160)),bh,TRUE);
+        MoveWindow(integration_,pad,px(actionsY)+bh+px(10),rowW,bh,TRUE);
+        MoveWindow(status_,pad,px(actionsY)+bh*2+px(24),width,px(72),TRUE);}
     static LRESULT CALLBACK proc(HWND w,UINT msg,WPARAM wp,LPARAM lp){
         auto self=reinterpret_cast<SettingsInstance*>(GetWindowLongPtrW(w,GWLP_USERDATA));
         if(msg==WM_NCCREATE){self=static_cast<SettingsInstance*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams);SetWindowLongPtrW(w,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(self));}
@@ -84,11 +94,21 @@ private:
         if(msg==WM_CREATE){self->create_controls(w);return 0;}
         if(msg==WM_SIZE){self->resize(w);return 0;}
         if(msg==WM_ERASEBKGND){RECT r;GetClientRect(w,&r);FillRect(reinterpret_cast<HDC>(wp),&r,self->brush_);return 1;}
-        if(msg==WM_CTLCOLORSTATIC){SetTextColor(reinterpret_cast<HDC>(wp),self->foreground());SetBkColor(reinterpret_cast<HDC>(wp),self->background());return reinterpret_cast<LRESULT>(self->brush_);}
-        if(msg==WM_DRAWITEM&&wp==1001){auto d=reinterpret_cast<DRAWITEMSTRUCT*>(lp);const bool pressed=(d->itemState&ODS_SELECTED)!=0;
-            auto brush=CreateSolidBrush(self->dark_?(pressed?RGB(22,170,74):RGB(30,215,96)):(pressed?RGB(0,92,214):RGB(10,110,240)));FillRect(d->hDC,&d->rcItem,brush);DeleteObject(brush);
-            SetBkMode(d->hDC,TRANSPARENT);SetTextColor(d->hDC,self->dark_?RGB(0,0,0):RGB(255,255,255));auto old=SelectObject(d->hDC,self->font_);auto r=d->rcItem;DrawTextW(d->hDC,L"一键恢复默认布局",-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);SelectObject(d->hDC,old);
-            if(d->itemState&ODS_FOCUS){InflateRect(&r,-4,-4);DrawFocusRect(d->hDC,&r);}return TRUE;}
+        if(msg==WM_CTLCOLORSTATIC||msg==WM_CTLCOLORBTN){
+            HWND ctrl=reinterpret_cast<HWND>(lp);
+            bool muted=(ctrl==self->description_||ctrl==self->status_);
+            const auto pal=native_palette(self->dark_);
+            SetTextColor(reinterpret_cast<HDC>(wp),muted?pal.secondary:self->foreground());
+            SetBkColor(reinterpret_cast<HDC>(wp),self->background());
+            return reinterpret_cast<LRESULT>(self->brush_);
+        }
+        if(msg==WM_DRAWITEM&&(wp==1001||wp==1002||wp==1003)){
+            auto d=reinterpret_cast<DRAWITEMSTRUCT*>(lp);
+            wchar_t label[128]{};GetWindowTextW(d->hwndItem,label,128);
+            const auto palette=native_palette(self->dark_);
+            draw_rounded_button(d->hDC,d->rcItem,palette,self->font_,label,wp==1001,(d->itemState&ODS_SELECTED)!=0,(d->itemState&ODS_DISABLED)!=0,(d->itemState&ODS_FOCUS)!=0,self->dpi_,self->background());
+            return TRUE;
+        }
         if(msg==WM_COMMAND&&LOWORD(wp)==1001&&HIWORD(wp)==BN_CLICKED){
             preferences_page_instance::ptr alive=self;
             try{request_layout_reset();self->pending_=false;self->callback_->on_state_changed();SetWindowTextW(self->status_,L"已恢复默认布局和窗口大小。歌单、听歌记录及播放设置保持不变。");}
@@ -117,8 +137,10 @@ void set_personal_library_handler(std::function<void(bool)> handler){personalHan
 bool listening_stats_enabled(){return statsEnabled;}
 void set_listening_stats_enabled(bool enabled){if(bool(statsEnabled)==enabled)return;statsEnabled=enabled;if(statsHandler)statsHandler(enabled);}
 void set_listening_stats_handler(std::function<void(bool)> handler){statsHandler=std::move(handler);}
+bool native_dark_mode(){return settingsDarkMode ? *settingsDarkMode : ui_config_manager::g_is_dark_mode();}
 void set_settings_dark_mode(bool dark){
     settingsDarkMode=dark;
+    refresh_native_dialog_appearance();
     for(auto instance:settingsInstances)instance->refresh_appearance();
 }
 void open_settings(){ui_control::get()->show_preferences(pageGuid);}

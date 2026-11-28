@@ -1,7 +1,7 @@
 ﻿'use strict';
 
 /* ============================================================================
-   Verdant -- a Spotify-style theme for foobar2000, drawn from scratch in a
+   Verdant -- an Apple Music-style theme for foobar2000, drawn from scratch in a
    JSplitter panel (foo_uie_jsplitter, SpiderMonkey + GDI+).
 
    Everything on screen is custom-drawn: sidebar, home, playlist and All Songs
@@ -82,6 +82,8 @@ include('views/artist.js');
 include('views/songs.js');
 include('views/personal.js');
 include('views/stats.js');
+include('views/settings.js');
+include('views/track_info.js');
 include('views/search.js');
 include('views/queue.js');
 include('views/bar.js');

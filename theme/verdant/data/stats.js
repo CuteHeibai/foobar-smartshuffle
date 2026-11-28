@@ -85,7 +85,7 @@ function ssStatsInput(code){
   ssStatsRepaint();return true;
 }
 function ssStatsActivate(item){
-  if(item.settings){ssSend('settings');return;}
+  if(item.settings){if(typeof ssOpenSettings==='function')ssOpenSettings(false);else ssSend('settings');return;}
   if(item.tab){ssStats.tab=item.tab;ssStatsScroll=ssStatsScrollT=0;ssStatsRepaint();return;}
   if(item.days){var r=ssStatsRange(item.days);ssStatsApplyRange(r[0],r[1]);return;}
   if(item.field){

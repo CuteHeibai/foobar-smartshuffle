@@ -1,5 +1,5 @@
 ﻿/* verdant/core/memory.js -- bounded image caches, sized at runtime against the component memory limit
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* Bounded image caches. Left unbounded these hold one <=500px image per album, plus a resized

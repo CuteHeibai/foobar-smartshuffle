@@ -5,8 +5,8 @@ function ssStatsTime(seconds){
 }
 function drawFsStats(gr,bottom){
   var s=ssFsScale(W,H),w=Math.min(W-Math.round(100*s),Math.round(960*s)),x=Math.round((W-w)/2);
-  var y=Math.round(28*s),h=Math.round(32*s),bw=Math.round(176*s);
-  if(hv(x,y,x+bw,y+h))ssFillContinuousRect(gr,x,y,bw,h,6,6,COL.rowHover);
+  var y=Math.round(28*s),h=Math.round(32*s),bw=Math.round(176*s),rSm=typeof ssRad==='function'?ssRad('sm',s):Math.round(4*s);
+  if(hv(x,y,x+bw,y+h))ssFillContinuousRect(gr,x,y,bw,h,rSm,rSm,COL.rowHover);
   tC(gr,'‹  返回全屏播放',FONT.pl,COL.text2,x,y,bw,h);
   HB_FS.push({x0:x,y0:y,x1:x+bw,y1:y+h,act:'stats-back'});
   var top=y+h+Math.round(8*s);
@@ -14,7 +14,7 @@ function drawFsStats(gr,bottom){
 }
 function drawStats(gr,r){
   HB_STATS=[];ssStatsMax=0;
-  var p=ssStats,s=ssDensity,x=r.x+Math.round(16*s),right=r.x+r.w-Math.round(16*s),w=right-x;
+  var p=ssStats,s=ssDensity,rSm=typeof ssRad==='function'?ssRad('sm',s):Math.round(4*s),x=r.x+Math.round(16*s),right=r.x+r.w-Math.round(16*s),w=right-x;
   var top=r.y+Math.round(12*s),end=r.y+r.h,buttonH=Math.round(32*s),gap=Math.round(8*s);
   var data=p.data,rank=p.tab==='rank',emptyRank=rank&&data&&!data.rows.length;
   var pausedEmpty=emptyRank&&data.recording===false&&!data.first&&!data.last&&!p.edit&&!p.error;
@@ -24,7 +24,7 @@ function drawStats(gr,r){
       var item=items[i],left=Math.round(x+i*(width+gap)),edge=Math.round(x+i*(width+gap)+width);
       var box={x0:left,y0:y,x1:edge,y1:y+buttonH};
       var hot=hv(left,y,edge,y+buttonH);
-      if(hot||(!plain&&!item.disabled))ssFillContinuousRect(gr,left,y,edge-left,buttonH,5,5,item.active?COL.rowActive:hot?COL.rowHover:COL.elev);
+      if(hot||(!plain&&!item.disabled))ssFillContinuousRect(gr,left,y,edge-left,buttonH,rSm,rSm,item.active?COL.rowActive:hot?COL.rowHover:COL.elev);
       if(plain&&item.active)gr.FillSolidRect(left,y+buttonH-2,edge-left,2,COL.green);
       tC(gr,item.label,FONT.pl,item.active?COL.green:COL.text,left+2,y,Math.max(1,edge-left-4),buttonH);
       if(!item.disabled)HB_STATS.push(Object.assign(box,item));
@@ -146,5 +146,5 @@ function ssDrawStatsRows(gr,r,top,bottom,count,rh,draw){
       layer.gr.DrawLine(r.x+16,y+rh-1,r.x+r.w-16,y+rh-1,1,COL.line);
     }
   }finally{layer.finish();}
-  drawScrollbar(gr,r.x+r.w-10,top,height,ssStatsScroll,ssStatsMax,height,count*rh,hv(r.x,top,r.x+r.w,bottom)||drag==='scroll');
+  drawScrollbar(gr,r.x+r.w-10,top,height,ssStatsScroll,ssStatsMax,height,count*rh,[r.x,top,r.x+r.w,bottom]);
 }

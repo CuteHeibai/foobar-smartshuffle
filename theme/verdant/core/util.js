@@ -1,5 +1,5 @@
 ﻿/* verdant/core/util.js -- small pure helpers with no foobar or paint state
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* ------------------------- helpers ------------------------- */

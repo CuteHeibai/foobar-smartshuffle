@@ -106,12 +106,12 @@ function ssDrawHomePrimary(gr,x,y,w,h,album){
   if(album)HB_HOME_CONTINUE=ssDrawAlbumPlayAction(gr,x,y,w,h,'播放专辑',FONT.pl,true);
   else HB_HOME_CONTINUE=ssDrawLabeledAction(gr,x,y,w,h,'浏览音乐库','search','browse');
   HB_HOME_CONTINUE.focus='primary';HB_HOME_CONTINUE.album=album;
-  ssHomeFocusRing(gr,HB_HOME_CONTINUE,8);
+  ssHomeFocusRing(gr,HB_HOME_CONTINUE,typeof ssRad==='function'?ssRad('md'):8);
 }
 function drawHome(gr,r){
   HB_CARD=[];HB_HOME_CONTINUE=HB_HOME_ALBUMS=null;SB=SBH=null;
   HOME_MAXROW=HOME_PLMAX=0;HOME_SHELF_Y0=HOME_SHELF_Y1=-1;
-  var s=ssDensity,bottom=r.y+r.h,content=ssLibraryReadingRect(r),x=content.x,w=content.w,right=x+w;
+  var s=ssDensity,rSm=typeof ssRad==='function'?ssRad('sm',s):Math.round(4*s),rMd=typeof ssRad==='function'?ssRad('md',s):Math.round(8*s),bottom=r.y+r.h,content=ssLibraryReadingRect(r),x=content.x,w=content.w,right=x+w;
   var bh=Math.round(38*s),bw=Math.min(w,Math.round(134*s));
   var selection=ssHomeAlbumSelection(getAlbumCatalog().albums),hasAlbums=selection.length>0,playingRelease=ssHomePlayingRelease();
   var featured=r.h>=Math.round(245*s)?selection[0]:null,hero=!!featured;
@@ -134,15 +134,15 @@ function drawHome(gr,r){
     var coverY=artY+Math.round(34*s),metaY=coverY+cover+Math.round(12*s);
     shelfX=x+cover+heroGap;shelfW=right-shelfX;
     tL(gr,'唱片推荐',FONT.sect,COL.text,x,artY,cover,headingH);
-    drawRounded(gr,x,coverY,cover,6,featured.handle,featured.album);
-    tL(gr,featured.album,FONT.title,COL.text,x,metaY,cover,Math.round(40*s));
-    tL(gr,ssArtistName(featured.artist),FONT.meta,COL.text2,x,metaY+Math.round(42*s),cover,Math.round(23*s));
-    ssDrawHomePrimary(gr,x,metaY+Math.round(70*s),cover,Math.max(40,Math.round(42*s)),featured);
+    drawRounded(gr,x,coverY,cover,rMd,featured.handle,featured.album);
+    tL(gr,featured.album,FONT.sect2,COL.text,x,metaY,cover,Math.round(34*s));
+    tL(gr,ssArtistName(featured.artist),FONT.meta,COL.text2,x,metaY+Math.round(36*s),cover,Math.round(23*s));
+    ssDrawHomePrimary(gr,x,metaY+Math.round(66*s),cover,Math.max(40,Math.round(42*s)),featured);
   }else if(hero){
     var y=artY+Math.round(5*s),art=Math.max(1,Math.min(cover,w-Math.round(122*s)));
     var tx=x+art+Math.round(32*s),tw=Math.max(1,right-tx);
     var labelY=y+Math.max(0,Math.round((art-116*s)/2));
-    drawRounded(gr,x,y,art,7,featured.handle,featured.album);
+    drawRounded(gr,x,y,art,rMd,featured.handle,featured.album);
     tL(gr,'唱片推荐',FONT.eyebrow,COL.text2,tx,labelY,tw,Math.round(20*s));
     tL(gr,featured.album,FONT.title,COL.text,tx,labelY+Math.round(22*s),tw,Math.round(42*s));
     tL(gr,ssArtistName(featured.artist),FONT.meta,COL.text2,tx,labelY+Math.round(64*s),tw,Math.round(20*s));
@@ -205,9 +205,9 @@ function drawHome(gr,r){
     }
     HB_HOME_ALBUMS={x0:linkX,y0:linkY,x1:linkX+linkW,y1:linkY+headingH,act:'albums',focus:'albums'};
     var hot=hv(linkX,linkY,linkX+linkW,linkY+headingH);
-    if(hot)ssFillContinuousRect(gr,linkX,linkY,linkW,headingH,6,6,COL.rowHover);
+    if(hot)ssFillContinuousRect(gr,linkX,linkY,linkW,headingH,rSm,rSm,COL.rowHover);
     tC(gr,'全部专辑 ›',FONT.plSub,hot?COL.text:COL.text2,linkX,linkY,linkW,headingH);
-    ssHomeFocusRing(gr,HB_HOME_ALBUMS,6);
+    ssHomeFocusRing(gr,HB_HOME_ALBUMS,rSm);
   }
-  drawScrollbar(gr,r.x+r.w-10,top,viewportH,homeScroll,maxPx,viewportH,contentH,hv(r.x,top,r.x+r.w,bottom)||drag==='scroll');
+  drawScrollbar(gr,r.x+r.w-10,top,viewportH,homeScroll,maxPx,viewportH,contentH,[r.x,top,r.x+r.w,bottom]);
 }

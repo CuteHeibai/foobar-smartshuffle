@@ -1,10 +1,10 @@
 ﻿/* verdant/views/songs.js -- all songs view: header, group-by, grouped/flat rows
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* ---- All Songs: header + group-by pill + grouped/flat track list ---- */
 function drawSongs(gr,r){
-  HB_TR=[]; HB_CARD=[]; HB_SG=null; HB_RGNORM=null; HB_SONGS_PLAY=null;
+  ssMeterCell=null; HB_TR=[]; HB_CARD=[]; HB_SG=null; HB_RGNORM=null; HB_SONGS_PLAY=null;
   var songsOk=ensureBuilt('songs',songsReady,songsSteps);
   if(!songsOk || !gateReady('songsart',rowHandlesSongs(),0,ROW_GATE_MS)){   // 0 = the default cap
     if(songsOk || skelVisible('songs')) drawViewSkeleton(gr,r);
@@ -13,9 +13,10 @@ function drawSongs(gr,r){
   var cov=libChoice(), g=songsGroup;
   // header: gradient wash + mosaic cover + title/meta, mirroring the playlist header
   gr.FillGradRect(r.x,r.y,r.w,SHEAD,90,ssLibraryHeaderColor(artHue(cov.single,'__lib__')),COL.base,1.0);
-  var s=ssDensity,compact=r.w<940*s,flat=g==='none',showAlbum=flat&&!compact,showArtist=g==='album';
+  var s=ssDensity,rSm=typeof ssRad==='function'?ssRad('sm',s):Math.round(4*s),rMd=typeof ssRad==='function'?ssRad('md',s):Math.round(8*s);
+  var compact=r.w<940*s,flat=g==='none',showAlbum=flat&&!compact,showArtist=g==='album';
   var list=ssLibraryTrackLayout(r,s),rx=list.right,lx=list.x,ay=r.y+16*s,art=Math.min(M.artSz,Math.round(168*s));
-  drawLibCover(gr,lx,ay,art,8);
+  drawLibCover(gr,lx,ay,art,rMd);
   var button=Math.max(32,Math.round(38*s)),barY=ay+art+Math.round(6*s),playSpace=0;
   if(songsTracks.length){
     HB_SONGS_PLAY=drawPlaylistPlay(gr,lx,barY,button,-1);
@@ -24,7 +25,7 @@ function drawSongs(gr,r){
   }
   var pgap=8,toolbarW=Math.max(2,list.w-pgap-playSpace);
   var gpW=Math.min(232,Math.floor(toolbarW*.54)),nzW=Math.min(196,toolbarW-gpW);
-  var clX=lx+playSpace,gpX=clX+nzW+pgap;
+  var gpX=rx-gpW,clX=gpX-pgap-nzW;
   var tx=lx+art+24*s,tw=Math.max(1,rx-tx);
   var text=ssHeaderBoxes(art,false,s);
   tL(gr,'音乐库',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
@@ -80,14 +81,15 @@ function drawSongs(gr,r){
     if(vy1<=vy0) continue;                                     // under the sticky header don't take the mouse
     if(row.k==='t'){
       var t=row.t,isPlaying=ssIsCurrentTrack(t.h),moreY=ry+Math.round((gh-moreW)/2);
-      ssDrawCachedRow(gr,'song:'+row.ti,r.x,ry,r.w,gh,function(gr){
+      isPlaying=isPlaying&&!ssMeterCell;
+      ssDrawCachedRow(gr,'song:'+row.ti+(isPlaying?':playing':''),r.x,ry,r.w,gh,function(gr){
         var isHover=ssRowHover(list.rowLeft,vy0,list.personalRight,vy1);
         ssDrawLibraryRowSurface(gr,list,ry,gh,isHover,j%2===1);
-        ssDrawTrackLead(gr,playX,ry,playW,gh,isPlaying);
-        tR(gr,String(row.n),FONT.rowNum,isPlaying?COL.green:COL.text2,numX,ry,numW,gh);
+        ssDrawTrackLead(gr,playX,ry,playW,gh,false);
+        if(!isPlaying)tR(gr,String(row.n),FONT.rowNum,COL.text2,numX,ry,numW,gh);
         var detail='';
         if(flat){
-          drawCover(gr,coverX,ry+(gh-cs)/2,cs,3,t.h,t.album||t.title,t.artkey);
+          drawCover(gr,coverX,ry+(gh-cs)/2,cs,rSm,t.h,t.album||t.title,t.artkey);
           detail=!showAlbum&&t.album&&t.album!==t.title?[t.artist,t.album].filter(Boolean).join(' '+CH_DOT+' '):t.artist;
         }
         ssDrawTrackLabels(gr,t.title,detail,isPlaying?COL.green:COL.text,titleX,ry,titleW,gh,s);
@@ -97,6 +99,7 @@ function drawSongs(gr,r){
         tR(gr,t.len,FONT.rowCell,COL.text2,rx-durW,ry,durW,gh);
       },flat);
       HB_TR.push({x0:list.rowLeft,y0:vy0,x1:list.personalRight,y1:vy1,rowY:ry,rowH:gh,songs:true,ti:row.ti,pgx0:playX,pgx1:playX+playW,playOnHover:true,playVisible:true,playId:t.h?ssTrackID(t.h):row.ti,more:{x0:moreX,y0:moreY,x1:moreX+moreW,y1:moreY+moreW},favoriteX:rx+Math.round(4*s)});
+      if(isPlaying)ssMeterCell={row:HB_TR[HB_TR.length-1],x:numX,w:numW,scale:s};
     } else {
       /* Group header: every kind is the same block on the same rhythm (GAP, artwork, PADB),
          differing only in indent, artwork size and -- for the artist banner -- a slab + eyebrow. */
@@ -108,10 +111,10 @@ function drawSongs(gr,r){
       if(j>0 && !nest && ry+2>=rowsTop) gr.DrawLine(lx,ry+2,rx,ry+2,banner?2:1,COL.line);
       var hb0=Math.max(blockTop-(banner?0:4),rowsTop), hb1=vy1;
       var hHov=isArt&&hb1>hb0&&hv(list.rowLeft,hb0,list.rowRight,hb1),bandW=list.rowRight-list.rowLeft;
-      if(banner)ssFillContinuousRect(gr,list.rowLeft,blockTop,bandW,blockH,8,8,hHov?COL.hover:COL.banner);
-      else if(hHov)ssFillContinuousRect(gr,list.rowLeft,blockTop-4,bandW,blockH+8,6,6,COL.rowHover);
+      if(banner)ssFillContinuousRect(gr,list.rowLeft,blockTop,bandW,blockH,rMd,rMd,hHov?COL.hover:COL.banner);
+      else if(hHov)ssFillContinuousRect(gr,list.rowLeft,blockTop-4,bandW,blockH+8,rMd,rMd,COL.rowHover);
       if(isArt) ssDrawArtistAvatar(gr,hx,hy,acs,row.label);
-      else drawRounded(gr,hx,hy,acs,5,row.handle,row.seed);
+      else drawRounded(gr,hx,hy,acs,rSm,row.handle,row.seed);
       // text block centred against the artwork, running to the same right edge as the rows
       var htx=hx+acs+Math.round(SG_TGAP*s),htw=rx-htx;
       var eyeH=banner?Math.round(16*s):0,nameH=Math.round((nest?22:26)*s),subH=Math.round(16*s);
@@ -133,6 +136,6 @@ function drawSongs(gr,r){
   else if(showArtist)tL(gr,'歌手',FONT.head,COL.text2,colX,listTop,colW,headH);
   drawIcon(gr,'clock',COL.text2,rx-clockW,listTop,clockW,headH,Math.round(15*s));
   gr.DrawLine(lx,ruleY,rx,ruleY,1,COL.line);
-  drawScrollbar(gr,r.x+r.w-10,rowsTop,viewH,songsScroll,maxPx,viewH,contentH,hv(r.x,r.y,r.x+r.w,cropY)||drag==='scroll');
+  drawScrollbar(gr,r.x+r.w-10,rowsTop,viewH,songsScroll,maxPx,viewH,contentH,[r.x,r.y,r.x+r.w,cropY]);
   drawGroupMenu(gr);
 }

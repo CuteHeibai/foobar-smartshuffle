@@ -1,5 +1,5 @@
 ﻿/* verdant/data/lyrics.js -- .lrc / .txt lyrics: load, parse, layout, rolling render
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* ------------------------- lyrics (.lrc / .txt beside the track) ------------------------- */

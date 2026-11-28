@@ -1,5 +1,5 @@
 ﻿/* verdant/data/replaygain.js -- normalize volume: ReplayGain state, scan, confirm prompt, pill
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* ------------------------- normalize volume (ReplayGain) -------------------------
@@ -84,8 +84,8 @@ function drawRgPrompt(gr){
    a menu -- filled green only when normalizing is genuinely in effect (tags present AND playback
    applying them), so it can never claim to be on while doing nothing. */
 function drawNormalizePill(gr,x,y,w,h){
-  var on=rgActive(), hot=hv(x,y,x+w,y+h);
-  if(hot) ssFillContinuousRect(gr,x,y,w,h,6,6,COL.rowHover);
+  var on=rgActive(), hot=hv(x,y,x+w,y+h), rMd=typeof ssRad==='function'?ssRad('md'):8;
+  if(hot) ssFillContinuousRect(gr,x,y,w,h,rMd,rMd,COL.rowHover);
   var col=on?COL.green:COL.text2;
   drawIcon(gr,'equalizer',col,x+8,y+(h-18)/2,18,18,16);
   tL(gr,'音量均衡',FONT.pl,col,x+32,y,w-40,h);

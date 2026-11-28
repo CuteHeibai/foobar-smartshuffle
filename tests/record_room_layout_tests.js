@@ -54,7 +54,7 @@ run('the standard DPI minimum is registered and stays within the monitor work ar
 run('programmatic resize below the panel minimum requests one corrected window size',()=>{
  const {c}=harness();const jobs=[],requests=[];
  Object.assign(c.window,{Width:700,Height:450,SetTimeout(fn){jobs.push(fn);return jobs.length;}});
- c.UIWizard={WindowState:2,SetWindowSize:(...args)=>requests.push(args)};
+ c.UIWizard={WindowState:0,SetWindowSize:(...args)=>requests.push(args)};
  c.ssClampWindowSize(700,450);c.ssClampWindowSize(700,450);assert.equal(jobs.length,1);
  jobs.shift()();assert.deepEqual(requests,[[920,600]]);
  c.ssClampWindowSize(700,450);c.window.Width=1180;c.window.Height=780;jobs.shift()();assert.equal(requests.length,1);
@@ -100,7 +100,8 @@ run('narrow windows constrain the library and larger windows restore the saved w
  assert.equal(c.ssLayoutWidths(1800).nav,410);
  assert.equal(c.ssLayoutWidths(2560).nav,410);
  c.ssWidths.nav=0;
- assert.ok(c.ssLayoutWidths(2560).nav>330);
+ const defNav=c.ssLayoutWidths(2560).nav;
+ assert.ok(defNav>=216&&defNav<=264,'default nav width stays compact on large displays, got '+defNav);
  assert.equal(props['SmartShuffle: library width'],410);
 });
 run('the standard desktop reserves the majority of its width for the main pane',()=>{
@@ -238,7 +239,7 @@ run('library views fill the pane at desktop scale while keeping actions and meta
     assert.ok(number&&number.x>row.pgx1&&number.x+number.w<row.more.x0,view+' has a separate visible track number');
    }
    const inset=Math.round(padding*scale),available=frame.w-2*inset-Math.round(32*scale);
-   const limit=draw==='drawArtist'||draw==='drawPlaylist'?Math.round(1440*scale):Infinity;
+   const limit=draw==='drawArtist'?Math.round(1440*scale):Infinity;
    assert.equal(right,frame.x+inset+Math.min(available,limit),view+' respects its reading width');
    assert.equal(row.pgx0,frame.x+Math.round(padding*scale),view+' left gutter');
    assert.ok(row.x0>=frame.x&&row.x1<=frame.x+frame.w&&row.y1<=frame.y+frame.h,view+' clipped row');
@@ -366,5 +367,32 @@ run('large fullscreen uses the display width for the title and scales secondary 
  assert.ok(buttons[0].font.Size>controlFont.Size);
  assert.ok(c.modeFont.Size>controlFont.Size);
  assert.ok(c.panelLabelFont&&c.panelLabelFont.Size<=c.modeFont.Size);
+});
+run('Apple Music layout keeps compact sidebar width and uniform grouped nav alignment',()=>{
+ const {c}=harness();
+ for(const w of [1180,1440,2560]){
+  const nw=c.ssDefaultNavWidth(w);
+  assert.ok(nw>=216&&nw<=264,'default nav width at '+w+' stays in 216..264, got '+nw);
+ }
+ vm.runInContext(fs.readFileSync(path.join(root,'views/nav.js'),'utf8'),c);
+ const labels=[];
+ Object.assign(c,{W:1440,H:900,ssDensity:1,view:'home',songsGroup:'none',COL:{},FONT:{},M:{radius:6},
+  R:{navTop:{x:0,y:40,w:252,h:84},navLib:{x:0,y:124,w:252,h:680}},
+  plman:{ActivePlaylist:0},ssState:{personal:{history_count:3,favorites_count:1,later_count:0}},
+  ssPickedPlaylists:new Set(),HB_PERSONAL:[],hv:()=>false,drawIcon(){},drawPlCover(){},drawLibCover(){},drawScrollbarN(){},drawAddPlaylist(){},
+  ssFillContinuousRect(){},tL:(g,text,f,col,x,y,w,h)=>labels.push({text,x,y,w,h}),tR(){},tC(){},
+  ssPersonalEnabled:()=>true,ssPersonalTitle:k=>({history:'播放历史',favorites:'我的收藏',later:'稍后听'})[k],
+  visiblePlaylists:()=>[],fmtNum:String,libCount:()=>12,navScroll:0,navScrollT:0,navRevealPl:-1,clampPx:(v,m)=>Math.max(0,Math.min(m,v)),
+  ssBeginViewport:(k,g)=>({gr:g,finish(){}})});
+ c.drawNav(new Proxy({},{get:()=>()=>{}}));
+ assert.equal(c.HB_HOME.x0,c.HB_SEARCH.x0,'home and search stack with shared left edge');
+ assert.equal(c.HB_HOME.x1,c.HB_SEARCH.x1,'home and search share full sidebar width');
+ assert.ok(c.HB_HOME.y0>=c.HB_SEARCH.y1,'home sits below the top search field');
+ const libRows=[c.HB_ALLSONGS,c.HB_ALBUMS,c.HB_ARTISTS_NAV,c.HB_STATS_NAV];
+ const heights=libRows.map(b=>Math.round(b.y1-b.y0));
+ assert.ok(heights.every(h=>h===heights[0]),'all library rows share one uniform height: '+heights);
+ const findX=text=>labels.find(l=>l.text===text).x;
+ const xs=['首页','全部歌曲','专辑','歌手','聆听统计','播放历史','我的收藏','稍后听'].map(findX);
+ assert.ok(xs.every(x=>x===xs[0]),'all sidebar item labels share one text indent: '+xs);
 });
 console.log(count+' desktop drawer checks passed');

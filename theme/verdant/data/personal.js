@@ -161,7 +161,7 @@ function ssPersonalPointerDown(x,y){
 function ssPersonalPointerUp(x,y){
   var pressed=ssPersonalPressed;ssPersonalPressed=null;if(!pressed)return false;
   if(inRect(x,y,pressed)&&!ssModal&&!ssPopup){
-    if(pressed.settings&&ssIsPersonal(view))ssSend('settings');
+    if(pressed.settings&&ssIsPersonal(view)){if(typeof ssOpenSettings==='function')ssOpenSettings(false);else ssSend('settings');}
     else if(ssPersonalEnabled()){
       if(pressed.page!==undefined)ssPersonalPage(pressed.page);
       else if(pressed.retry)ssPersonalReload();

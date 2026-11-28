@@ -20,9 +20,9 @@ function ssDrawContextTargets(gr){
   var targets=ssPopup.targets;
   if(!targets||targets.w!==W||targets.h!==H)return;
   for(var i=0;i<targets.rows.length;i++){
-    var row=targets.rows[i],w=row.x1-row.x0,h=row.y1-row.y0;
+    var row=targets.rows[i],w=row.x1-row.x0,h=row.y1-row.y0,rSm=typeof ssRad==='function'?ssRad('sm'):4;
     if(w<2||h<4)continue;
-    ssFillContinuousRect(gr,row.x0,row.y0,w,h,4,4,COL.rowActive);
+    ssFillContinuousRect(gr,row.x0,row.y0,w,h,rSm,rSm,COL.rowActive);
     if(h>8)gr.FillSolidRect(row.x0+2,row.y0+4,2,h-8,COL.green);
   }
 }
@@ -38,6 +38,24 @@ function ssOpenNativeMenu(kind,args,x,y,extra,showExtra){
   ssPopup.request=ssSend('menu_open',fields);
   if(!ssMenuPollTimer)ssMenuPollTimer=window.SetInterval(ssPoll,16);
 }
+function ssRewriteMainMenuItems(items,root){
+  if(!Array.isArray(items)||typeof ssOpenSettings!=='function')return items;
+  return items.map(function(item){
+    if(!item)return item;
+    var label=ssMenuLabel(item.label||'');
+    if(item.children)return Object.assign({},item,{children:ssRewriteMainMenuItems(item.children,root)});
+    if(root==='file'&&(label==='参数选项'||label==='Preferences')){
+      return Object.assign({},item,{run:function(){ssOpenSettings(false);}});
+    }
+    if(root==='playback'&&label==='插件设置…'){
+      return Object.assign({},item,{run:function(){ssOpenSettings(false);}});
+    }
+    if(root==='playback'&&label==='检查更新…'){
+      return Object.assign({},item,{run:function(){ssOpenSettings(true);}});
+    }
+    return item;
+  });
+}
 function ssAcceptMenu(done,state){
   if(!ssPopup||!done||done.id!==ssPopup.request)return;
   ssStopMenuPoll();
@@ -46,17 +64,28 @@ function ssAcceptMenu(done,state){
   var result=state.response&&state.response.menu;
   ssPopup.token=result?result.token:'';
   var extras=ssPopup.extra||[],details=[];
+  var handles=null;
   if(result&&ssPopup.context&&typeof ssResolveMediaTracks==='function'){
     var ids=done.tracks&&done.tracks.length?done.tracks:result.track_id?[result.track_id]:[];
     try{
-      var handles=ssResolveMediaTracks(ids);
+      handles=ssResolveMediaTracks(ids);
       if(handles.Count)details.push({label:'补齐封面和歌手资料',run:function(){ssRefreshMedia(handles);}});
     }catch(e){console.log('Smart Shuffle metadata menu: '+String(e));}
   }
   if(result&&ssPopup.context&&result.track_id)details.push({label:'将歌曲文件移到回收站…',danger:true,run:function(){ssRecyclePrepare(result.track_id);}});
   var failure=[{label:(state.response&&state.response.message)||'菜单不可用',disabled:true}];
-  var items=result?(ssPopup.context?ssTrackContextItems(result.items,extras,details):extras.concat(result.items)):
+  var items=result?(ssPopup.context?ssTrackContextItems(result.items,extras,details):extras.concat(ssRewriteMainMenuItems(result.items,ssPopup.root))):
     ssPopup.showExtra?extras.concat([{separator:true}],failure):failure;
+  if(result&&ssPopup.context&&handles&&handles.Count===1&&typeof ssOpenTrackInfo==='function'){
+    var singleHandle=handles[0],menuToken=ssPopup.token;
+    for(var pi=0;pi<items.length;pi++){
+      if(items[pi]&&!items[pi].children&&items[pi].command!==undefined&&ssMenuLabel(items[pi].label)==='属性'){
+        var nativeCmd=items[pi].command;
+        items[pi]=Object.assign({},items[pi],{run:function(){ssOpenTrackInfo(singleHandle,function(){ssSend('menu_execute',{token:menuToken,command:nativeCmd});});}});
+        break;
+      }
+    }
+  }
   ssPopup.levels=[{items:items,scroll:0,selected:-1}];
 }
 function ssTrackContextItems(nativeItems,extra,details){
@@ -116,7 +145,7 @@ function ssSubmenuSide(parent,width){
   return right>=left?1:-1;
 }
 function ssDrawSubmenuSurface(gr,x,y,w,h){
-  var radius=16,density=Math.min(48,COL.shadow>>>24);
+  var radius=typeof ssRad==='function'?ssRad('lg'):12,density=Math.min(48,COL.shadow>>>24);
   // The light falloff follows the corners and leaves the neighboring menu clear.
   for(var spread=SS_SUBMENU_GAP-1;spread>0;spread--){
     var alpha=Math.max(1,Math.round((SS_SUBMENU_GAP-spread)*density/44));
@@ -144,8 +173,8 @@ function ssPopupHit(x,y){
   return null;
 }
 function ssDrawContextScroll(gr,x,y,width,height,depth,step){
-  var cx=Math.round(x+width/2),cy=Math.round(y+height/2);
-  if(mx>=x&&mx<x+width&&my>=y&&my<y+height)ssFillContinuousRect(gr,x+5,y,width-10,height,4,4,COL.rowHover);
+  var cx=Math.round(x+width/2),cy=Math.round(y+height/2),rSm=typeof ssRad==='function'?ssRad('sm'):4;
+  if(mx>=x&&mx<x+width&&my>=y&&my<y+height)ssFillContinuousRect(gr,x+5,y,width-10,height,rSm,rSm,COL.rowHover);
   gr.DrawLine(cx-4,cy+step*2,cx,cy-step*2,1.5,COL.text2);
   gr.DrawLine(cx,cy-step*2,cx+4,cy+step*2,1.5,COL.text2);
   SS_MENU_HB.push({x0:x,y0:y,x1:x+width,y1:y+height,depth:depth,step:step});
@@ -189,15 +218,16 @@ function ssDrawPopup(gr){
     if(secondary){x=Math.round(x);y=Math.round(y);}
     level.max=Math.max(0,total+header-height+scrollBand*2);level.scroll=Math.max(0,Math.min(level.scroll,level.max));level.rect={x:x,y:y,w:width,h:height};
     level.rowHeight=rh;level.offsets=offsets;level.visibleHeight=height-2*(pad+scrollBand)-header;
+    var rMenu=typeof ssRad==='function'?ssRad('md'):8,rItem=typeof ssRad==='function'?ssRad('sm'):4;
     if(secondary)ssDrawSubmenuSurface(gr,x,y,width,height);
     else{
-      ssFillContinuousRect(gr,x+2,y+3,width,height,8,8,COL.shadow);
-      ssFillContinuousRect(gr,x,y,width,height,8,8,COL.popup);
-      ssStrokeContinuousRect(gr,x+.5,y+.5,width-1,height-1,8,8,1,COL.line);
+      ssFillContinuousRect(gr,x+2,y+3,width,height,rMenu,rMenu,COL.shadow);
+      ssFillContinuousRect(gr,x,y,width,height,rMenu,rMenu,COL.popup);
+      ssStrokeContinuousRect(gr,x+.5,y+.5,width-1,height-1,rMenu,rMenu,1,COL.line);
     }
     if(level.drill){
       var backY=y+pad;
-      if(mx>=x&&mx<x+width&&my>=backY&&my<backY+rh)ssFillContinuousRect(gr,x+4,backY,width-8,rh,4,4,COL.rowHover);
+      if(mx>=x&&mx<x+width&&my>=backY&&my<backY+rh)ssFillContinuousRect(gr,x+4,backY,width-8,rh,rItem,rItem,COL.rowHover);
       ssDrawContextChevron(gr,x+inset+4,Math.round(backY+rh/2),-1,COL.text,1.35);
       tL(gr,level.title,style.primary,COL.text,x+inset+16,backY,width-2*inset-16,rh);
       gr.FillSolidRect(x+inset,backY+rh+2,width-inset*2,1,COL.line);
@@ -212,7 +242,7 @@ function ssDrawPopup(gr){
         else{
           var current=playback&&it.checked;
           if(!it.disabled&&(current||level.selected===i||level.hover===i))
-            ssFillContinuousRect(gr,x+4,rowY,width-8,ih,secondary?5:4,secondary?5:4,current?COL.rowActive:COL.rowHover);
+            ssFillContinuousRect(gr,x+4,rowY,width-8,ih,rItem,rItem,current?COL.rowActive:COL.rowHover);
           var color=it.disabled?COL.text3:it.danger?COL.dangerHover:current?COL.green:COL.text;
           if(it.icon)drawIcon(gr,it.icon,it.disabled?COL.text3:current?COL.green:COL.text2,x+inset,rowY,iconSize,ih,iconSize);
           tL(gr,ssMenuLabel(it.label),it.primary||current?style.primary:style.label,color,x+inset+leading,rowY,width-inset-leading-(it.children||it.checked?29:inset),ih);
@@ -319,8 +349,8 @@ function ssShowPlaybackModes(x,y,anchor){
   if(typeof ssStatsOpen==='function'&&ssState&&ssState.listening_stats)items.push({label:'聆听统计…',run:ssStatsOpen});
   var hasUpdate=update&&update.available;
   items.push({separator:true},{label:hasUpdate?'插件 · 有更新':'插件',children:[
-    {label:'插件设置…',icon:'settings',run:function(){ssSend('settings');}},
-    {label:hasUpdate?'发现更新 '+update.release.version:'检查更新…',icon:'refresh',run:function(){ssSend('update_open');}}
+    {label:'插件设置…',icon:'settings',run:function(){if(typeof ssOpenSettings==='function')ssOpenSettings(false);else ssSend('settings');}},
+    {label:hasUpdate?'发现更新 '+update.release.version:'检查更新…',icon:'refresh',run:function(){if(typeof ssOpenSettings==='function')ssOpenSettings(true);else ssSend('update_open');}}
   ]});
   ssShowPopup(items,x,y,'',false,'playback',anchor);
 }

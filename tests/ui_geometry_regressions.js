@@ -16,6 +16,10 @@ function context(){
  return {c,load,app,advance(ms){now+=ms;},tick(ms){now+=ms;c.scrollTick();},flush(){let jobs=[...timers.values()];timers.clear();jobs.forEach(fn=>fn());}};
 }
 function graphics(){return {SetTextRenderingHint(){},SetSmoothingMode(){},SetInterpolationMode(){},CalcTextHeight:(s,f)=>f.Size*1.3,CalcTextWidth:(s,f)=>Array.from(String(s)).length*f.Size*.9,MeasureString(s,f){return {Width:this.CalcTextWidth(s,f)};},DrawString(){},DrawImage(){},FillSolidRect(){},FillRoundRect(){},FillPolygon(){},DrawPolygon(){},FillEllipse(){},DrawEllipse(){},DrawLine(){},DrawRect(){}};}
+test('both library lists reserve a four-digit number column even before reaching 1000 tracks',()=>{
+ const {c,load}=context();load('views/cards.js');
+ for(const scale of [1,1.25])assert.equal(c.ssTrackNumberWidth(scale,99),c.ssTrackNumberWidth(scale,9999));
+});
 test('a cramped module label keeps a readable font and fades its original text at the edge',()=>{
  const {c}=context(),called=[],raster=graphics(),g=graphics(),text='A long title 全部歌曲 that exceeds the pane';
  c.UISCALE=1;c.FONT=c.ssCreateFonts();
@@ -149,7 +153,10 @@ test('playlist header play sits below the cover and every row shows play and mor
  c.drawDropPill=(g,x,y,w,h)=>({x0:x,y0:y,x1:x+w,y1:y+h});c.hv=()=>false;c.drag=null;c.ssDrawCachedRow=(g,k,x,y,w,h,draw)=>draw(g);
  const g=graphics(),icons=[];g.FillGradRect=()=>{};c.drawIcon=(g,name,col,x,y,w,h)=>icons.push({name,x,y,w,h});
  const labels=[];c.tL=c.tR=c.tC=(g,s,f,col,x,y,w,h)=>labels.push({s,x,y,w,h});
+ c.ssPersonalGutter=()=>36;c.canEditPl=()=>true;
+ let sortEnd;c.drawSortDirBtn=(g,x,y,w)=>{sortEnd=x+w;};
  c.drawPlaylist(g,{x:0,y:0,w:1440,h:900});
+ assert.equal(sortEnd,1440-24-36);assert.equal(c.HB_PLADD_FOLDER.x1,sortEnd);
  const play=c.HB_PLAYLIST_PLAY,sort=c.HB_PLSORT,coverBottom=16+160;
  assert.ok(play&&play.label);assert.ok(play.y0>=coverBottom,'header play must sit below the cover, not on it');
  assert.equal(play.x0,24);assert.ok(play.x1-play.x0>=32&&play.y1-play.y0>=32);
@@ -194,6 +201,13 @@ test('random preferences center the controls in the compact state and expand for
  c.ssDragging=false;c.drawPreference(graphics(),true);
  assert.ok(c.ssGeometry(c.W,c.H).w>compact.w);
  assert.ok(labels.includes('播放顺序预览 · 前 2 首')&&labels.includes('two'));
+ c.H=420;c.ssState.preview.tracks=Array.from({length:8},(_,i)=>({title:'track '+i}));
+ const rows=[];labels.length=0;c.tL=(g,label,font,color,x,y,w,h)=>{labels.push(label);if(label.startsWith('track '))rows.push({y,h});};
+ c.drawPreference(graphics(),true);
+ assert.ok(rows.length>0&&rows.length<8);
+ assert.ok(labels.includes('播放顺序预览 · 前 '+rows.length+' 首'));
+ assert.ok(rows.every(row=>row.h>=24));
+ assert.ok(rows[rows.length-1].y+rows[rows.length-1].h<=c.ssGeometry(c.W,c.H).presetY);
  assert.ok(!labels.includes('—'));
 });
 test('all-songs header cover is never erased by a row crop mask and has no scan caption',()=>{
@@ -206,7 +220,9 @@ test('all-songs header cover is never erased by a row crop mask and has no scan 
  let header;g.FillGradRect=(x,y,w,h,angle,colour)=>{if(header===undefined)header=colour;};
  const draw=c.drawSongs;
  c.drawSongs=(gr,r)=>{draw(gr,r);assert.ok((header&255)<62,'even white artwork leaves a dark header');};
- c.drawSongs(g,{x:200,y:40,w:1200,h:800});assert.ok(cover);assert.ok(!words.some(s=>/of 214|tracks scanned/.test(s)));
+ c.ssPersonalGutter=()=>45;
+ c.drawDropPill=(g,x,y,w)=>({x1:x+w});
+ c.drawSongs(g,{x:200,y:40,w:1200,h:800});assert.equal(c.HB_SG.x1,1400-24-45);assert.ok(cover);assert.ok(!words.some(s=>/of 214|tracks scanned/.test(s)));
  assert.ok(!fills.some(r=>r.x<=cover.x&&r.y<cover.y+cover.size&&r.y+r.h>cover.y),'row masking must not paint over the header cover');
  labels.length=0;c.M.artSz=72;c.SHEAD=236;c.drawSongs(g,{x:200,y:40,w:600,h:800});
  const title=labels.find(r=>r.s==='全部歌曲'),meta=labels.find(r=>/214 首歌曲/.test(r.s));assert.ok(title.y+title.h<=meta.y,'compact heading must end before its full-width subtitle');
@@ -257,12 +273,12 @@ test('Ctrl left-click toggles songs; right-click keeps its menu and holding left
  c.on_mouse_rbtn_up(20,20);assert.equal(menus,1);
  c.utils.IsKeyPressed=k=>k===1;c.ssSelectionDown(20,20);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'pending');h.advance(170);c.ssSelectionMove(20,120,1);assert.equal(c.ssMainSelect.preview().mode,'reorder');assert.deepEqual(Array.from(c.ssMainSelect.selectedIndices()),[0]);
 });
-test('Chinese, kana and Latin titles draw with regular faces and retain the heading size',()=>{
+test('Chinese, kana and Latin titles draw with bold heading faces and regular body faces',()=>{
  const {c}=context(),g=graphics(),draws=[];g.DrawString=(s,f)=>draws.push({s,f});
  c.tL(g,'歌曲列表',c.FONT.title,1,0,0,400,80);c.tL(g,'夜に駆ける',c.FONT.title,1,0,100,400,80);
  c.tL(g,'Library',c.FONT.title,1,0,200,400,80);c.tL(g,'English song',c.FONT.rowTitle,1,0,300,400,40);
  assert.deepEqual(draws.map(({f})=>[f.Name,f.Style,f.Size]),[
-  ['Microsoft YaHei UI',0,56],['Microsoft YaHei UI',0,56],['Segoe UI',0,56],['Segoe UI',0,28]
+  ['Microsoft YaHei UI',1,56],['Microsoft YaHei UI',1,56],['Segoe UI',1,56],['Segoe UI',0,28]
  ]);
  const mixed=c.ssTextRuns('夜に駆ける / Racing into the Night',c.FONT.rowTitle);
  assert.equal(mixed.length,2);
@@ -270,11 +286,11 @@ test('Chinese, kana and Latin titles draw with regular faces and retain the head
  assert.equal(mixed[1].text,'Racing into the Night');
  assert.deepEqual([...mixed.map(r=>r.font.Name)],['Microsoft YaHei UI','Segoe UI']);assert.deepEqual([...mixed.map(r=>r.font.Style)],[0,0]);
 });
-test('navigation, menu and section labels use regular Segoe UI faces',()=>{
+test('navigation and menu labels use regular Segoe UI while section headings use bold',()=>{
  const {c}=context(),g=graphics(),draws=[];g.DrawString=(s,f)=>draws.push([s,f.Name,f.Style]);
  const labels={lib:'Library',pl:'Playlist',menuPrimary:'Play',head:'Track',tab:'Queue',sect:'Up Next',sect2:'Albums',card:'Album title',lyric:'Lyrics'};
  for(const [role,label] of Object.entries(labels))c.tL(g,label,c.FONT[role],1,0,0,400,40);
- assert.deepEqual(draws,Object.values(labels).map(label=>[label,'Segoe UI',0]));
+ assert.deepEqual(draws,Object.entries(labels).map(([role,label])=>[label,'Segoe UI',role==='sect'||role==='sect2'?1:0]));
 });
 test('scene restore copies align source and destination to whole pixels',()=>{
  const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[{x0:10.2,y0:49.3,x1:480.8,y1:99.3}];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=40;c.my=70;let copies=[];const g=graphics();g.DrawImage=(im,...args)=>copies.push(args);c.ssPaintInteractions(g);assert.ok(copies.length);assert.ok(copies.every(args=>args.every(Number.isInteger)));
@@ -466,6 +482,73 @@ test('scroll row rasters reuse full-size pixels and invalidate with content pain
  c.repaintAll();c.ssDrawCachedRow(gr,'row',0,80,800,56,draw);assert.equal(drawn,3);
 });
 
+test('desktop sliders only show the thumb on hover or drag without changing seek geometry',()=>{
+ const h=context(),c=h.c;h.app();h.load('ui/chrome.js');h.load('views/bar.js');c.drag=null;
+ for(const density of [1,1.25,1.5])for(const mode of ['light','dark']){
+  c.COL=c.ssPalette(mode);c.ssDensity=density;
+  const th=4*density,x=50,y=32,w=80,g=graphics(),rects=[],dots=[];
+  g.FillSolidRect=(...a)=>rects.push(a);g.FillEllipse=(...a)=>dots.push(a);
+  const draw=(px,py,drag,pos)=>{c.mx=px;c.my=py;c.drag=drag;rects.length=dots.length=0;
+   const box=c.drawTrackBar(g,x,y,w,th,c.COL.seekbg,pos,c.COL.green,c.COL.base,'seek',y-5);
+   return {geometry:[box.x0,box.y0,box.x1,box.y1],height:rects[0][3],dots:dots.slice()};};
+  const idle=draw(0,0,null,0);assert.equal(idle.dots.length,0);
+  assert.deepEqual(idle.geometry,[x,y-5,x+w,y+10+th]);
+  for(const active of [draw(x,y,null,0),draw(0,0,'seek',1)]){
+   assert.deepEqual(active.geometry,idle.geometry);assert.ok(active.height>idle.height);
+   assert.ok(active.dots.length>0);const dot=active.dots.at(-1);assert.equal(dot[2],dot[3]);
+  }
+  assert.equal(draw(x,y-6,null,0).dots.length,0,'honor the seek exclusion above the rail');
+ }
+});
+
+test('scrollbar proximity changes the visual thickness only and respects its original show condition',()=>{
+ const h=context(),c=h.c;h.app();h.load('ui/chrome.js');c.HOME_PLMAX=300;
+ for(const density of [1,1.25,1.5])for(const mode of ['light','dark']){
+  c.COL=c.ssPalette(mode);c.ssDensity=density;
+  for(const key of ['scroll','scrolln','scrollq','scrollh']){
+   const style=key==='scroll'?c.SB_MAIN:key==='scrolln'?c.SB_NAV:c.SB_QUEUE,horiz=key==='scrollh';
+   const g=graphics(),rects=[];g.FillSolidRect=(...args)=>rects.push(args);
+   const draw=(px,drag,show)=>{c.mx=px;c.my=45;c.drag=drag;rects.length=0;
+    const box=horiz?(c.drawScrollbarH(g,40,44,100,30,300,100,400,show),c.SBH):c.drawSBV(g,40,44,100,30,300,100,400,show,style);
+    if(!box)return null;
+    return {geometry:[box.x0,box.y0,box.x1,box.y1,box.thumbH||box.thumbW],thickness:rects.at(-1)[horiz?3:2],alpha:rects.at(-1)[4]>>>24};};
+   assert.equal(draw(40,null,false),null);
+   const idle=draw(0,null,true),hot=draw(42,null,true),dragged=draw(0,key,true);
+   assert.deepEqual(hot.geometry,idle.geometry);assert.deepEqual(dragged.geometry,idle.geometry);
+   assert.ok(hot.thickness>idle.thickness);assert.equal(dragged.thickness,hot.thickness);assert.ok(idle.alpha<hot.alpha);
+  }
+ }
+});
+
+test('a cached desktop rail appears, expands and hides with only thumb-strip paint requests',()=>{
+ const h=context(),c=h.c;h.app();h.load('ui/chrome.js');c.clearDirty();c.ssSceneImage={};
+ c.view='playlist';c.R={main:{x:80,y:20,w:360,h:300},barY:350};
+ c.mx=c.my=-1;c.ssQuietRows=true;
+ const g=graphics(),fills=[],copies=[],damage=[];g.FillSolidRect=(...a)=>fills.push(a);g.DrawImage=(...a)=>copies.push(a);
+ c.drawScrollbar(g,430,100,180,50,320,180,500,[80,20,440,280]);c.ssQuietRows=false;
+ assert.equal(c.SB,null);assert.equal(fills.length,0,'hover must not be baked into the scene');
+ c.window.RepaintRect=(...a)=>damage.push(a);c.window.Repaint=()=>assert.fail('full paint');
+ c.hoverSig=()=>'';c.ssSelectionMove=()=>false;
+ for(const [x,y,visible] of [[100,60,true],[430,200,true],[-1,-1,false]]){
+  damage.length=copies.length=fills.length=0;
+  if(x>=0)c.on_mouse_move(x,y,0);else{c.ssMenuLeave=()=>{};c.on_mouse_leave();}
+  assert.equal(!!c.SB,visible);assert.equal(damage.length,1);
+  assert.ok(damage[0][2]<12&&damage[0][3]<180);assert.equal(c.ssPaintControlDamage(g),true);
+  assert.equal(copies.length,1);assert.equal(fills.length,visible?1:0);assert.equal(c.dirtyMain,false);
+ }
+});
+test('control damage shares pending row restoration and never restores pixels above a drag overlay',()=>{
+ const h=context(),c=h.c;h.app();h.load('ui/chrome.js');h.load('views/bar.js');c.clearDirty();
+ const g=graphics(),calls=[];g.DrawImage=()=>calls.push('scene');g.FillEllipse=()=>calls.push('thumb');
+ c.ssSceneImage={};c.ssQuietRows=true;c.mx=c.my=-1;c.HB_VOL=c.drawTrackBar(g,50,120,100,4,7,.5,8,9,'vol');c.ssQuietRows=false;
+ c.mx=60;c.my=124;c.ssHoverFrame=1;c.ssUpdateControlHover();assert.equal(c.ssPaintControlDamage(g),false);
+ assert.ok(c.ssHoverDirty);assert.ok(c.ssInteractionDamage.length);
+ c.ssHoverFrame=0;c.ssPaintRowHover=()=>calls.push('row');c.ssDrawSelection=()=>calls.push('selection/drag');
+ c.ssSelectionRects=()=>[];c.ssHoverRow=()=>null;c.ssPaintInteractions(g);
+ assert.ok(calls.indexOf('thumb')>calls.indexOf('row'));assert.equal(calls.at(-1),'selection/drag');
+ calls.length=0;c.ssPaintInteractions(g);
+ assert.deepEqual(calls,['row','selection/drag'],'unrelated row frames leave the stable slider pixels alone');
+});
 test('small wheel steps still move the home playlist shelf by a card',()=>{
  const h=context(),c=h.c;h.app();c.view='home';c.WHEEL_PX=72;c.ssDensity=1;c.HOME_STRIDE=192;c.HOME_PLMAX=1000;c.plScrollT=0;c.R={main:{x:200,y:40,w:900,h:900}};c.HOME_SHELF_Y0=100;c.HOME_SHELF_Y1=250;c.mx=500;c.my=180;
  c.on_mouse_wheel(-1);assert.equal(c.plScrollT,192);c.on_mouse_wheel(-1);assert.equal(c.plScrollT,384);
@@ -482,4 +565,94 @@ test('splitters paint opaque whole-pixel columns independent of hover',()=>{
  c.ssDrawResizers({DrawLine(){},FillSolidRect(x,y,w,h,color){columns.push({x,y,w,h,color});}});assert.equal(columns.length,2);assert.ok(columns.every(r=>Number.isInteger(r.x)&&r.w===1&&r.h>550&&((r.color>>>24)&255)===255));
  const normal=columns.map(r=>r.color);columns=[];c.ssSplitHot='nav';c.ssDrawResizers({DrawLine(){},FillSolidRect(x,y,w,h,color){columns.push({color});}});assert.deepEqual(columns.map(r=>r.color),normal);
 });
+test('three-tier radii scale with density while preserving capsules, masks and bounded mask cache',()=>{
+ const h=context(),c=h.c;h.load('ui/chrome.js');h.load('views/playlist.js');h.load('views/search.js');h.load('data/art.js');
+ assert.equal(c.M.radius,6,'viewport panel mask radius stays fixed');
+ assert.deepEqual({sm:c.SS_RAD.sm,md:c.SS_RAD.md,lg:c.SS_RAD.lg},{sm:4,md:8,lg:12});
+ for(const density of [1,1.25,1.5]){
+  c.ssDensity=density;
+  assert.equal(c.ssRad('sm'),Math.round(4*density));
+  assert.equal(c.ssRad('md'),Math.round(8*density));
+  assert.equal(c.ssRad('lg'),Math.round(12*density));
+ }
+ c.ssDensity=1;c.plSortDir=1;const radii=[];c.hv=()=>false;c.tC=()=>{};c.tL=()=>{};c.drawIcon=()=>{};
+ c.ssFillContinuousRect=(gr,x,y,w,h,rx,ry)=>radii.push({w,h,rx,ry});
+ const g=graphics();
+ c.dlgBtn(g,0,0,120,40,'保存',1,2,3);
+ c.drawSortDirBtn(g,0,0,38,38);
+ c.drawPill(g,0,0,140,'选择文件',true);
+ c.R={main:{x:0,y:0,w:900,h:700},libraryScales:{main:1}};c.searchQuery='';c.caretOn=false;
+ c.drawSearchBox(g,c.R.main,{s:1,box:{x:24,y:26,w:400,h:44},damage:{x:22,y:22,w:408,h:52}});
+ assert.deepEqual(radii.map(r=>r.rx),[20,19,21,22],'capsule controls retain h/2 radii');
+ let disposed=0;
+ c.gdi.CreateImage=(Width,Height)=>({Width,Height,GetGraphics:()=>graphics(),ReleaseGraphics(){},ApplyMask(){},Dispose(){disposed++;}});
+ for(let i=0;i<80;i++)c.roundMask(40+i,c.ssRad('md'));
+ assert.ok(Object.keys(c.maskCache).length<=64,'maskCache stays bounded under varied sizes/radii');
+ assert.ok(disposed>0,'evicted masks dispose their native bitmaps');
+});
+
+test('key cards, covers, buttons and notices map cleanly into sm/md/lg tiers',()=>{
+ const h=context(),c=h.c;
+ for(const f of ['ui/chrome.js','ui/menus.js','views/cards.js','views/nav.js','views/artist.js','views/bar.js','views/queue.js','views/personal.js','views/preference.js'])h.load(f);
+ c.ssDensity=1.25;const sm=c.ssRad('sm'),md=c.ssRad('md'),lg=c.ssRad('lg');
+ const fills=[],covers=[],strokes=[];
+ c.ssFillContinuousRect=(gr,x,y,w,h,rx)=>fills.push(rx);
+ c.ssStrokeContinuousRect=(gr,x,y,w,h,rx)=>strokes.push(rx);
+ c.drawRounded=(gr,x,y,sz,rad)=>covers.push(rad);
+ c.drawCover=(gr,x,y,sz,rad)=>covers.push(rad);
+ c.hv=()=>true;c.tL=()=>{};c.tC=()=>{};c.tR=()=>{};c.drawIcon=()=>{};c.ssArtistName=x=>x;
+ c.HB_CARD=[];c.ssDrawAlbumLabels=()=>{};
+ c.drawLibraryAlbumCard(graphics(),0,0,160,{id:'a',album:'A',artist:'B'},0,400,0,400);
+ assert.equal(fills.at(-1),md,'home album card hover uses md');
+ assert.equal(covers.at(-1),md,'home album card cover uses md');
+ fills.length=covers.length=0;
+ c.HB_CTRL=[];c.ssDrawFooterTool(graphics(),50,50,1.25,'queue','queue',true,'播放队列');
+ assert.equal(fills.at(-1),md,'footer tool button uses md');
+ c.ssDrawIdleRecord(graphics(),0,0,64);
+ assert.equal(fills.at(-1),md,'idle record placeholder uses md');
+ fills.length=0;c.W=1200;c.H=800;c.view='history';c.ssState={personal:{}};c.ssPersonal={items:[],total:0,loading:false,error:''};
+ c.ssPersonalEnabled=()=>false;c.ssPersonalTitle=()=>'播放历史';c.HB_PERSONAL_ACTIONS=[];c.HB_TR=[];
+ const g=graphics();g.FillGradRect=()=>{};
+ c.drawPersonal(g,{x:0,y:0,w:800,h:600});
+ assert.equal(fills[0],md,'personal empty notice card uses md');
+ assert.equal(fills[1],md,'settings CTA button uses md');
+ fills.length=0;c.ssDrawLyricsNotice(g,{x:0,y:0,w:300,h:500},'尚未播放','说明','',true);
+ assert.equal(fills[0],md,'lyrics notice card uses md');
+ assert.equal(fills[1],md,'lyrics notice play button uses md');
+ fills.length=0;c.ssDrawSubmenuSurface(g,100,100,200,160);
+ assert.equal(fills.at(-1),lg,'submenu surface uses lg radius');
+ fills.length=strokes.length=0;c.ssButton(g,0,0,100,36,'均衡','balanced',true,false);
+ assert.equal(fills[0],md,'preference button uses md');
+ fills.length=0;c.ssDrawPersonalHeart(g,0,0,28,false,true);
+ assert.equal(fills[0],sm,'favorite heart hover uses sm');
+ fills.length=covers.length=0;c.R={navLib:{x:0,y:60,w:240,h:500}};c.drawPlCover=(gr,x,y,sz,rad)=>covers.push(rad);
+ c.drawNavRow(g,80,58,true,false,0,'歌单','10 首歌曲',false);
+ assert.equal(fills[0],md,'sidebar playlist row highlight uses md');
+ assert.equal(covers[0],sm,'sidebar playlist cover uses sm');
+});
+test('Apple Music typography uses bold headings, centered idle footer and aligned fullscreen bar',()=>{
+ const h=context(),c=h.c;h.load('views/bar.js');
+ assert.equal(c.FONT.title.Style,1,'page title uses bold weight');
+ assert.equal(c.FONT.sect2.Style,1,'secondary section heading uses bold weight');
+ assert.equal(c.FONT.sect.Style,1,'section heading uses bold weight');
+ assert.equal(c.FONT.fsTitle.Style,1,'fullscreen title uses bold weight');
+ assert.equal(c.ssCjkFont(c.FONT.title).Style,1,'CJK page title preserves bold weight');
+ assert.equal(c.FONT.rowTitle.Style,0,'track row title stays regular');
+ assert.equal(c.FONT.pl.Style,0,'sidebar label stays regular');
+ c.W=1440;c.H=900;c.ssDensity=1;c.M.barH=96;c.R={barY:804,barInfoW:380,barToolsW:320,barScale:1};
+ c.NP=null;c.ssState=null;c.pbShuffle=false;c.drag=null;c.fb={IsPlaying:false,IsPaused:false,PlaybackLength:0,PlaybackTime:0,Volume:0};
+ c.hv=()=>false;c.drawIcon=()=>{};c.ssFillContinuousRect=()=>{};c.tR=()=>{};c.tC=()=>{};c.tCE=()=>{};
+ const idleLabels=[];c.tL=(g,text,f,col,x,y,w,h)=>idleLabels.push({text,x,y,w,h});
+ c.drawBar(graphics());
+ const idle=idleLabels.find(l=>l.text==='尚未播放');
+ assert.ok(idle,'idle footer draws label');
+ assert.ok(Math.abs((idle.y+idle.h/2)-(c.R.barY+c.M.barH/2))<=2,'idle footer label is vertically centered');
+ c.HB_CTRL=[];c.fsView='default';c.ssOutputError='';c.ssError='';c.drawTrackBar=()=>{};
+ const fsH=144,fsBy=c.H-fsH,fsScale=1.15;
+ c.ssDrawFooterTools(graphics(),fsBy,fsH,fsScale,c.ssFooterToolLayout(fsScale,true),true);
+ const viz=c.HB_CTRL.find(b=>b.act==='viz'),exit=c.HB_CTRL.find(b=>b.act==='fullscreen');
+ assert.ok(viz&&exit,'fullscreen tools include viz and exit');
+ assert.ok(Math.abs((viz.y0+viz.y1)/2-(exit.y0+exit.y1)/2)<=1,'fullscreen exit button aligns with tools centerline');
+});
+
 console.log(count+' passed, '+failed+' failed');if(failed)process.exitCode=1;

@@ -7,5 +7,6 @@ void set_dialog_handlers(DialogDispatch dispatch,std::function<nlohmann::json()>
 void open_native_preference();
 void open_updates(bool check=false);
 bool themed_installation();
+void refresh_native_dialog_appearance();
 void close_native_dialogs();
 }

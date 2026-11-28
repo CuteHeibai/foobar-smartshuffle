@@ -158,10 +158,20 @@ function ssDrawDragOverlay(gr,p){
   if(!p.origin||!ssSceneImage)return;
   var source=p.origin,r=ssDragRect(p);
   if(!ssDragOverlay){var sx=Math.max(0,Math.floor(source.x0)),sy=Math.max(0,Math.floor(source.y0));ssDragOverlay={image:ssSceneImage.Clone(sx,sy,Math.min(r.w,W-sx),Math.min(r.h,H-sy))};}
-  ssFillContinuousRect(gr,r.x+2,r.y+4,r.w,r.h,6,6,COL.shadow);
+  var rMd=typeof ssRad==='function'?ssRad('md'):8;
+  ssFillContinuousRect(gr,r.x+2,r.y+4,r.w,r.h,rMd,rMd,COL.shadow);
   gr.DrawImage(ssDragOverlay.image,r.x,r.y,r.w,r.h,0,0,r.w,r.h,0,248);
-  ssStrokeContinuousRect(gr,r.x+.5,r.y+.5,r.w-1,r.h-1,6,6,1,COL.line);
+  ssStrokeContinuousRect(gr,r.x+.5,r.y+.5,r.w-1,r.h-1,rMd,rMd,1,COL.line);
   if(p.indices.length>1){gr.FillEllipse(r.x+r.w-30,r.y+7,24,24,COL.text);tC(gr,String(p.indices.length),FONT.pl,COL.base,r.x+r.w-30,r.y+7,24,24);}
+}
+function ssPaintSelectedTrack(gr,row,lifted){
+  var width=row.x1-row.x0,height=row.y1-row.y0,rSm=typeof ssRad==='function'?ssRad('sm'):4;
+  ssFillContinuousRect(gr,row.x0,row.y0,width,height,rSm,rSm,lifted?COL.elev:ssAccent(36));
+  if(lifted)return;
+  var x=Math.ceil(row.x0),y=Math.ceil(row.y0);
+  var edge=Math.min(Math.floor(row.x1)-x,Math.max(1,Math.round(2*ssDensity)));
+  var visibleHeight=Math.floor(row.y1)-y;
+  if(edge>0&&visibleHeight>0)gr.FillSolidRect(x,y,edge,visibleHeight,COL.green);
 }
 function ssDrawSelection(gr){
   ssSelectionDirty=false;
@@ -170,10 +180,12 @@ function ssDrawSelection(gr){
   if(typeof ssIsPersonal==='function'&&ssIsPersonal(view))key=ssPersonalSelectionKey();
   if(key!==ssSelectionContextKey){ssMainRows=[];ssMainSelect.setContext({kind:'track',key:key,items:[],rows:[]});}
   var p=ssSelectOwner&&ssSelectOwner.preview(),lifting=p&&p.mode==='reorder';
-  for(var i=0;i<HB_TR.length;i++){var h=HB_TR[i],at=ssMainRowIndex(h);if(ssMainSelect.isSelected(at))ssFillContinuousRect(gr,h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,lifting&&ssSelectOwner===ssMainSelect?COL.elev:ssAccent(28));}
-  if(lifting&&ssSelectOwner!==ssMainSelect&&p.origin){var rows=ssSelectContext.rows;for(i=0;i<rows.length;i++)if(rows[i].index===p.origin.index){var slot=rows[i];ssFillContinuousRect(gr,slot.x0,slot.y0,slot.x1-slot.x0,slot.y1-slot.y0,4,4,COL.elev);break;}}
-  for(var h of HB_Q)if(ssQueueRowSelected(h))
-    ssFillContinuousRect(gr,h.x0,h.y0,h.x1-h.x0,h.y1-h.y0,4,4,ssInk(14));
+  for(var i=0;i<HB_TR.length;i++){
+    var h=HB_TR[i],at=ssMainRowIndex(h);
+    if(ssMainSelect.isSelected(at))ssPaintSelectedTrack(gr,h,lifting&&ssSelectOwner===ssMainSelect);
+  }
+  if(lifting&&ssSelectOwner!==ssMainSelect&&p.origin){var rSlot=typeof ssRad==='function'?ssRad('sm'):4,rows=ssSelectContext.rows;for(i=0;i<rows.length;i++)if(rows[i].index===p.origin.index){var slot=rows[i];ssFillContinuousRect(gr,slot.x0,slot.y0,slot.x1-slot.x0,slot.y1-slot.y0,rSlot,rSlot,COL.elev);break;}}
+  for(var h of HB_Q)if(ssQueueRowSelected(h))ssPaintSelectedTrack(gr,h,lifting&&ssSelectOwner===ssQueueSelect);
   if(!p)return;
   if(p.rect){var r=p.rect,w=r.x1-r.x0,h2=r.y1-r.y0;if(w>0&&h2>0){gr.FillSolidRect(r.x0,r.y0,w,h2,ssAccent(28));gr.DrawRect(r.x0,r.y0,w,h2,1,COL.green);}}
   if(p.indicator){var q=p.indicator;gr.DrawLine(q.x0,q.y,q.x1,q.y,2,COL.green);}

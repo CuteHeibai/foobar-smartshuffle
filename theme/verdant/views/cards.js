@@ -1,5 +1,5 @@
 ﻿/* verdant/views/cards.js -- playlist + artist cards, shared by home and search
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* Nothing may be painted outside [clipL,clipR): RepaintRect does not clip drawing, so anything
@@ -26,8 +26,8 @@ function drawPlaylistShortcut(gr,x,y,w,h,i,clipL,clipR){
   var left=Math.max(x,clipL),right=Math.min(x+w,clipR);if(right<=left)return;
   var s=ssDensity,hot=hv(left,y,right,y+h),image=gdi.CreateImage(w,h),g=image.GetGraphics();
   g.SetSmoothingMode(2);g.FillSolidRect(0,0,w,h,hot?COL.cardHover:COL.elev);
-  var cover=Math.round(36*s),pad=Math.round(10*s),playSize=Math.round(30*s),playX=x+w-pad-playSize;
-  drawPlCover(g,pad,Math.round((h-cover)/2),cover,4,i,plName(i));
+  var cover=Math.round(36*s),pad=Math.round(10*s),playSize=Math.round(30*s),playX=x+w-pad-playSize,rSm=typeof ssRad==='function'?ssRad('sm',s):Math.round(4*s);
+  drawPlCover(g,pad,Math.round((h-cover)/2),cover,rSm,i,plName(i));
   var textX=pad+cover+Math.round(10*s),textW=w-textX-pad-playSize-Math.round(4*s);
   tL(g,plName(i),FONT.pl,COL.text,textX,Math.round(10*s),textW,Math.round(24*s));
   tL(g,plCount(i)+' 首歌曲',FONT.plSub,COL.text2,textX,Math.round(35*s),textW,Math.round(20*s));
@@ -44,7 +44,8 @@ function drawPlaylistShortcut(gr,x,y,w,h,i,clipL,clipR){
   HB_CARD.push({x0:left,y0:y,x1:right,y1:y+h,kind:'pl',id:i});
 }
 function paintArtistCard(gr,x,y,w,a,hov){
-  ssFillContinuousRect(gr,x,y,w,w+M.cardTextH,8,8,hov?COL.cardHover:COL.elev);
+  var rMd=typeof ssRad==='function'?ssRad('md'):8;
+  ssFillContinuousRect(gr,x,y,w,w+M.cardTextH,rMd,rMd,hov?COL.cardHover:COL.elev);
   var cs=w-24;
   ssDrawArtistAvatar(gr,x+12,y+12,cs,a.name);
   tC(gr,ssArtistName(a.name),FONT.card,COL.text,x+12,y+cs+18,w-24,20);
@@ -117,7 +118,7 @@ function ssLibraryReadingRect(r,padding){
   var inset=Math.max(0,Math.min(padding===undefined?M.cpad:padding,Math.floor((r.w-1)/2)));
   return {x:r.x+inset,w:Math.max(1,r.w-2*inset)};
 }
-function ssTrackNumberWidth(s,count){return Math.round(Math.max(26,String(count).length*8+6)*s);}
+function ssTrackNumberWidth(s,count){return Math.round((Math.max(4,String(count).length)*8+6)*s);}
 function ssLibraryHeaderColor(art){
   return blend(art,COL.base,SS_APPEARANCE==='light' ? .92 : .90);
 }
@@ -131,8 +132,9 @@ function ssLibraryTrackLayout(r,s,padding,limit){
     rowLeft:Math.max(r.x,x-8),rowRight:Math.min(end,right+8),personalRight:Math.min(end,right+gutter+8)};
 }
 function ssDrawLibraryRowSurface(gr,layout,y,h,hot,alternate){
+  var rSm=typeof ssRad==='function'?ssRad('sm'):4;
   if(hot||(alternate&&layout.w>=760))
-    ssFillContinuousRect(gr,layout.rowLeft,y,layout.personalRight-layout.rowLeft,h,4,4,hot?COL.rowHover:ssInk(7));
+    ssFillContinuousRect(gr,layout.rowLeft,y,layout.personalRight-layout.rowLeft,h,rSm,rSm,hot?COL.rowHover:ssInk(7));
 }
 function ssDrawLabeledAction(gr,x,y,w,h,label,icon,act,font,primary){
   font=font||FONT.pl;
@@ -148,8 +150,8 @@ function ssDrawLabeledAction(gr,x,y,w,h,label,icon,act,font,primary){
 }
 function ssDrawSettingsButton(gr,x,y,maxWidth,h){
   var s=ssDensity,w=Math.min(maxWidth,Math.round(168*s)),pad=Math.round(12*s),icon=Math.round(18*s);
-  var tx=x+pad+icon+Math.round(8*s);
-  ssFillContinuousRect(gr,x,y,w,h,7,7,hv(x,y,x+w,y+h)?COL.greenHover:COL.green);
+  var tx=x+pad+icon+Math.round(8*s),rMd=typeof ssRad==='function'?ssRad('md',s):Math.round(8*s);
+  ssFillContinuousRect(gr,x,y,w,h,rMd,rMd,hv(x,y,x+w,y+h)?COL.greenHover:COL.green);
   drawIcon(gr,'settings',COL.onAccent,x+pad,y,icon,h,icon);
   tL(gr,'打开插件设置',FONT.pl,COL.onAccent,tx,y,x+w-pad-tx,h);
   return {x0:x,y0:y,x1:x+w,y1:y+h,settings:true};
@@ -203,8 +205,9 @@ function drawLibraryAlbumCard(gr,x,y,w,album,clipTop,clipBot,clipLeft,clipRight)
   var h=w+ssAlbumLabelHeight(ssDensity,1),top=Math.max(y,clipTop),bottom=Math.min(y+h,clipBot);
   var left=Math.max(x,clipLeft),right=Math.min(x+w,clipRight);
   if(bottom<=top||right<=left)return;
-  if(hv(left,top,right,bottom))ssFillContinuousRect(gr,x,y,w,h,5,5,COL.cardHover);
-  drawRounded(gr,x,y,w,4,album.handle,album.album);
+  var rMd=typeof ssRad==='function'?ssRad('md'):Math.round(8*ssDensity);
+  if(hv(left,top,right,bottom))ssFillContinuousRect(gr,x,y,w,h,rMd,rMd,COL.cardHover);
+  drawRounded(gr,x,y,w,rMd,album.handle,album.album);
   ssDrawAlbumLabels(gr,album.album,ssArtistName(album.artist),x,y+w,w,ssDensity,1);
   HB_CARD.push({x0:left,y0:top,x1:right,y1:bottom,paintX:x,paintY:y,kind:'album',id:album.id});
 }

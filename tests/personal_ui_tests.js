@@ -195,7 +195,7 @@ test('narrow history rows reserve separate lines for outcome and event time',()=
     ssBeginViewport:(key,g)=>({gr:g,finish(){}}),ssDrawCachedRow:(g,key,x,y,w,z,draw)=>draw(g),drawScrollbar(){},hv:()=>false});
   c.R.main.w=310;c.ssOpenPersonal('history');h.accept(h.sent[0],{kind:'history',offset:0,total:1,revision:1,items:[Object.assign(item('a'),{started_at:1700000000,outcome:'interrupted'})]});
   c.drawPersonal(new Proxy({},{get:()=>()=>{}}),c.R.main);const outcome=labels.find(l=>String(l.t).startsWith('播放中断')),date=labels.find(l=>/^2023-/.test(l.t));
-  assert.ok(outcome,'outcome must lead its own visible line');assert.ok(date,'timestamp must retain its own visible line');assert.ok(outcome.y+outcome.h<=date.y);
+  assert.ok(outcome&&outcome.w>=230,'outcome needs the full narrow row beneath the actions');assert.ok(date,'timestamp must retain its own visible line');assert.ok(outcome.y+outcome.h<=date.y);
 });
 test('real app callbacks give heart presses their own gesture and preserve personal row double-click',()=>{
   const h=harness(),c=h.c;h.load('ui/selection.js');h.load('data/selection_host.js');
@@ -222,6 +222,39 @@ test('personal cached row origins and heights align to pixels at fractional dens
  assert.ok(c.HB_TR.length>0);assert.ok(c.HB_TR.every(r=>Number.isInteger(r.rowH)&&Number.isInteger(r.rowY)),'cached rows must not move through half-pixel origins');
 });
 
+test('narrow playback bar recovers title width from personal actions and restores them when widened',()=>{
+  const h=harness(),c=h.c,widths=[];h.load('views/bar.js');
+  Object.assign(c,{W:800,M:{barH:96},R:{barY:500,barInfoW:180},FONT:{},COL:{},NP:{},npTitleStr:'Song',npArtistStr:'Artist',
+    drawCover(){},ssDrawFooterTitle:(g,t,f,col,x,y,w)=>widths.push(w),tL(){},ssDrawPersonalHeart(){},drawIcon(){},
+    ssFooterToolLayout:()=>({modeLeft:550}),ssDrawTransport(){},ssDrawFooterTools(){}});
+  const gr={FillSolidRect(){}};c.drawBar(gr);assert.ok(widths[0]>=100);assert.equal(c.HB_CTRL.length,0);
+  for(const scale of [1,1.25,1.5,2]){
+    c.ssDensity=scale;
+    const threshold=Math.round(16*scale)+Math.round(64*scale)+230*scale;
+    for(const offset of [-1,0,1,50]){
+      c.R.barInfoW=threshold+offset;c.drawBar(gr);
+      assert.deepEqual(Array.from(c.HB_CTRL,b=>b.act),offset<0?[]:['favorite','later']);
+      if(offset>=0){
+        const [favorite,later]=c.HB_CTRL;
+        assert.ok(later.x1<=c.R.barInfoW,'later hitbox must stay inside the info pane');
+        assert.equal(favorite.x1,later.x0);
+        assert.ok(favorite.x0>=threshold-216*scale+widths.at(-1),'buttons must clear the title');
+      }
+    }
+  }
+});
+
+test('later bookmark stays recognizable when SVG rendering is unavailable',()=>{
+  const h=harness(),c=h.c,drawn=[];
+  const src=fs.readFileSync(path.join(root,'core/tokens.js'),'utf8');
+  vm.runInContext(src.slice(src.indexOf('function drawIcon(')),c);
+  c.iconImg=()=>null;
+  const gr={DrawPolygon:(color,stroke,points)=>drawn.push(['outline',points]),FillPolygon:(color,mode,points)=>drawn.push(['filled',points])};
+  c.drawIcon(gr,'bookmark',1,0,0,24,24,20);c.drawIcon(gr,'bookmarkFilled',1,0,0,24,24,20);
+  assert.deepEqual(drawn.map(d=>d[0]),['outline','filled']);
+  assert.deepEqual(drawn[0][1],drawn[1][1]);
+});
+
 test('favorite icons use cached vector icons rather than depending on a text font heart glyph',()=>{
   const h=harness();h.load('views/personal.js');let names=[];Object.assign(h.c,{COL:{green:1,text2:2},FONT:{},tC(){},drawIcon:(g,n)=>names.push(n)});
   h.c.ssDrawPersonalHeart({},0,0,28,false);h.c.ssDrawPersonalHeart({},0,0,28,true);assert.deepEqual(names,['heart','heartFilled']);
@@ -230,12 +263,19 @@ test('pending membership timer is released when the theme unloads',()=>{
   const h=harness();h.c.ssPersonalVisible(['a']);assert.equal(typeof h.c.ssStopPersonal,'function');h.c.ssStopPersonal();h.tick();assert.equal(h.sent.length,0);
 });
 test('narrow resizable sidebar gives all three personal views distinct bounded targets',()=>{
-  const h=harness();h.load('views/nav.js');const c=h.c;
+  const h=harness();h.load('views/nav.js');const c=h.c,counts=[];c.ssState.personal.history_count=10000;
   Object.assign(c,{COL:{},FONT:{},M:{radius:10},R:{navTop:{x:8,y:40,w:156,h:72},navLib:{x:8,y:128,w:156,h:370}},
-    plman:{ActivePlaylist:0},panelBg(){},hv:()=>false,drawIcon(){},tL(){},tC(){},tR(){},visiblePlaylists:()=>[],
-    navScroll:0,navScrollT:0,navRevealPl:-1,drawLibCover(){},fmtNum:String,libCount:()=>0,drawScrollbarN(){},drag:null});
+    plman:{ActivePlaylist:0},panelBg(){},hv:()=>false,drawIcon(){},tL(){},tC(){},tR:(g,text,f,col,x,y,w)=>counts.push({text,w}),ssBeginViewport:(key,g)=>({gr:g,finish(){}}),visiblePlaylists:()=>[],
+    navScroll:0,navScrollT:0,navRevealPl:-1,drawLibCover(){},fmtNum:n=>Number(n).toLocaleString('en-US'),libCount:()=>0,drawScrollbarN(){},drag:null});
   c.drawAddPlaylist=()=>{};c.drawNav(new Proxy({},{get:()=>()=>{}}));assert.deepEqual(Array.from(c.HB_PERSONAL,h=>h.kind),['history','favorites','later']);
   for(let i=0;i<3;i++){const b=c.HB_PERSONAL[i];assert.ok(b.x0>=8&&b.x1<=164&&b.y1<=498-72);if(i)assert.ok(c.HB_PERSONAL[i-1].y1<=b.y0);}
+  assert.ok(counts.some(item=>item.text==='10,000'&&item.w>=48));
+  c.R.navLib.h=240;c.drawNav(new Proxy({},{get:()=>()=>{}}));
+  const footer=128+240-72;assert.ok(c.NAV_MAX>0);
+  c.navScroll=c.navScrollT=c.NAV_MAX;c.drawNav(new Proxy({},{get:()=>()=>{}}));
+  assert.equal(c.HB_PERSONAL.at(-1).kind,'later');
+  assert.ok(c.HB_PERSONAL.every(box=>box.y0>=176&&box.y1<=footer));
+  assert.equal(c.HB_ALLSONGS,null);
 });
 test('personal cover resolution reuses library handles without building the full text search index during paint',()=>{
   const h=harness(),handle={RawPath:'file://a',SubSong:0},library=[handle];library.Count=1;

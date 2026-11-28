@@ -1,5 +1,5 @@
 ﻿/* verdant/core/props.js -- panel properties, resolved before anything sizes itself
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* Panel settings live in JSplitter's own per-panel property store (right-click > Properties),

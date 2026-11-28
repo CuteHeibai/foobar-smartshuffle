@@ -1,5 +1,5 @@
 ﻿/* verdant/core/tokens.js -- design tokens: colours, metrics, fonts, glyphs, text + icon drawing
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 /* ------------------------- colour helpers ------------------------- */
@@ -43,7 +43,13 @@ function ssPalette(mode){
   };
 }
 var COL=ssPalette(SS_APPEARANCE);
-var M = { pad:8, gap:10, navW:240, queueW:300, barH:96, navTopH:58, rowH:50, cardTextH:52, radius:6, cpad:24, headH:280, artSz:200 };
+var M = { pad:8, gap:10, navW:240, queueW:300, barH:96, navTopH:82, rowH:50, cardTextH:52, radius:6, cpad:24, headH:280, artSz:200 };
+var SS_RAD={sm:4,md:8,lg:12};
+function ssRad(tier,scale){
+  var base=SS_RAD[tier]||M.radius;
+  var s=scale===undefined?(typeof ssDensity==='number'?ssDensity:1):scale;
+  return Math.max(2,Math.round(base*s));
+}
 var PALETTE=[RGB(105,75,68),RGB(108,95,78),RGB(130,74,85),RGB(81,91,101),RGB(133,108,76),RGB(102,105,87),RGB(119,93,100),RGB(95,107,111),RGB(115,87,66),RGB(94,86,91)];
 
 /* ------------------------- fonts (create once) -------------------------
@@ -55,15 +61,16 @@ var ssDensity=1;
 var SS_FONT_META=[],SS_FIT_FONTS=[],SS_SCRIPT_FONTS={};
 var SS_MIN_TEXT_SIZE=12;
 function ssFontFloor(name){return name==='Segoe MDL2 Assets'?1:SS_MIN_TEXT_SIZE;}
-function ssCreateFont(name,sz){
-  var size=Math.max(ssFontFloor(name),Math.round(sz*UISCALE)),font=gdi.Font(name,size,0);
-  SS_FONT_META.push({font:font,name:name,size:size,style:0});
+function ssCreateFont(name,sz,style){
+  style=style||0;
+  var size=Math.max(ssFontFloor(name),Math.round(sz*UISCALE)),font=gdi.Font(name,size,style);
+  SS_FONT_META.push({font:font,name:name,size:size,style:style});
   return font;
 }
-function ssUIFont(sz){return ssCreateFont('Segoe UI',sz);}
+function ssUIFont(sz,style){return ssCreateFont('Segoe UI',sz,style);}
 function ssCreateFonts(){return {
   // Page titles, sections and artwork captions.
-  title:ssUIFont(28), sect2:ssUIFont(20), sect:ssUIFont(15),
+  title:ssUIFont(28,1), sect2:ssUIFont(20,1), sect:ssUIFont(15,1),
   card:ssUIFont(14), meta:ssUIFont(13), eyebrow:ssUIFont(11),
   // Navigation, menus and search input.
   searchTxt:ssUIFont(16), tab:ssUIFont(16), lib:ssUIFont(15),
@@ -74,7 +81,7 @@ function ssCreateFonts(){return {
   head:ssUIFont(12), qName:ssUIFont(13), qArtist:ssUIFont(11), lyric:ssUIFont(16),
   npTitle:ssUIFont(15), npArtist:ssUIFont(12), time:ssUIFont(12),
   // Fullscreen text.
-  fsTitle:ssCreateFont('Segoe UI',26), fsArtist:ssCreateFont('Segoe UI',18),
+  fsTitle:ssCreateFont('Segoe UI',26,1), fsArtist:ssCreateFont('Segoe UI',18),
   fsSrc:ssCreateFont('Segoe UI',13), fsSrcName:ssCreateFont('Segoe UI',13), fsLyric:ssCreateFont('Segoe UI',28),
   // Fallback symbols.
   icon:ssCreateFont('Segoe MDL2 Assets',15), iconBtn:ssCreateFont('Segoe MDL2 Assets',18),
@@ -87,6 +94,7 @@ var GLYPH = {
   play:chr(0xE768), pause:chr(0xE769), prev:chr(0xE892), next:chr(0xE893),
   volume:chr(0xE767),
   search:chr(0xE721), home:chr(0xE80F), add:chr(0xE710), more:chr(0xE712), close:chr(0xE711), clock:chr(0xE823),
+  songs:chr(0xE8D6), album:chr(0xE93C), artist:chr(0xE77B), stats:chr(0xE9D2), back:chr(0xE76B)
 };
 var CH_DOT=chr(0xB7), CH_BULL=chr(0x2022);
 
@@ -125,14 +133,14 @@ var SS_GRAPHEMES=typeof Intl!=='undefined'&&typeof Intl.Segmenter==='function'?n
 function ssCjkFont(font){
   var meta=null;for(var i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
   if(!meta||(meta.name!=='Inter'&&meta.name!=='Segoe UI'))return font;
-  var size=meta.size;
-  // YaHei UI covers both Chinese and kana at the same regular weight.
-  if(!SS_SCRIPT_FONTS[size]){
-    var face=gdi.Font('Microsoft YaHei UI',size,0);
-    SS_FONT_META.push({font:face,name:'Microsoft YaHei UI',size:size,style:0});
-    SS_SCRIPT_FONTS[size]=face;
+  var size=meta.size,style=meta.style||0,key=size+'|'+style;
+  // YaHei UI covers both Chinese and kana while matching the requested weight.
+  if(!SS_SCRIPT_FONTS[key]){
+    var face=gdi.Font('Microsoft YaHei UI',size,style);
+    SS_FONT_META.push({font:face,name:'Microsoft YaHei UI',size:size,style:style});
+    SS_SCRIPT_FONTS[key]=face;
   }
-  return SS_SCRIPT_FONTS[size];
+  return SS_SCRIPT_FONTS[key];
 }
 function ssScriptFont(text,font){return SS_CJK.test(text)?ssCjkFont(font):font;}
 function ssTextClusters(text){
@@ -300,7 +308,23 @@ var ICONS={
  equalizer:"<path d='M10 20h4V4h-4zm-6 0h4v-8H4zm12-11v11h4V9z'/>",
  chevron:"<path d='M7 10l5 5 5-5z'/>",
  sortAsc:"<path d='M4 12l1.41 1.41L11 7.83V20h2V7.83l5.59 5.58L20 12l-8-8-8 8z'/>",
- sortDesc:"<path d='M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.59-5.58L4 12l8 8 8-8z'/>"
+ sortDesc:"<path d='M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.59-5.58L4 12l8 8 8-8z'/>",
+ songs:"<path d='M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6zm-2 16a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'/>",
+ album:"<path d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm0-11a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2z'/>",
+ artist:"<path d='M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0-6a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 8c-3.87 0-7 1.79-7 4v2h2v-2c0-1.1 2.24-2 5-2s5 .9 5 2v2h2v-2c0-2.21-3.13-4-7-4z'/>",
+ stats:"<path d='M5 13h3v7H5zm5.5-5h3v12h-3zM16 4h3v16h-3z'/>",
+ back:"<path d='M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z'/>"
+};
+var STROKE_ICONS={
+ home:"<path d='M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8'/><path d='M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/>",
+ search:"<circle cx='11' cy='11' r='7.5'/><path d='m20 20-3.8-3.8'/>",
+ songs:"<path d='M9 18V5l12-2v13'/><circle cx='6' cy='18' r='3'/><circle cx='18' cy='16' r='3'/>",
+ album:"<circle cx='12' cy='12' r='9.5'/><circle cx='12' cy='12' r='2.5'/>",
+ artist:"<circle cx='12' cy='8' r='4.5'/><path d='M19.5 20.5a7.5 7.5 0 0 0-15 0'/>",
+ stats:"<path d='M6 20v-6'/><path d='M12 20V4'/><path d='M18 20v-10'/>",
+ clock:"<circle cx='12' cy='12' r='9.5'/><path d='M12 7v5l3.5 2'/>",
+ add:"<path d='M5 12h14'/><path d='M12 5v14'/>",
+ back:"<path d='m15 18-6-6 6-6'/>"
 };
 var svgCache={},ssIconSources={};
 var SS_SVG_FILES={lyric:'captions',heart:'heart',heartFilled:'heart',bookmark:'bookmark',bookmarkFilled:'bookmark',
@@ -324,6 +348,7 @@ function iconImg(name,size,col){
   if(svgCache.hasOwnProperty(key)) return svgCache[key];
   var color='#'+(col&0xffffff).toString(16).padStart(6,'0');
   var xml=SS_SVG_FILES.hasOwnProperty(name)?ssAssetSvg(name,color):
+    STROKE_ICONS.hasOwnProperty(name)?"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='"+size+"' height='"+size+"' fill='none' stroke='"+color+"' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'>"+STROKE_ICONS[name]+"</svg>":
     "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='"+size+"' height='"+size+"'><g fill='"+color+"'>"+ICONS[name]+"</g></svg>";
   var bmp=null; try{ if(xml)bmp=gdi.LoadSVG(xml,size); }catch(e){ bmp=null; }
   svgCache[key]=bmp; return bmp;
@@ -332,5 +357,11 @@ function iconImg(name,size,col){
 function drawIcon(gr,name,col,x,y,w,h,size){
   var s=Math.max(1,Math.round(size||Math.min(w,h))), img=iconImg(name,s,col);
   if(img){ var a=(col>>>24)&0xff; if(!a) a=255; gr.DrawImage(img,Math.round(x+(w-s)/2),Math.round(y+(h-s)/2),s,s,0,0,img.Width,img.Height,0,a); return; }
+  if(name==='bookmark'||name==='bookmarkFilled'){
+    var left=x+(w-s)/2,top=y+(h-s)/2,points=[.22,.12,.78,.12,.78,.88,.5,.68,.22,.88];
+    for(var i=0;i<points.length;i+=2){points[i]=left+points[i]*s;points[i+1]=top+points[i+1]*s;}
+    if(name==='bookmarkFilled')gr.FillPolygon(col,0,points);else gr.DrawPolygon(col,Math.max(1,s*.08),points);
+    return;
+  }
   if(!SS_SVG_FILES.hasOwnProperty(name))tC(gr,GLYPH[name]||'?',(s>=26?FONT.navIco:(s>=18?FONT.iconBtn:FONT.icon)),col,x,y,w,h);
 }

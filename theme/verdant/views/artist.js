@@ -44,13 +44,13 @@ function ssCollectionViewport(gr,r,top,contentH){
   var offset=Math.round(artScroll),layer=ssBeginViewport('collection-list',gr,r.x,top,r.w,height);
   return {gr:layer.gr,bottom:bottom,offset:offset,finish:function(){
     layer.finish();
-    drawScrollbar(gr,r.x+r.w-10,top,height,artScroll,SS_COLLECTION_SCROLL_MAX,height,contentH,hv(r.x,top,r.x+r.w,bottom)||drag==='scroll');
+    drawScrollbar(gr,r.x+r.w-10,top,height,artScroll,SS_COLLECTION_SCROLL_MAX,height,contentH,[r.x,top,r.x+r.w,bottom]);
   }};
 }
 function ssDisplayAlbumYear(year){return /^[1-9]\d{3}$/.test(year)?year:'';}
 function drawArtist(gr,r){
   HB_TR=[];HB_ARTIST_PLAY=null;
-  var albumOnly=view==='album',album=albumOnly?artistAlbums[0]:null,s=ssDensity;
+  var albumOnly=view==='album',album=albumOnly?artistAlbums[0]:null,s=ssDensity,rMd=typeof ssRad==='function'?ssRad('md',s):Math.round(8*s);
   var content=ssLibraryTrackLayout(r,s,undefined,Math.round(1440*s)),x=content.x,w=content.w,right=content.right;
   var art=Math.round(Math.min(r.w<600?96:112,Math.max(64,r.h*.24))*s),ay=r.y+Math.round(24*s);
   var name=albumOnly?(album?album.album:'专辑已移除'):ssArtistName(viewArtist);
@@ -59,7 +59,7 @@ function drawArtist(gr,r){
   var numX=x+content.playW+Math.round(4*s),numW=albumOnly?ssTrackNumberWidth(s,songs):0;
   var trackX=(albumOnly?numX+numW:x+content.playW)+content.gap,trackW=content.moreX-content.gap-trackX;
   gr.FillGradRect(r.x,r.y,r.w,Math.min(r.h,top-r.y),90,COL.base,COL.base,1.0);
-  if(album){drawRounded(gr,x,ay,art,7,album.handle,album.album);}
+  if(album){drawRounded(gr,x,ay,art,rMd,album.handle,album.album);}
   else if(!albumOnly)ssDrawArtistAvatar(gr,x,ay,art,viewArtist);
   var tx=x+art+Math.round(18*s),tw=Math.max(1,right-tx),text=ssHeaderBoxes(art,true,s);
   tL(gr,albumOnly?'专辑':'歌手',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
@@ -73,10 +73,17 @@ function drawArtist(gr,r){
     else{HB_ARTIST_PLAY.artist=viewArtist;HB_ARTIST_PLAY.label='播放歌手全部歌曲';}
     infoX+=button+Math.round(10*s);
   }
-  var bw=Math.max(1,Math.min(right-infoX,Math.round(116*s)));
-  var link={x0:infoX,y0:by,x1:infoX+bw,y1:by+button};
-  ssFillContinuousRect(gr,infoX,by,bw,button,8,8,hv(link.x0,link.y0,link.x1,link.y1)?COL.rowHover:COL.elev);
-  tC(gr,albumOnly?'返回':'歌手资料',FONT.pl,COL.text2,infoX,by,bw,button);
+  var bw=Math.max(1,Math.min(right-infoX,Math.round((albumOnly?82:116)*s)));
+  var link={x0:infoX,y0:by,x1:infoX+bw,y1:by+button},linkHot=hv(link.x0,link.y0,link.x1,link.y1);
+  if(albumOnly){
+    if(linkHot)ssFillContinuousRect(gr,infoX,by,bw,button,rMd,rMd,COL.rowHover);
+    var isz=Math.round(16*s);
+    drawIcon(gr,'back',linkHot?COL.text:COL.text2,infoX+Math.round(8*s),by+Math.round((button-isz)/2),isz,isz,isz);
+    tL(gr,'返回',FONT.pl,linkHot?COL.text:COL.text2,infoX+Math.round(28*s),by,Math.max(1,bw-Math.round(34*s)),button);
+  }else{
+    ssFillContinuousRect(gr,infoX,by,bw,button,rMd,rMd,linkHot?COL.rowHover:COL.elev);
+    tC(gr,'歌手资料',FONT.pl,COL.text2,infoX,by,bw,button);
+  }
   if(albumOnly)HB_ALBUM_BACK=link;else SS_ARTIST_HB=link;
   if(albumOnly&&songs){
     var headerH=Math.round(26*s);
@@ -98,7 +105,7 @@ function drawArtist(gr,r){
         for(var j=0;j<row.tiles.length;j++){
           var tile=row.tiles[j],cx=x+j*(row.size+row.gap),cy=y+Math.round(4*s);
           var tileBox={x0:cx,y0:Math.max(top,cy),x1:cx+row.size,y1:Math.min(layer.bottom,y+row.h),kind:'album',id:tile.id};
-          drawRounded(layer.gr,cx,cy,row.size,4,tile.handle,tile.album);
+          drawRounded(layer.gr,cx,cy,row.size,rMd,tile.handle,tile.album);
           var detail=[ssDisplayAlbumYear(tile.year),tile.tracks.length+' 首歌曲'].filter(Boolean).join(' '+CH_DOT+' ');
           ssDrawAlbumLabels(layer.gr,tile.album,detail,cx,cy+row.size,row.size,s);
           if(tile.named&&tileBox.y1>tileBox.y0)HB_CARD.push(tileBox);
@@ -107,8 +114,8 @@ function drawArtist(gr,r){
         tL(layer.gr,row.label,FONT.sect,COL.text,x,y,w,row.h);
       }else if(row.album){
         var a=row.album,cs=Math.round(46*s),dx=x+cs+Math.round(12*s);
-        if(a.named&&hv(box.x0,box.y0,box.x1,box.y1))ssFillContinuousRect(layer.gr,x-6,y,w+10,row.h,6,6,COL.rowHover);
-        drawRounded(layer.gr,x,y+Math.round(8*s),cs,6,a.handle,a.album);
+        if(a.named&&hv(box.x0,box.y0,box.x1,box.y1))ssFillContinuousRect(layer.gr,x-6,y,w+10,row.h,rMd,rMd,COL.rowHover);
+        drawRounded(layer.gr,x,y+Math.round(8*s),cs,rMd,a.handle,a.album);
         tL(layer.gr,a.album,FONT.sect2,COL.text,dx,y+Math.round(10*s),right-dx,Math.round(26*s));
         tL(layer.gr,[ssDisplayAlbumYear(a.year),a.tracks.length+' 首歌曲'].filter(Boolean).join(' '+CH_DOT+' '),FONT.meta,COL.text2,dx,y+Math.round(34*s),right-dx,Math.round(20*s));
         if(a.named){box.kind='album';box.id=a.id;HB_CARD.push(box);}
@@ -129,7 +136,7 @@ function drawArtist(gr,r){
   }finally{layer.finish();}
 }
 function drawAlbums(gr,r){
-  var s=ssDensity,x=r.x+M.cpad,right=r.x+r.w-M.cpad,w=right-x,albums=getAlbumCatalog().albums;
+  var s=ssDensity,rMd=typeof ssRad==='function'?ssRad('md',s):Math.round(8*s),x=r.x+M.cpad,right=r.x+r.w-M.cpad,w=right-x,albums=getAlbumCatalog().albums;
   var top=r.y+Math.round(92*s);
   tL(gr,'专辑',FONT.title,COL.text,x,r.y+Math.round(10*s),w,Math.round(40*s));
   tL(gr,albums.length+' 张专辑',FONT.meta,COL.text2,x,r.y+Math.round(50*s),w,Math.round(20*s));
@@ -153,8 +160,8 @@ function drawAlbums(gr,r){
       leftFade=leftFade||tx<r.x;rightFade=rightFade||tx+tileW>edge;
       var box={x0:Math.max(r.x,tx),y0:Math.max(top,ty),x1:Math.min(edge,tx+tileW),y1:Math.min(layer.bottom,ty+tileH),
         kind:'album',id:a.id,paintX:tx,paintY:ty,albumIndex:i};
-      if(hv(box.x0,box.y0,box.x1,box.y1))ssFillContinuousRect(layer.gr,tx-6,ty,tileW+12,tileH+10,8,8,COL.rowHover);
-      drawRounded(layer.gr,tx,ty,tileW,6,a.handle,a.album);
+      if(hv(box.x0,box.y0,box.x1,box.y1))ssFillContinuousRect(layer.gr,tx-6,ty,tileW+12,tileH+10,rMd,rMd,COL.rowHover);
+      drawRounded(layer.gr,tx,ty,tileW,rMd,a.handle,a.album);
       ssDrawAlbumLabels(layer.gr,a.album,ssArtistName(a.artist),tx,ty+tileW,tileW,s);
       HB_CARD.push(box);
     }

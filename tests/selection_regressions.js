@@ -104,4 +104,30 @@ test('movement before the hold deadline consumes release without a destination c
  c.start({index:0,x:10,y:10});now=80;c.move(10,90);assert.equal(c.preview().mode,'pending');now=100;
  const a=c.end(10,90);assert.equal(a.type,'selection');assert.equal(a.moved,true);
 });
+test('selected track and queue rows retain a scaled accent edge while hovered in either palette',()=>{
+  const row={songs:true,ti:0,x0:14,x1:200,y0:22,y1:29};
+  const queueRow={x0:215,x1:395,y0:22,y1:45};
+  const c={...context,UISCALE:1,gdi:{Font:()=>({})},window:{},view:'songs',ssSceneImage:null,HB_TR:[row],HB_Q:[queueRow],
+    R:{main:{x:0,y:0,w:205,h:60},queue:{x:210,y:0,w:190,h:60}},my:24};
+  vm.createContext(c);
+  for(const file of ['core/tokens.js','data/selection_host.js','ui/hover.js'])
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'../theme/verdant',file),'utf8'),c);
+  c.ssSelectionContextKey='songs';c.ssMainSelect.isSelected=()=>true;c.ssQueueRowSelected=()=>true;
+  for(const mode of ['light','dark'])for(const scale of [1,1.5]){
+    c.COL=c.ssPalette(mode);c.ssDensity=scale;
+    for(const pointerX of [20,230,-1]){
+      c.mx=pointerX;
+      const fills=[],edges=[],gr={FillSolidRect:(...args)=>edges.push(args)};
+      c.ssFillContinuousRect=(g,x,y,w,h,rx,ry,ink)=>fills.push(ink);
+      c.ssPaintRowHover(gr,false);c.ssDrawSelection(gr);
+      assert.deepEqual(fills,pointerX<0?[c.ssAccent(36),c.ssAccent(36)]:[c.COL.rowHover,c.ssAccent(36),c.ssAccent(36)]);
+      assert.equal(edges.length,2);
+      [row,queueRow].forEach((r,i)=>{
+        const [x,y,w,h,ink]=edges[i];
+        assert.equal(x,r.x0);assert.equal(w,Math.round(2*scale));assert.equal(ink,c.COL.green);
+        assert.ok(h>0&&y>=r.y0&&y+h<=r.y1,'accent stays inside visible row band');
+      });
+    }
+  }
+});
 console.log(passed+' selection regressions passed');

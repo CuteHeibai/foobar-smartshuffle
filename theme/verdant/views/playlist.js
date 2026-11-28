@@ -1,9 +1,9 @@
 ﻿/* verdant/views/playlist.js -- playlist view, empty state, and the file drop zone
-   Part of Verdant, a Spotify-style theme for foobar2000. Loaded by main.js;
+   Part of Verdant, an Apple Music-style theme for foobar2000. Loaded by main.js;
    every module shares one global scope, so load order is set there. */
 
 function drawPlaylist(gr,r){
-  HB_TR=[]; HB_PLAYLIST_PLAY=null; HB_PLADD_FILES=null; HB_PLADD_FOLDER=null;
+  ssMeterCell=null; HB_TR=[]; HB_PLAYLIST_PLAY=null; HB_PLADD_FILES=null; HB_PLADD_FOLDER=null;
   var p=activePl();
   // the header reads meta too (track count, total duration), so the whole view waits on it, and
   // then on the artwork the reveal will actually show
@@ -13,25 +13,26 @@ function drawPlaylist(gr,r){
     return;
   }
   gr.FillGradRect(r.x,r.y,r.w,M.headH,90,ssLibraryHeaderColor(artHue(plChoice(p.i).single,p.name)),COL.base,1.0);
-  var s=ssDensity,list=ssLibraryTrackLayout(r,s,undefined,Math.round(1440*s)),lx=list.x,rx=list.right,ay=r.y+16*s,art=M.artSz;
-  drawPlCover(gr,lx,ay,art,8,p.i,p.name);
+  var s=ssDensity,rSm=typeof ssRad==='function'?ssRad('sm',s):Math.round(4*s),rMd=typeof ssRad==='function'?ssRad('md',s):Math.round(8*s),rLg=typeof ssRad==='function'?ssRad('lg',s):Math.round(12*s);
+  var list=ssLibraryTrackLayout(r,s),lx=list.x,rx=list.right,ay=r.y+16*s,art=M.artSz;
+  drawPlCover(gr,lx,ay,art,rMd,p.i,p.name);
   var button=Math.max(32,Math.round(38*s)),barY=ay+art+Math.round(6*s),playSpace=0;
   if(p.count>0){HB_PLAYLIST_PLAY=drawPlaylistPlay(gr,lx,barY,button,p.i);playSpace=button+Math.round(10*s);}
   var addW=Math.min(136*s,list.w-art-48*s),addX=rx-addW,addY=r.y+10*s,showAdd=canEditPl(p.i)&&addW>82*s;
   if(showAdd){
-    ssFillContinuousRect(gr,addX,addY,addW,28*s,8,8,COL.elev);tC(gr,'＋ 添加文件夹',FONT.pl,COL.green,addX,addY,addW,28*s);
+    ssFillContinuousRect(gr,addX,addY,addW,28*s,rMd,rMd,COL.elev);tC(gr,'＋ 添加文件夹',FONT.pl,COL.green,addX,addY,addW,28*s);
     HB_PLADD_FOLDER={x0:addX,y0:addY,x1:addX+addW,y1:addY+28*s};
   }
   var sortDirW=38,sortGap=8,sortPillW=Math.max(1,Math.min(200,list.w-playSpace-sortDirW-sortGap));
-  var sortX=lx+playSpace,sortY=barY;
+  var sortX=rx-sortDirW-sortGap-sortPillW,sortY=barY;
   var tx=lx+art+24*s,tw=Math.max(1,rx-tx-(showAdd?addW+10*s:0));
   var text=ssHeaderBoxes(art,false,s);
   tL(gr,'歌单',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
   tL(gr,p.name,FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
   var meta0=getMeta(p.i);
   tL(gr,p.count+' 首歌曲'+(meta0.totalSec>0?(' '+CH_DOT+' '+fmtDur(meta0.totalSec)):''),FONT.meta,SS_APPEARANCE==='dark'?COL.text:COL.text2,tx,ay+text.metaY,tw,text.metaH);
-  HB_PLSORT=drawDropPill(gr,sortX,sortY,sortPillW,38,'排序：'+labelOf(PL_SORTS,plSort,'歌手'),plSortMenuOpen);
-  drawSortDirBtn(gr,sortX+sortPillW+sortGap,sortY,sortDirW,38);
+  HB_PLSORT=drawDropPill(gr,sortX,sortY,sortPillW,button,'排序：'+labelOf(PL_SORTS,plSort,'歌手'),plSortMenuOpen);
+  drawSortDirBtn(gr,sortX+sortPillW+sortGap,sortY,sortDirW,button);
 
   // track list
   var listTop=r.y+M.headH+Math.round(8*s);
@@ -54,20 +55,22 @@ function drawPlaylist(gr,r){
     var isPlaying=(loc && loc.IsValid && loc.PlaylistIndex===p.i && loc.PlaylistItemIndex===j)
                   || (shufHere && sameHandle(h,NP));   // playing from this playlist's hidden shuffle copy
     var y0=Math.max(ry,rowsTop),y1=Math.min(ry+rh,cropY),moreY=ry+Math.round((rh-moreW)/2);
+    isPlaying=isPlaying&&!ssMeterCell;
     var isHover=ssRowHover(list.rowLeft,y0,list.personalRight,y1);
-    ssDrawCachedRow(gr,'pl:'+p.i+':'+j+':'+d,r.x,ry,r.w,rh,function(gr){
+    ssDrawCachedRow(gr,'pl:'+p.i+':'+j+':'+d+(isPlaying?':playing':''),r.x,ry,r.w,rh,function(gr){
       ssDrawLibraryRowSurface(gr,list,ry,rh,isHover,d%2===1);
-      ssDrawTrackLead(gr,lx,ry,playW,rh,isPlaying);
-      tR(gr,String(d+1),FONT.rowNum,isPlaying?COL.green:COL.text2,numX,ry,numW,rh);
+      ssDrawTrackLead(gr,lx,ry,playW,rh,false);
+      if(!isPlaying)tR(gr,String(d+1),FONT.rowNum,COL.text2,numX,ry,numW,rh);
       var alb=meta.album[j],key=meta.artkey[j],previous=order[d-1],artist=meta.artist[j];
       var repeated=alb&&key&&items[previous]&&alb===meta.album[previous]&&key===meta.artkey[previous];
-      drawCover(gr,coverX,ry+(rh-cs)/2,cs,3,h,alb||String(j),key);
+      drawCover(gr,coverX,ry+(rh-cs)/2,cs,rSm,h,alb||String(j),key);
       var detail=alb&&alb!==meta.title[j]&&(!repeated||!artist)?[artist,alb].filter(Boolean).join(' '+CH_DOT+' '):artist;
       ssDrawTrackLabels(gr,meta.title[j],detail,isPlaying?COL.green:COL.text,titleX,ry,titleW,rh,s);
       drawIcon(gr,'more',isHover?COL.text:COL.text2,moreX,moreY,moreW,moreW,Math.round(17*s));
       tR(gr,meta.len[j],FONT.rowCell,COL.text2,rx-durW,ry,durW,rh);
     });
     HB_TR.push({x0:list.rowLeft,y0:y0,x1:list.personalRight,y1:y1,rowY:ry,rowH:rh,pl:p.i,item:j,displayIndex:d,pgx0:lx,pgx1:lx+playW,playOnHover:true,playVisible:true,playId:ssTrackID(h),more:{x0:moreX,y0:moreY,x1:moreX+moreW,y1:moreY+moreW},favoriteX:rx+Math.round(4*s)});
+    if(isPlaying)ssMeterCell={row:HB_TR[HB_TR.length-1],x:numX,w:numW,scale:s};
   }
   layer.finish();gr=parentGr;
   if(p.count===0){ drawPlEmpty(gr,r,rowsTop-rh,cropY); drawSortMenu(gr); return; }   // no column headings over a void
@@ -76,10 +79,10 @@ function drawPlaylist(gr,r){
   tL(gr,'歌曲',FONT.head,COL.text2,titleX,listTop,titleW,headH);
   drawIcon(gr,'clock',COL.text2,rx-clockW,listTop,clockW,headH,Math.round(15*s));
   gr.DrawLine(lx,ruleY,rx,ruleY,1,COL.line);
-  drawScrollbar(gr,r.x+r.w-10,rowsTop,viewH,firstRow,maxPx,viewH,contentH,hv(r.x,r.y,r.x+r.w,cropY)||drag==='scroll');
+  drawScrollbar(gr,r.x+r.w-10,rowsTop,viewH,firstRow,maxPx,viewH,contentH,[r.x,r.y,r.x+r.w,cropY]);
   // the empty-state zone isn't on screen here, so outline the list itself as the target
   if(plDropHover){
-    var iy=rowsTop-rh, ih=cropY-iy, ix=lx-12, iw=rx-lx+24, ir=Math.min(12,iw/2,ih/2);
+    var iy=rowsTop-rh, ih=cropY-iy, ix=lx-12, iw=rx-lx+24, ir=Math.min(rLg,iw/2,ih/2);
     ssFillContinuousRect(gr,ix,iy,iw,ih,ir,ir,ssAccent(20));
     strokeRound(gr,ix,iy,iw,ih,ir,2,COL.green);
     var lh=34, ly=iy+ih-lh-18, lw=Math.min(iw-32,pillW(gr,'拖入以添加到此歌单'));
@@ -118,8 +121,8 @@ function drawPlEmpty(gr,r,top,bottom){
 }
 // green wash + rounded outline + label: the shape the cursor is aiming at
 function drawDropZone(gr,cx,top,availW,availH){
-  var bw=Math.min(560,availW), bh=Math.min(260,availH-24);
-  var bx=cx-Math.round(bw/2), by=top+Math.round((availH-bh)/2), rad=Math.min(14,bw/2,bh/2);
+  var bw=Math.min(560,availW), bh=Math.min(260,availH-24), rLg=typeof ssRad==='function'?ssRad('lg'):12;
+  var bx=cx-Math.round(bw/2), by=top+Math.round((availH-bh)/2), rad=Math.min(rLg,bw/2,bh/2);
   ssFillContinuousRect(gr,bx,by,bw,bh,rad,rad,ssAccent(26));
   strokeRound(gr,bx,by,bw,bh,rad,2,COL.green);
   var iy=by+Math.round(bh/2)-40;
