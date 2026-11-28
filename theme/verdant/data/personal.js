@@ -170,5 +170,5 @@ function ssPersonalPointerUp(x,y){
   }
   return true;
 }
-function ssPersonalNow(kind){if(NP)ssPersonalSet(kind,[ssTrackID(NP)]);}
+function ssPersonalNow(kind){var id=NP?ssTrackID(NP):(typeof ssResumeTrack==='function'&&ssResumeTrack()?ssResumeTrack().id:'');if(id)ssPersonalSet(kind,[id]);}
 function ssStopPersonal(){if(ssPersonalFlagTimer)window.ClearTimeout(ssPersonalFlagTimer);ssPersonalFlagTimer=0;ssPersonalPressed=null;ssPersonalHandles=Object.create(null);ssPersonalHandleSource=null;ssPersonalPrefetchCache=null;ssPersonalPrefetchIDs=[];ssPersonalWantedIDs=[];}

@@ -290,7 +290,7 @@ test('navigation and menu labels use regular Segoe UI while section headings use
  const {c}=context(),g=graphics(),draws=[];g.DrawString=(s,f)=>draws.push([s,f.Name,f.Style]);
  const labels={lib:'Library',pl:'Playlist',menuPrimary:'Play',head:'Track',tab:'Queue',sect:'Up Next',sect2:'Albums',card:'Album title',lyric:'Lyrics'};
  for(const [role,label] of Object.entries(labels))c.tL(g,label,c.FONT[role],1,0,0,400,40);
- assert.deepEqual(draws,Object.entries(labels).map(([role,label])=>[label,'Segoe UI',role==='sect'||role==='sect2'?1:0]));
+ assert.deepEqual(draws,Object.entries(labels).map(([role,label])=>[label,'Segoe UI',role==='sect'||role==='sect2'||role==='card'?1:0]));
 });
 test('scene restore copies align source and destination to whole pixels',()=>{
  const h=context(),c=h.c;h.app();c.R={main:{x:0,y:0,w:500,h:200}};c.HB_TR=[{x0:10.2,y0:49.3,x1:480.8,y1:99.3}];c.HB_Q=[];c.ssSelectionRects=()=>[];c.ssDrawSelection=()=>{};c.ssSceneImage={};c.mx=40;c.my=70;let copies=[];const g=graphics();g.DrawImage=(im,...args)=>copies.push(args);c.ssPaintInteractions(g);assert.ok(copies.length);assert.ok(copies.every(args=>args.every(Number.isInteger)));
@@ -347,9 +347,9 @@ test('track context promotes playback and properties and preserves native comman
  const play={label:'播放',command:17},props={label:'属性',command:28},queue={label:'添加到播放队列',command:19},tools={label:'工具',children:[{label:'组件命令',command:29}]};
  const add={label:'加入待播队列',run(){}},recycle={label:'移到回收站',danger:true,run(){}};
  const items=c.ssTrackContextItems([queue,play,tools,{separator:true},props],[add],[recycle]);
- assert.deepEqual(Array.from(items.filter(item=>!item.separator),item=>item.label),['播放','加入待播队列','属性','音频、文件、标签与工具']);
- const more=items.at(-1);assert.ok(more.drill);assert.equal(more.children.find(item=>item.label==='播放与音频').children[0].command,queue.command);
- assert.equal(more.children.find(item=>item.label==='工具与扩展').children[0],tools);assert.equal(more.children.find(item=>item.label==='文件与复制').children.at(-1),recycle);
+ assert.deepEqual(Array.from(items.filter(item=>!item.separator),item=>item.label),['播放','加入待播队列','属性','音频、文件、标签与工具','移到回收站']);
+ const more=items.find(item=>item.drill);assert.ok(more&&more.drill);assert.equal(more.children.find(item=>item.label==='播放与音频').children[0].command,queue.command);
+ assert.equal(more.children.find(item=>item.label==='工具与扩展').children[0],tools);assert.equal(items.at(-1),recycle);
  assert.notEqual(items[0].label,add.label);
  c.ssShowPopup(items,50,70,'native-token',true,'context');let command;c.ssSend=(op,args)=>command={op,token:args.token,id:args.command};
  c.ssPopupChoose(tools.children[0]);assert.deepEqual(command,{op:'menu_execute',token:'native-token',id:29});

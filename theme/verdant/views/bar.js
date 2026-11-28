@@ -74,8 +74,7 @@ function ssDrawTransport(gr,by,height,s,layout,trackBg,timeFont){
   if(!(len>0)){gr.FillSolidRect(x,fsMode?y:y+th/4,w,fsMode?th:th/2,COL.seekbg);return;}
   var seconds=resume?resume.seconds:fb.PlaybackTime;
   var pos=drag==='seek'?dragFrac:clamp01(seconds/len);
-  HB_SEEK=drawTrackBar(gr,x,y,w,th,COL.seekbg,pos,COL.green,trackBg,resume?null:'seek',cy+size/2+1);
-  if(resume)HB_SEEK=null;
+  HB_SEEK=drawTrackBar(gr,x,y,w,th,COL.seekbg,pos,COL.green,trackBg,'seek',cy+size/2+1);
   var timeColor=layout.timeColor||COL.text2;
   tR(gr,fmtTime(drag==='seek'?len*dragFrac:seconds),timeFont,timeColor,x-Math.round(54*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
   tL(gr,fmtTime(len),timeFont,timeColor,x+w+Math.round(10*s),y-Math.round(7*s),Math.round(46*s),Math.round(17*s));
@@ -230,7 +229,8 @@ function drawBar(gr){
   var resume=ssResumeTrack(),cover=ssFooterCoverHandle(resume),rCovSm=typeof ssRad==='function'?ssRad('sm',s):Math.round(4*s);
   if(cover)drawCover(gr,cx,cy,cs,rCovSm,cover,'np');else ssDrawIdleRecord(gr,cx,cy,cs);
   var tx=cx+cs+14*s;
-  var personalSpace=R.barInfoW-tx>=216*s&&NP&&typeof ssPersonalEnabled==='function'&&ssPersonalEnabled()?56*s:0;
+  var activeTrack=NP||resume;
+  var personalSpace=R.barInfoW-tx>=216*s&&activeTrack&&typeof ssPersonalEnabled==='function'&&ssPersonalEnabled()?56*s:0;
   var titleW=Math.max(20,R.barInfoW-tx-12*s-personalSpace),idleTitle=!NP&&!resume;
   var titleY=idleTitle?by+Math.round((M.barH-20*s)/2):by+26*s;
   ssDrawFooterTitle(gr,NP?npTitleStr:resume?resume.title:'尚未播放',FONT.npTitle,idleTitle?COL.text2:COL.text,tx,titleY,titleW,20*s);
@@ -241,9 +241,23 @@ function drawBar(gr){
   }
   if(personalSpace){
     var summary=ssState&&ssState.personal||{},fx=R.barInfoW-personalSpace-6*s,fy=by+(M.barH-28*s)/2;
-    ssDrawPersonalHeart(gr,fx,fy,28*s,!!summary.now_favorite);
+    var favOn=!!summary.now_favorite,laterOn=!!summary.now_later;
+    if(!NP&&resume&&resume.id){
+      if(typeof ssPersonalFlags!=='undefined'&&ssPersonalFlags&&!ssPersonalFlags[resume.id]&&typeof ssPersonalVisible==='function'){
+        var vis=typeof ssPersonalVisibleIDs!=='undefined'&&Array.isArray(ssPersonalVisibleIDs)?ssPersonalVisibleIDs:[];
+        ssPersonalVisible(vis.concat([resume.id]));
+      }
+      if(typeof ssPersonalFlag==='function'){
+        var rFlag=ssPersonalFlag(resume.id);
+        favOn=!!rFlag.favorite;laterOn=!!rFlag.later;
+      }
+    }
+    var favHot=typeof hv==='function'&&hv(fx,fy,fx+28*s,fy+28*s);
+    var laterHot=typeof hv==='function'&&hv(fx+28*s,fy,fx+56*s,fy+28*s);
+    ssDrawPersonalHeart(gr,fx,fy,28*s,favOn,favHot);
     HB_CTRL.push({x0:fx,y0:fy,x1:fx+28*s,y1:fy+28*s,act:'favorite'});
-    drawIcon(gr,summary.now_later?'bookmarkFilled':'bookmark',summary.now_later?COL.green:COL.text2,fx+28*s,fy,28*s,28*s,18*s);
+    if(laterHot&&typeof ssFillContinuousRect==='function')ssFillContinuousRect(gr,fx+28*s,fy,28*s,28*s,rCovSm,rCovSm,COL.rowHover);
+    drawIcon(gr,laterOn?'bookmarkFilled':'bookmark',laterOn?COL.green:(laterHot?COL.text:COL.text2),fx+28*s,fy,28*s,28*s,18*s);
     HB_CTRL.push({x0:fx+28*s,y0:fy,x1:fx+56*s,y1:fy+28*s,act:'later'});
   }
   var tools=ssFooterToolLayout(s),transport=ssTransportLayout(W,R.barInfoW,tools.modeLeft-Math.round(8*s),s);

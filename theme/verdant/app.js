@@ -25,7 +25,7 @@ function repaintAll(){ if(typeof ssInvalidateRowRasters==='function')ssInvalidat
    10px gutter below it (see the FillSolidRect(r.x,cropY,...) in each), so the remainder lands on
    the player bar. drawBar runs after main in the partial path, so pairing them covers it -- and
    it is far cheaper than the full-window repaint that used to hide this. */
-function repaintMain(scrollOnly){ if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyMain=true; window.RepaintRect(R.main.x,R.main.y,R.main.w,R.main.h); if(!scrollOnly||(view!=='stats'&&view!=='playlist'&&view!=='songs'&&view!=='artist'&&view!=='album'&&view!=='albums'))repaintBar(); }
+function repaintMain(scrollOnly){ if(!scrollOnly&&typeof ssInvalidateRowRasters==='function')ssInvalidateRowRasters();markDirty(); dirtyMain=true; window.RepaintRect(R.main.x,R.main.y,R.main.w,R.main.h); if(!scrollOnly||(view!=='stats'&&view!=='settings'&&view!=='playlist'&&view!=='songs'&&view!=='artist'&&view!=='album'&&view!=='albums'))repaintBar(); }
 function repaintNav(){ markDirty(); dirtyNav=true; window.RepaintRect(R.navLib.x,R.navLib.y,R.navLib.w,R.navLib.h); }
 // drawNav paints both nav cards, so a hover crossing between them must invalidate their union
 function repaintNavAll(){ markDirty(); dirtyNav=true; window.RepaintRect(R.navTop.x,R.navTop.y,R.navTop.w,(R.navLib.y+R.navLib.h)-R.navTop.y); }
@@ -52,7 +52,7 @@ function hoverZone(x,y){
   return 'nav';
 }
 function repaintZone(z){
-  if(z==='main') repaintMain();
+  if(z==='main') repaintMain(view==='settings');
   else if(z==='nav') repaintNavAll();
   else if(z==='queue') repaintQueue();
   else if(z==='bar') repaintBar();
@@ -227,6 +227,7 @@ function ssPaintFocusBox(gr,b){
 }
 function ssPaintFrame(gr){
   if(typeof ssPaintControlDamage==='function'&&ssPaintControlDamage(gr))return;
+  if(typeof ssPaintSettingsDamage==='function'&&ssPaintSettingsDamage(gr))return true;
   if(ssPaintMeterDamage(gr))return true;
   if(ssSelectionDirty&&!dirtyAll&&!anyDirty()&&ssSceneImage&&!ssModal&&!ssPopup&&!fsMode){
     ssPaintInteractions(gr);return;
@@ -345,6 +346,7 @@ function on_mouse_lbtn_down(x,y){
   ssLyricPlayDown=false;
   if(ssPopup)return;
   if(typeof ssTrackInfo!=='undefined'&&ssTrackInfo)return;
+  if(view==='settings'&&typeof ssSettingsMouseDown==='function'&&ssSettingsMouseDown(x,y))return;
   if(ssPointerDown(x,y)) return;
   if(fsMode){
     if(fsView==='stats'&&ssStatsPointerDown(x,y))return;
@@ -427,6 +429,19 @@ function computeSearch(){
   var idx=getSearchIdx(), cnt=0;
   for(i=0;i<idx.length && cnt<150;i++){ if(idx[i].key.indexOf(q)>=0){ searchTrks.push(idx[i]); cnt++; } }
 }
+function ssSeekPlayback(frac){
+  if(fb.PlaybackLength>0){fb.PlaybackTime=fb.PlaybackLength*frac;return;}
+  var res=typeof ssResumeTrack==='function'?ssResumeTrack():null;
+  if(!res||!res.id)return;
+  var dur=Number(res.duration)||0,sec=Math.max(0,Math.min(dur,dur*frac));
+  res.seconds=sec;
+  var pl=ssState&&ssState.playlists&&ssState.playlists.find(function(p){return p.guid===res.playlist;});
+  if(pl&&typeof res.item==='number'&&!(typeof isHiddenPl==='function'&&isHiddenPl(pl.name))){
+    ssSend('play',{playlist:pl.index,item:res.item,seek_seconds:sec});
+  }else{
+    ssSend('play_match',{track_id:res.id,tracks:[res.id],seconds:sec});
+  }
+}
 function doCtrl(act,button){
   if(fsMode&&(act==='lyrics'||act==='viz')){doFsAct(act);return;}
   if(act==='lyrics'||act==='queue'){ssSetRightPane(act,!(ssRightOpen&&rightTab===act&&R.queue&&R.queue.w>0));return;}
@@ -434,7 +449,15 @@ function doCtrl(act,button){
   else if(act==='later')ssPersonalNow('later');
   else if(act==='play') ssPlayOrPause();
   else if(act==='next') ssSend('next');
-  else if(act==='prev') ssSend('previous');
+  else if(act==='prev'){
+    var resPrev=!NP&&typeof ssResumeTrack==='function'?ssResumeTrack():null;
+    if(resPrev&&resPrev.id){
+      var prevPl=ssState&&ssState.playlists&&ssState.playlists.find(function(p){return p.guid===resPrev.playlist;});
+      if((Number(resPrev.seconds)||0)>3)ssSeekPlayback(0);
+      else if(prevPl&&typeof resPrev.item==='number'&&resPrev.item>0&&!(typeof isHiddenPl==='function'&&isHiddenPl(prevPl.name)))ssSend('play',{playlist:prevPl.index,item:resPrev.item-1});
+      else ssSend('previous');
+    }else ssSend('previous');
+  }
   else if(act==='playback_mode') ssShowPlaybackModes(Math.max(8,W-320),R.barY,button);
   else if(act==='preference') ssOpen();
   else if(act==='output') ssShowOutputs(Math.max(0,W-350),R.barY,button);
@@ -457,7 +480,7 @@ function on_mouse_lbtn_up(x,y){
   if(typeof ssStatsPointerUp==='function'&&ssStatsPointerUp(x,y))return;
   var t;
   if(fsMode){
-    if(drag==='seek'){if(fb.PlaybackLength>0)fb.PlaybackTime=fb.PlaybackLength*dragFrac;drag=null;repaintAll();return;}
+    if(drag==='seek'){ssSeekPlayback(dragFrac);drag=null;repaintAll();return;}
     if(drag==='vol'||drag==='scroll'){drag=null;return;}
     if(HB_VIZ&&inRect(x,y,HB_VIZ)){ssShowVizStyles(HB_VIZ);return;}
     if((t=hit(HB_FS,x,y)))doFsAct(t.act,t.album);
@@ -527,7 +550,7 @@ function on_mouse_lbtn_up(x,y){
     cancelRename(); return;                        // click on backdrop: dismiss
   }
   if((t=hit(HB_DOTS,x,y))){ openPlaylistMenu(t.pl,t.mx,t.my); return; }
-  if(drag==='seek'){ if(fb.PlaybackLength>0) fb.PlaybackTime=fb.PlaybackLength*dragFrac; drag=null; repaintAll(); return; }
+  if(drag==='seek'){ ssSeekPlayback(dragFrac); drag=null; repaintAll(); return; }
   if(drag==='vol'){ drag=null; return; }
   if(drag==='scroll'||drag==='scrollh'||drag==='scrolln'||drag==='scrollq'){
     var wasH=(drag==='scrollh'); drag=null;
@@ -558,7 +581,7 @@ function on_mouse_lbtn_up(x,y){
     if((t=hit(HB_CAP,x,y)))ssWindowControl(t.act);
     return;
   }
-  if(view==='settings'&&typeof ssSettingsClick==='function'&&ssSettingsClick(x,y))return;
+  if(view==='settings'&&typeof ssSettingsClick==='function'){if(ssSettingsClick(x,y))return;if(typeof ssSettingsDown!=='undefined'&&ssSettingsDown){ssSettingsDown='';if(typeof repaintMain==='function')repaintMain();}}
   if((t=hit(HB_TABS,x,y))){ssSetRightPane(t.tab,true);return;}
   if((t=hit(HB_CTRL,x,y))){ doCtrl(t.act,t); return; }
   if(HB_HOME && inRect(x,y,HB_HOME)){ ssAdvanceHomeRecommendation(); view='home'; repaintAll(); return; }
@@ -604,6 +627,7 @@ function playRow(t){
 // Double-click inserts this song at the head of the user queue and starts it.
 function on_mouse_lbtn_dblclk(x,y){
   if(ssPopup||ssModal||fsMode||utils.IsKeyPressed(17)||ssRowPlayAt(x,y))return;
+  if(view==='settings'&&typeof ssSettingsMouseDown==='function'&&ssSettingsMouseDown(x,y))return;
   var moreDbl=hit(HB_TR,x,y);if((moreDbl&&moreDbl.more&&inRect(x,y,moreDbl.more))||ssQueueActionAt(x,y))return;
   if(fsMode||confirmDel||renameEdit||sgMenuOpen||plSortMenuOpen||dupPrompt||rgPrompt) return;
   if(typeof ssPersonalActionAt==='function'&&ssPersonalActionAt(x,y))return;
@@ -626,6 +650,7 @@ function hoverSig(x,y){
     if(fsView==='stats'&&(i=hitIdx(HB_STATS,x,y))>=0)return 'stats'+i;
     return '';
   }
+  if(typeof ssTrackInfo!=='undefined'&&ssTrackInfo){ i=hitIdx(HB_TRACK_INFO,x,y); return i<0?'ti':('ti'+i); }
   if(dupPrompt){ if(DUP_HB){ if(inRect(x,y,DUP_HB.skip)) return 'dps'; if(inRect(x,y,DUP_HB.keep)) return 'dpk'; } return 'dp'; }
   if(renameEdit){ if(RENAME_HB){ if(inRect(x,y,RENAME_HB.save)) return 'rns'; if(inRect(x,y,RENAME_HB.cancel)) return 'rnc'; } return 'rn'; }
   if(rgPrompt){ if(RG_HB){ if(inRect(x,y,RG_HB.scan)) return 'rgs'; if(inRect(x,y,RG_HB.cancel)) return 'rgc'; } return 'rg'; }
@@ -634,10 +659,12 @@ function hoverSig(x,y){
   if(plSortMenuOpen){ i=hitIdx(PL_SORT_HB,x,y); return (i<0)?'ps':('ps'+i); }
   if((i=hitIdx(HB_DOTS,x,y))>=0) return 'd'+i;
   if(y<TBH){
+    if(typeof HB_TOP_ACTIONS!=='undefined'&&(i=hitIdx(HB_TOP_ACTIONS,x,y))>=0) return 'topa'+i;
     if((i=hitIdx(HB_MENU,x,y))>=0) return 'mnu'+i;
     if((i=hitIdx(HB_CAP,x,y))>=0)return 'cap'+i;
     return '';
   }
+  if(view==='settings'&&typeof HB_SETTINGS!=='undefined'&&(i=hitIdx(HB_SETTINGS,x,y))>=0) return 'set'+i;
   if(typeof SS_QUEUE_SB!=='undefined'&&SS_QUEUE_SB&&inRect(x,y,SS_QUEUE_SB))return 'sbq';
   if(SBH && inRect(x,y,SBH)) return 'sbh';
   if(SBN && inRect(x,y,SBN)) return 'sbn';
@@ -698,9 +725,11 @@ function on_mouse_move(x,y,mask){
     var localSig=/^(r\d+(?:-favorite)?|q\d+|sb[hqn]?|)$/;
     var localOnly=localSig.test(sig)&&localSig.test(hoverKey);
     var rowChanged=sig!==hoverKey&&(/^[rq]\d/.test(sig)||/^[rq]\d/.test(hoverKey));
-    hoverKey=sig; scrollKey=sk;
+    var skChanged=sk!==scrollKey; hoverKey=sig; scrollKey=sk; var settingsHandled=view==='settings'&&!skChanged&&z==='main'&&hoverZoneKey==='main'&&typeof ssSettingsHoverChange==='function'&&ssSettingsHoverChange(sig); if(view==='settings'&&!settingsHandled&&typeof ssSettingsHoverChange==='function')ssSettingsHoverChange(z==='main'?sig:'');
+
     // an overlay owns the whole screen and on_paint forces a full paint while one is open
     if(fsMode||renameEdit||confirmDel||dupPrompt||rgPrompt||sgMenuOpen||plSortMenuOpen) repaintAll();
+    else if(settingsHandled){}
     else if(localOnly&&!fsMode&&ssSceneImage){if(rowChanged)ssRequestRowHover();}
     else { repaintZone(hoverZoneKey); if(z!==hoverZoneKey) repaintZone(z); }   // clear the old highlight, then draw the new
   }
@@ -723,7 +752,7 @@ function scrollSection(x,y){
 }
 function on_mouse_leave(){
   ssMenuLeave();
-  mx=-1; my=-1;
+  mx=-1; my=-1; if(typeof ssSettingsMouseLeave==='function')ssSettingsMouseLeave();
   if(typeof ssUpdateControlHover==='function')ssUpdateControlHover();
   if(fsMode){if(hoverKey){hoverKey='';repaintAll();}return;}
   if(hoverKey!==''||scrollKey!==''){
@@ -978,7 +1007,7 @@ function on_script_unload(){
   ssStopFooterMarquee();ssInvalidateSelections();ssAbortResize();
   ssStopCovers();ssStatsStop();
   ssHideLyrics();
-  ssStop();if(typeof ssStopPersonal==='function')ssStopPersonal();if(ssSearchTimer)window.ClearTimeout(ssSearchTimer);
+  ssStop();if(typeof ssStopPersonal==='function')ssStopPersonal();if(typeof ssSettingsAnimStop==='function')ssSettingsAnimStop();if(ssSearchTimer)window.ClearTimeout(ssSearchTimer);
   stopLyAnim(); stopCaret(); stopViz(); stopScrollAnim(); stopShimAnim(); stopMemWatch();
   if(dupWatch && dupWatch.timer) window.ClearTimeout(dupWatch.timer);
 }

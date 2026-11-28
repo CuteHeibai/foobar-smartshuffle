@@ -28,9 +28,11 @@ function drawSongs(gr,r){
   var gpX=rx-gpW,clX=gpX-pgap-nzW;
   var tx=lx+art+24*s,tw=Math.max(1,rx-tx);
   var text=ssHeaderBoxes(art,false,s);
-  tL(gr,'音乐库',FONT.eyebrow,COL.text,tx,ay+text.eyeY,tw,text.eyeH);
-  tL(gr,'全部歌曲',FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
-  tL(gr,fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):''),FONT.meta,SS_APPEARANCE==='dark'?COL.text:COL.text2,tx,ay+text.metaY,tw,text.metaH);
+  tL(gr,'音乐库',FONT.eyebrow,COL.text2,tx,ay+text.eyeY,tw,text.eyeH);
+  tL(gr,g==='artist'?'歌手':'全部歌曲',FONT.title,COL.text,tx,ay+text.titleY,tw,text.titleH);
+  var artistCount=g==='artist'?songsRows.filter(function(r){return r.k==='g1';}).length:0;
+  var metaStr=(artistCount?fmtNum(artistCount)+' 位歌手 '+CH_DOT+' ':'')+fmtNum(songsTracks.length)+' 首歌曲'+(songsTotalSec>0?(' '+CH_DOT+' '+fmtDur(songsTotalSec)):'');
+  tL(gr,metaStr,FONT.meta,SS_APPEARANCE==='dark'?COL.text:COL.text2,tx,ay+text.metaY,tw,text.metaH);
   HB_RGNORM=drawNormalizePill(gr,clX,barY,nzW,button);
   HB_SG=drawDropPill(gr,gpX,barY,gpW,button,'分组：'+labelOf(SONGS_GROUPS,songsGroup,'不分组'),sgMenuOpen);
 
@@ -112,18 +114,24 @@ function drawSongs(gr,r){
       var hb0=Math.max(blockTop-(banner?0:4),rowsTop), hb1=vy1;
       var hHov=isArt&&hb1>hb0&&hv(list.rowLeft,hb0,list.rowRight,hb1),bandW=list.rowRight-list.rowLeft;
       if(banner)ssFillContinuousRect(gr,list.rowLeft,blockTop,bandW,blockH,rMd,rMd,hHov?COL.hover:COL.banner);
-      else if(hHov)ssFillContinuousRect(gr,list.rowLeft,blockTop-4,bandW,blockH+8,rMd,rMd,COL.rowHover);
-      if(isArt) ssDrawArtistAvatar(gr,hx,hy,acs,row.label);
-      else drawRounded(gr,hx,hy,acs,rSm,row.handle,row.seed);
+      else if(hHov){
+        ssFillContinuousRect(gr,list.rowLeft,blockTop-4,bandW,blockH+8,rMd,rMd,COL.rowHover);
+        if(typeof strokeRound==='function')strokeRound(gr,list.rowLeft,blockTop-4,bandW,blockH+8,rMd,1,COL.line);
+      }
+      if(isArt){
+        ssDrawArtistAvatar(gr,hx,hy,acs,row.label);
+        if(typeof gr.DrawEllipse==='function')gr.DrawEllipse(hx,hy,acs,acs,1,typeof ssInk==='function'?ssInk(SS_APPEARANCE==='dark'?24:16):COL.line);
+      }else drawRounded(gr,hx,hy,acs,rSm,row.handle,row.seed);
       // text block centred against the artwork, running to the same right edge as the rows
-      var htx=hx+acs+Math.round(SG_TGAP*s),htw=rx-htx;
+      var htx=hx+acs+Math.round(SG_TGAP*s),htw=rx-htx-(isArt&&hHov?Math.round(74*s):0);
       var eyeH=banner?Math.round(16*s):0,nameH=Math.round((nest?22:26)*s),subH=Math.round(16*s);
       var ty0=Math.round(hy+acs/2-(eyeH+nameH+subH)/2);
-      var sub=banner?(fmtNum(row.albums||1)+' album'+((row.albums||1)===1?'':'s')+'  '+CH_DOT+'  '+fmtNum(row.count)+' 首歌曲')
+      var sub=banner?(fmtNum(row.albums||1)+' 张专辑  '+CH_DOT+'  '+fmtNum(row.count)+' 首歌曲')
                     :((row.sub?row.sub+'  '+CH_DOT+'  ':'')+fmtNum(row.count)+' 首歌曲');
       if(banner) tL(gr,'歌手',FONT.eyebrow,COL.text3,htx,ty0,htw,eyeH);
       tL(gr,isArt?ssArtistName(row.label):row.label,nest?FONT.sect:FONT.sect2,COL.text,htx,ty0+eyeH,htw,nameH);
       tL(gr,sub,FONT.plSub,COL.text2,htx,ty0+eyeH+nameH,htw,subH);
+      if(isArt&&hHov)tR(gr,'查看歌手 ›',FONT.plSub,COL.green,rx-Math.round(72*s),hy,Math.round(68*s),acs);
       // artist headers are a shortcut to the full artist page
       if(isArt && hb1>hb0) HB_CARD.push({x0:list.rowLeft,y0:hb0,x1:list.rowRight,y1:hb1,kind:'artist',id:row.label});
     }

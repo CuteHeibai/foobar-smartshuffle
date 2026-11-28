@@ -17,7 +17,7 @@ function ssAccent(a){return ssAlpha(COL.green,a);}
 function ssPalette(mode){
   if(mode==='light')return {
     black:RGB(244,245,247),base:RGB(255,255,255),elev:RGB(246,247,249),hover:RGB(235,236,240),
-    text:RGB(62,62,62),text2:RGB(102,102,102),text3:RGB(110,110,110),
+    text:RGB(29,29,31),text2:RGB(90,90,95),text3:RGB(118,118,123),
     green:RGB(10,110,240),greenC:RGB(10,110,240),greenHover:RGB(0,92,214),
     rowHover:RGBA(16,17,19,10),rowActive:RGBA(10,110,240,18),line:RGB(228,230,234),seekbg:RGB(219,222,227),
     splitter:RGB(210,212,218),gridLine:RGBA(16,17,19,40),gridAxis:RGBA(16,17,19,80),
@@ -30,7 +30,7 @@ function ssPalette(mode){
   };
   return {
     black:RGB(15,16,18),base:RGB(22,23,26),elev:RGB(30,31,35),hover:RGB(40,42,47),
-    text:RGB(226,226,226),text2:RGB(175,175,175),text3:RGB(143,143,143),
+    text:RGB(245,245,247),text2:RGB(174,174,178),text3:RGB(142,142,147),
     green:RGB(64,156,255),greenC:RGB(64,156,255),greenHover:RGB(100,180,255),
     rowHover:RGBA(255,255,255,14),rowActive:RGBA(64,156,255,26),
     line:RGB(48,50,55),splitter:RGB(48,50,55),gridLine:RGBA(255,255,255,26),gridAxis:RGBA(255,255,255,64),seekbg:RGB(62,65,72),
@@ -71,15 +71,15 @@ function ssUIFont(sz,style){return ssCreateFont('Segoe UI',sz,style);}
 function ssCreateFonts(){return {
   // Page titles, sections and artwork captions.
   title:ssUIFont(28,1), sect2:ssUIFont(20,1), sect:ssUIFont(15,1),
-  card:ssUIFont(14), meta:ssUIFont(13), eyebrow:ssUIFont(11),
+  card:ssUIFont(14,1), meta:ssUIFont(13), eyebrow:ssUIFont(12),
   // Navigation, menus and search input.
   searchTxt:ssUIFont(16), tab:ssUIFont(16), lib:ssUIFont(15),
-  pl:ssUIFont(13), plSub:ssUIFont(11), menuPrimary:ssUIFont(13), menu:ssUIFont(12),
+  pl:ssUIFont(13), plSub:ssUIFont(12), menuPrimary:ssUIFont(13), menu:ssUIFont(12),
   titleMenu:ssCreateFont('Segoe UI',14),
   // Track lists, lyrics and now playing.
   rowTitle:ssUIFont(14), rowArtist:ssUIFont(12), rowNum:ssUIFont(13), rowCell:ssUIFont(13),
-  head:ssUIFont(12), qName:ssUIFont(13), qArtist:ssUIFont(11), lyric:ssUIFont(16),
-  npTitle:ssUIFont(15), npArtist:ssUIFont(12), time:ssUIFont(12),
+  head:ssUIFont(12), qName:ssUIFont(13), qArtist:ssUIFont(12), lyric:ssUIFont(16),
+  npTitle:ssUIFont(15,1), npArtist:ssUIFont(12), time:ssUIFont(12),
   // Fullscreen text.
   fsTitle:ssCreateFont('Segoe UI',26,1), fsArtist:ssCreateFont('Segoe UI',18),
   fsSrc:ssCreateFont('Segoe UI',13), fsSrcName:ssCreateFont('Segoe UI',13), fsLyric:ssCreateFont('Segoe UI',28),
@@ -114,7 +114,7 @@ var fitY=0, fitH=0;
 function fitV(gr,f,y,h){fitY=y;fitH=h;}
 function ssFitFont(gr,font,height,text,width){
   var limit=Math.max(1,Math.floor(height)),fitWidth=width!==undefined,floor=ssFontFloor(font.Name);
-  if((font.Size||floor)>=floor&&lineH(gr,font)<=limit&&(!fitWidth||gr.CalcTextWidth(text,font)<=width))return font;
+  if((font.Size||floor)>=floor&&lineH(gr,font)<=limit+2&&(!fitWidth||gr.CalcTextWidth(text,font)<=width))return font;
   var key=fitWidth?String(text)+'|'+Math.floor(width):'';
   for(var i=0;i<SS_FIT_FONTS.length;i++){var c=SS_FIT_FONTS[i];if(c.base===font&&c.height===limit&&c.key===key)return c.font;}
   var meta=null;for(i=0;i<SS_FONT_META.length;i++)if(SS_FONT_META[i].font===font){meta=SS_FONT_META[i];break;}
@@ -197,7 +197,8 @@ function ssMeasureText(gr,text,font,h){
   for(var run of ssMeasuredRuns(gr,text,font,h,false))width+=run.width;
   return width;
 }
-var ssTextRenderingHint=3; // GDI+ AntiAliasGridFit gives text grayscale edges on both panels and cached bitmaps.
+var ssTextRenderingHint=5; // ClearTypeGridFit on opaque surfaces for crisp desktop typography; transparent fade bitmaps use 3 (AntiAliasGridFit).
+var ssTextTransparent=false;
 var ssPaneTextFade=false,ssPaneLabelWidths=new Map(),ssPaneLabelImages=new Map();
 function ssDrawPaneLabels(gr,draw){
   var old=ssPaneTextFade;ssPaneTextFade=true;
@@ -222,7 +223,8 @@ function ssDrawOverflowLabel(gr,s,font,col,x,y,w,h,fixed){
       ssPaneLabelImages.delete(oldest);
     }
     image=gdi.CreateImage(textW,h);var raster=image.GetGraphics();
-    try{ssText(raster,s,font,col,0,0,textW,h,0,false,fixed);}finally{image.ReleaseGraphics(raster);}
+    var prevTrans=ssTextTransparent;ssTextTransparent=true;
+    try{ssText(raster,s,font,col,0,0,textW,h,0,false,fixed);}finally{ssTextTransparent=prevTrans;image.ReleaseGraphics(raster);}
     ssPaneLabelImages.set(imageKey,image);
   }
   // Copy at 1:1; only the last few source columns lose opacity.
@@ -242,7 +244,7 @@ function ssText(gr,s,f,c,x,y,w,h,align,ellipsis,fixed){
     if(ssDrawOverflowLabel(gr,s,f,c,x,y,w,h,fixed))return;
     ellipsis=false;
   }
-  gr.SetTextRenderingHint(ssTextRenderingHint);
+  gr.SetTextRenderingHint(ssTextTransparent?3:ssTextRenderingHint);
   var runs=ssTextRuns(s,f);
   if(runs.length===1){
     var font=fixed?runs[0].font:ssFitFont(gr,runs[0].font,h);
@@ -339,6 +341,7 @@ function ssAssetSvg(name,color){
     catch(e){ssIconSources[file]='';}
   }
   var xml=ssIconSources[file].replace(/currentColor/g,color);
+  if(name==='windowClose'||name==='windowMinimize'||name==='windowMaximize'||name==='windowRestore')xml=xml.replace('stroke-width="2"','stroke-width="2.6"');
   return name==='heartFilled'||name==='bookmarkFilled'?xml.replace('fill="none"','fill="'+color+'"'):xml;
 }
 // keyed on the numeric colour (alpha stripped -- drawIcon applies that at blit time), so a hit
@@ -355,6 +358,31 @@ function iconImg(name,size,col){
 }
 // draw a crisp size-px vector icon centred in [x,y,w,h]; falls back to the MDL2 glyph if LoadSVG is unavailable
 function drawIcon(gr,name,col,x,y,w,h,size){
+  if((name==='windowClose'||name==='windowMinimize'||name==='windowMaximize'||name==='windowRestore')&&gr&&typeof gr.DrawLine==='function'&&typeof gr.FillPolygon==='function'){
+    var cx=x+w/2,cy=y+h/2,lw=Math.max(1.2,w*0.11);
+    if(name==='windowClose'){
+      var r=Math.max(2.1,w*0.205);
+      gr.DrawLine(cx-r,cy-r,cx+r,cy+r,lw,col);
+      gr.DrawLine(cx+r,cy-r,cx-r,cy+r,lw,col);
+      return;
+    }
+    if(name==='windowMinimize'){
+      var rm=Math.max(2.6,w*0.265);
+      gr.DrawLine(cx-rm,cy,cx+rm,cy,lw,col);
+      return;
+    }
+    if(name==='windowMaximize'){
+      var rg=Math.max(2.4,w*0.24),leg=rg*1.18;
+      // Real macOS green button triangles sit on the top-right / bottom-left diagonal.
+      gr.FillPolygon(col,0,[cx+rg,cy-rg,cx+rg-leg,cy-rg,cx+rg,cy-rg+leg]);
+      gr.FillPolygon(col,0,[cx-rg,cy+rg,cx-rg+leg,cy+rg,cx-rg,cy+rg-leg]);
+      return;
+    }
+    var ro=Math.max(0.45,w*0.04),rl=Math.max(2.4,w*0.235);
+    gr.FillPolygon(col,0,[cx+ro,cy-ro,cx+ro+rl,cy-ro,cx+ro,cy-ro-rl]);
+    gr.FillPolygon(col,0,[cx-ro,cy+ro,cx-ro-rl,cy+ro,cx-ro,cy+ro+rl]);
+    return;
+  }
   var s=Math.max(1,Math.round(size||Math.min(w,h))), img=iconImg(name,s,col);
   if(img){ var a=(col>>>24)&0xff; if(!a) a=255; gr.DrawImage(img,Math.round(x+(w-s)/2),Math.round(y+(h-s)/2),s,s,0,0,img.Width,img.Height,0,a); return; }
   if(name==='bookmark'||name==='bookmarkFilled'){

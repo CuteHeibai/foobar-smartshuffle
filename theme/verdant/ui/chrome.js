@@ -41,7 +41,7 @@ function drawDots(gr,cx,cy,pl){
 function strokeRound(gr,x,y,w,h,rad,lw,col){
   var i=lw/2, sw=w-lw, sh=h-lw;
   if(sw<=0 || sh<=0) return;
-  var a=Math.min(rad,sw/2,sh/2);
+  var a=Math.max(0,Math.min(rad-i,sw/2,sh/2));
   ssStrokeContinuousRect(gr,x+i,y+i,sw,sh,a,a,lw,col);
 }
 /* Draggable pixel scrollbar, hidden until its section is hovered. Thumb size comes from
@@ -286,16 +286,21 @@ function tPara(gr,s,f,c,x,y,w,lh){
 
 function winMaxed(){ if(!UIWizard) return false; try{ return UIWizard.WindowState===1; }catch(e){ return false; } }
 function drawWindowControls(gr){
-  var left=Math.round(12*UISCALE),step=Math.round(21*UISCALE),diameter=Math.round(12*UISCALE);
+  var left=Math.round(13*UISCALE),step=Math.round(20*UISCALE),diameter=Math.round(12*UISCALE);
   var h=Math.round(28*UISCALE),top=Math.round((TBH-h)/2),bottom=top+h;
-  var hot=hv(left,top,left+3*step,bottom),symbol=Math.round(9*UISCALE);
-  var controls=[['close','windowClose',RGB(255,98,92)],['minimize','windowMinimize',RGB(243,185,72)],
-    ['maximize',winMaxed()?'windowRestore':'windowMaximize',RGB(85,192,109)]];
+  var hot=hv(left,top,left+3*step,bottom),symbol=Math.round(8*UISCALE);
+  if((diameter-symbol)%2!==0)symbol+=symbol<diameter-2?1:-1;
+  var controls=[
+    ['close','windowClose',RGB(255,95,87),RGBA(224,68,62,185),RGBA(96,0,4,195)],
+    ['minimize','windowMinimize',RGB(254,188,46),RGBA(218,158,28,185),RGBA(153,87,0,215)],
+    ['maximize',winMaxed()?'windowRestore':'windowMaximize',RGB(40,200,64),RGBA(24,166,40,185),RGBA(0,101,0,215)]
+  ];
   HB_CAP=[];
   for(var i=0;i<controls.length;i++){
     var x=left+i*step,item=controls[i],cx=x+Math.round((step-diameter)/2),cy=Math.round((TBH-diameter)/2);
     gr.FillEllipse(cx,cy,diameter,diameter,item[2]);
-    if(hot)drawIcon(gr,item[1],RGB(42,34,32),cx,cy,diameter,diameter,symbol);
+    if(typeof gr.DrawEllipse==='function')gr.DrawEllipse(cx,cy,diameter,diameter,0.6,item[3]);
+    if(hot)drawIcon(gr,item[1],item[4],cx,cy,diameter,diameter,symbol);
     HB_CAP.push({x0:x,y0:top,x1:x+step,y1:bottom,act:item[0]});
   }
   return left+controls.length*step;
@@ -366,8 +371,9 @@ function drawDropMenu(gr,anchor,items,cur,minW){
   if(!anchor) return out;
   var bw=Math.max(minW,anchor.x1-anchor.x0), ih=40, bx=anchor.x1-bw, iy=anchor.y1+6, bh=items.length*ih+10;
   var rMd=typeof ssRad==='function'?ssRad('md'):8, rSm=typeof ssRad==='function'?ssRad('sm'):4;
-  gr.FillSolidRect(bx+3,iy+4,bw,bh,COL.shadow);
+  ssFillContinuousRect(gr,bx+2,iy+4,bw,bh,rMd,rMd,COL.shadow);
   ssFillContinuousRect(gr,bx,iy,bw,bh,rMd,rMd,COL.popupAlt);
+  strokeRound(gr,bx,iy,bw,bh,rMd,1,COL.line);
   for(var i=0;i<items.length;i++){
     var ry=iy+5+i*ih;
     if(hv(bx,ry,bx+bw,ry+ih)) ssFillContinuousRect(gr,bx+4,ry,bw-8,ih,rSm,rSm,ssInk(20));

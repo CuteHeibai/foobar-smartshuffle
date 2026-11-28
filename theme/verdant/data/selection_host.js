@@ -203,6 +203,17 @@ function ssToggleTrackSelection(row){
   ssMainSelect.start({index:index,x:row.x0+1,y:row.y0+1,ctrl:true});ssMainSelect.end(row.x0+1,row.y0+1);
   ssSelectionZone=R.main;ssSelectionRepaint();return true;
 }
+function ssTrackPersonalFlag(id,field){
+  if(!id)return false;
+  if(typeof ssPersonalFlags!=='undefined'&&ssPersonalFlags&&ssPersonalFlags[id])return !!ssPersonalFlags[id][field];
+  if(typeof view!=='undefined'&&((field==='favorite'&&view==='favorites')||(field==='later'&&view==='later')))return true;
+  var summary=typeof ssState!=='undefined'&&ssState&&ssState.personal;
+  if(summary){
+    var nowId=(typeof NP!=='undefined'&&NP&&typeof ssTrackID==='function')?ssTrackID(NP):(ssState.now_id||'');
+    if(nowId&&nowId===id)return field==='favorite'?!!summary.now_favorite:!!summary.now_later;
+  }
+  return typeof ssPersonalFlag==='function'?!!ssPersonalFlag(id)[field]:false;
+}
 function ssBatchTrackMenu(row,x,y){
   var args=ssSelectionPayload(row),lists=ssState&&ssState.playlists||[],copy=[],move=[],canMove=row.pl!==undefined&&canEditPl(row.pl);
   function transfer(target,moving,create){var fields={};for(var k in args)fields[k]=args[k];fields.move=moving;fields.new_playlist=!!create;if(target)fields.target_guid=target;ssSend('tracks_transfer',fields);}
@@ -213,11 +224,16 @@ function ssBatchTrackMenu(row,x,y){
   if(args.tracks.length>1)extra.unshift({label:'已选 '+args.tracks.length+' 首歌曲',heading:true});
   if(canMove)extra.push({label:'移动到歌单',children:move},{label:'从此歌单移除',run:function(){ssSend('tracks_remove',args);}});
   if(typeof ssPersonalEnabled==='function'&&ssPersonalEnabled()){
+    var multi=args.tracks.length>1;
+    var allFav=args.tracks.length>0&&args.tracks.every(function(id){return ssTrackPersonalFlag(id,'favorite');});
+    var allLater=args.tracks.length>0&&args.tracks.every(function(id){return ssTrackPersonalFlag(id,'later');});
     extra.push({separator:true});
-    extra.push({label:'收藏所选歌曲',run:function(){ssPersonalSet('favorites',args.tracks,true);}});
-    extra.push({label:'取消收藏所选歌曲',run:function(){ssPersonalSet('favorites',args.tracks,false);}});
-    extra.push({label:'添加到稍后听',run:function(){ssPersonalSet('later',args.tracks,true);}});
-    extra.push({label:'从稍后听移除',run:function(){ssPersonalSet('later',args.tracks,false);}});
+    extra.push(allFav
+      ?{label:multi?'取消收藏所选歌曲':'取消收藏',run:function(){ssPersonalSet('favorites',args.tracks,false);}}
+      :{label:multi?'收藏所选歌曲':'收藏',run:function(){ssPersonalSet('favorites',args.tracks,true);}});
+    extra.push(allLater
+      ?{label:'从稍后听移除',run:function(){ssPersonalSet('later',args.tracks,false);}}
+      :{label:'添加到稍后听',run:function(){ssPersonalSet('later',args.tracks,true);}});
   }
   ssOpenNativeMenu('context',args,x,y,extra);
   ssSetContextTargets(HB_TR.filter(function(target){return ssMainSelect.isSelected(ssMainRowIndex(target));}));

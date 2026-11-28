@@ -38,3 +38,38 @@ function ssStrokeContinuousRect(gr,x,y,w,h,rx,ry,width,color){
   rx=Math.min(rx,w/2);ry=Math.min(ry,h/2);
   gr.DrawPolygon(color,width,ssContinuousRectPoints(x,y,w,h,rx,ry));
 }
+// True circular-arc capsule for switches, pills and progress rails so ends stay semicircular.
+var ssArcProfiles=Object.create(null);
+function ssCapsulePoints(x,y,w,h){
+  var r=Math.min(w,h)/2,steps=Math.max(10,Math.min(24,Math.ceil(r*1.5)));
+  var profile=ssArcProfiles[steps];
+  if(!profile){
+    profile=[];
+    for(var i=0;i<=steps;i++){
+      var a=i*Math.PI/(2*steps);
+      profile.push(Math.sin(a),1-Math.cos(a));
+    }
+    ssArcProfiles[steps]=profile;
+  }
+  var points=[],right=x+w,bottom=y+h;
+  for(var corner=0;corner<4;corner++){
+    for(var j=0;j<profile.length;j+=2){
+      var u=profile[j],v=profile[j+1];
+      if(corner===0)points.push(right-r*(1-u),y+r*v);
+      else if(corner===1)points.push(right-r*v,bottom-r*(1-u));
+      else if(corner===2)points.push(x+r*(1-u),bottom-r*v);
+      else points.push(x+r*v,y+r*(1-u));
+    }
+  }
+  return points;
+}
+function ssFillCapsule(gr,x,y,w,h,color){
+  if(w<=0||h<=0)return;
+  gr.FillPolygon(color,0,ssCapsulePoints(x,y,w,h));
+}
+function ssStrokeCapsule(gr,x,y,w,h,width,color){
+  if(w<=0||h<=0||width<=0)return;
+  var i=width/2,sw=w-width,sh=h-width;
+  if(sw<=0||sh<=0)return;
+  gr.DrawPolygon(color,width,ssCapsulePoints(x+i,y+i,sw,sh));
+}

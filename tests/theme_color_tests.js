@@ -52,8 +52,8 @@ test('appearance menu uses a native transaction and retains deep and light choic
 test('text tiers and title menu use the measured desktop baseline',()=>{
  const {c}=harness('light');
  const colors=mode=>{const palette=c.ssPalette(mode);return ['text','text2','text3'].map(key=>palette[key]&0xffffff);};
- assert.deepEqual(colors('light'),[0x3e3e3e,0x666666,0x6e6e6e]);
- assert.deepEqual(colors('dark'),[0xe2e2e2,0xafafaf,0x8f8f8f]);
+ assert.deepEqual(colors('light'),[0x1d1d1f,0x5a5a5f,0x76767b]);
+ assert.deepEqual(colors('dark'),[0xf5f5f7,0xaeaeb2,0x8e8e93]);
  assert.deepEqual([c.FONT.titleMenu.Name,c.FONT.titleMenu.Size,c.FONT.titleMenu.Style],['Segoe UI',14,0]);
 });
 test('personal and menu glyphs rasterize upstream SVG assets with the current theme color',()=>{
@@ -65,7 +65,7 @@ test('personal and menu glyphs rasterize upstream SVG assets with the current th
  assert.equal(reads.length,2);
  assert.match(images[0].xml,/fill="none"/);
  assert.match(images[1].xml,/fill="#409cff"/);
- assert.match(images[2].xml,/stroke="#afafaf"/);
+ assert.match(images[2].xml,/stroke="#aeaeb2"/);
 });
 test('the Mac-style controls sit before the menu and leave the rest of the bar draggable',()=>{
  const {c,load}=harness(),circles=[],captions=[],icons=[];

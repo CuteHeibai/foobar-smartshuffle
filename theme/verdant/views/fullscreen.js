@@ -218,10 +218,11 @@ function fsMiniNP(gr){   // small cover + title + artist, top-left (lyrics/viz v
     var lw=ssMeasureText(gr,lbl,FONT.fsSrc,20);
     tL(gr,src,FONT.fsSrcName,COL.text,64+lw,20,Math.max(0,W/2-lw),20);
   }
-  var rMiniMd=typeof ssRad==='function'?ssRad('md'):8;
-  if(NP)drawRounded(gr,64,78,s,rMiniMd,NP,'np');else ssDrawIdleRecord(gr,64,78,s);
-  tL(gr,npTitleStr||'尚未播放',FONT.sect2,COL.text,64+s+18,84,W/2,26);
-  tL(gr,npArtistStr,FONT.qName,COL.text2,64+s+18,116,W/2,20);
+  var rMiniMd=typeof ssRad==='function'?ssRad('md'):8,resMini=typeof ssResumeTrack==='function'?ssResumeTrack():null;
+  var miniCov=NP||(resMini&&typeof ssFooterCoverHandle==='function'?ssFooterCoverHandle(resMini):null);
+  if(miniCov)drawRounded(gr,64,78,s,rMiniMd,miniCov,'np');else ssDrawIdleRecord(gr,64,78,s);
+  tL(gr,NP?(npTitleStr||'尚未播放'):resMini?(resMini.title||'尚未播放'):'尚未播放',FONT.sect2,COL.text,64+s+18,84,W/2,26);
+  tL(gr,NP?npArtistStr:(resMini?resMini.artist:''),FONT.qName,COL.text2,64+s+18,116,W/2,20);
 }
 // Fullscreen renders the release's centred stage at the available desktop scale.
 function ssFsTransportScale(w,h){return Math.max(.75,Math.min(1.7,Math.round(Math.min(w/1180,h/780)*40)/40));}
@@ -248,20 +249,22 @@ function ssFsDefaultGeometry(width,bot,s,coverScale){
 }
 function drawFsDefault(gr,bot){
   var s=ssFsScale(W,H);
-  var album=!NP&&W>=530&&bot>=278?ssHomeAlbumSelection(getAlbumCatalog().albums)[0]:null;
+  var resume=typeof ssResumeTrack==='function'?ssResumeTrack():null;
+  var album=!NP&&!resume&&W>=530&&bot>=278?ssHomeAlbumSelection(getAlbumCatalog().albums)[0]:null;
   var bw=128,bx=Math.round((W-bw)/2),by=Math.max(30,Math.round((bot-100)/2))+48;
-  if(NP||album){
+  if(NP||resume||album){
     var m=ssFsDefaultGeometry(W,bot,s,ssFsCoverScale(W,H));
-    var status=NP?(fb.IsPaused?'已暂停':'正在播放'):'推荐专辑';
+    var status=NP?(fb.IsPaused?'已暂停':'正在播放'):resume?('上次播放 · '+fmtTime(resume.seconds)):'推荐专辑';
     tCE(gr,status,ssFsFont(FONT.fsSrc,s),NP&&fb.IsPaused?COL.text:COL.text2,m.textX,m.y-Math.round(29*s),m.textW,Math.round(22*s));
-    var title=NP?(npTitleStr||'尚未播放'):album.album;
-    var artist=NP?npArtistStr:ssArtistName(album.artist),src=NP?npPlaylistSrc():null;
+    var title=NP?(npTitleStr||'尚未播放'):resume?(resume.title||'尚未播放'):album.album;
+    var artist=NP?npArtistStr:resume?(resume.artist||''):ssArtistName(album.artist),src=NP?npPlaylistSrc():null;
     var source=src?'歌单 · '+src:'';
     var rFsLg=typeof ssRad==='function'?ssRad('lg',s):Math.round(12*s);
-    drawRounded(gr,m.x,m.y,m.size,rFsLg,NP||album.handle,NP?'np':album.album);
+    var coverHandle=NP||(resume&&typeof ssFooterCoverHandle==='function'?ssFooterCoverHandle(resume):null)||(album&&album.handle);
+    drawRounded(gr,m.x,m.y,m.size,rFsLg,coverHandle,NP?'np':resume?resume.title:album.album);
     tCE(gr,title,ssFsFont(FONT.fsTitle,s),COL.text,m.textX,m.textY,m.textW,Math.round(45*s));
     tCE(gr,artist,ssFsFont(FONT.fsArtist,s),COL.text2,m.textX,m.textY+Math.round(44*s),m.textW,Math.round(30*s));
-    if(NP){
+    if(NP||resume){
       if(source)tCE(gr,source,ssFsFont(FONT.fsSrc,s),COL.text2,m.textX,m.textY+Math.round(83*s),m.textW,Math.round(26*s));
       return;
     }

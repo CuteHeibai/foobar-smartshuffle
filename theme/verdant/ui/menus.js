@@ -45,7 +45,7 @@ function ssRewriteMainMenuItems(items,root){
     var label=ssMenuLabel(item.label||'');
     if(item.children)return Object.assign({},item,{children:ssRewriteMainMenuItems(item.children,root)});
     if(root==='file'&&(label==='参数选项'||label==='Preferences')){
-      return Object.assign({},item,{run:function(){ssOpenSettings(false);}});
+      return Object.assign({},item,{label:'设置',icon:'settings',run:function(){ssOpenSettings(false);}});
     }
     if(root==='playback'&&label==='插件设置…'){
       return Object.assign({},item,{run:function(){ssOpenSettings(false);}});
@@ -72,7 +72,7 @@ function ssAcceptMenu(done,state){
       if(handles.Count)details.push({label:'补齐封面和歌手资料',run:function(){ssRefreshMedia(handles);}});
     }catch(e){console.log('Smart Shuffle metadata menu: '+String(e));}
   }
-  if(result&&ssPopup.context&&result.track_id)details.push({label:'将歌曲文件移到回收站…',danger:true,run:function(){ssRecyclePrepare(result.track_id);}});
+  if(result&&ssPopup.context&&result.track_id)details.push({label:'删除本地文件…',danger:true,run:function(){ssRecyclePrepare(result.track_id);}});
   var failure=[{label:(state.response&&state.response.message)||'菜单不可用',disabled:true}];
   var items=result?(ssPopup.context?ssTrackContextItems(result.items,extras,details):extras.concat(ssRewriteMainMenuItems(result.items,ssPopup.root))):
     ssPopup.showExtra?extras.concat([{separator:true}],failure):failure;
@@ -104,8 +104,9 @@ function ssTrackContextItems(nativeItems,extra,details){
     else if(['标签','封面工具','收集'].indexOf(label)>=0)info.push(item);
     else extensions.push(item);
   }
+  var dangers=[];
   for(i=0;i<details.length;i++){
-    if(details[i].danger){if(files.length)files.push({separator:true});files.push(details[i]);}
+    if(details[i].danger)dangers.push(details[i]);
     else info.push(details[i]);
   }
   var more=[{label:'播放与音频',icon:'headphones',children:audio},{label:'文件与复制',icon:'folderOpen',children:files},
@@ -115,6 +116,10 @@ function ssTrackContextItems(nativeItems,extra,details){
   if(items.length>1&&(properties||more.length))items.push({separator:true});
   if(properties)items.push(properties);
   if(more.length)items.push({label:'音频、文件、标签与工具',children:more,drill:true});
+  if(dangers.length){
+    if(items.length)items.push({separator:true});
+    for(i=0;i<dangers.length;i++)items.push(dangers[i]);
+  }
   return items;
 }
 function ssPopupChoose(item){
